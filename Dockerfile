@@ -38,7 +38,7 @@ RUN apk add --no-cache \
 # Install PHP extensions required by Laravel, Filament and Reverb
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip opcache
 
-# Configure production-ready PHP Opcache
+# Configure production PHP Opcache
 RUN { \
     echo 'opcache.memory_consumption=128'; \
     echo 'opcache.interned_strings_buffer=8'; \
@@ -60,6 +60,10 @@ COPY --from=composer-stage /app/vendor /var/www/vendor
 # Copy compiled frontend assets from node-stage
 COPY --from=node-stage /app/public/build /var/www/public/build
 
+# Run Laravel package discovery and Filament upgrades (re-publishes components)
+RUN php artisan package:discover --ansi \
+    && php artisan filament:upgrade --ansi
+
 # Set permissions for storage and bootstrap cache directories
 RUN chown -R www-data:www-data /var/www \
     && find /var/www/storage -type d -exec chmod 775 {} \; \
@@ -70,3 +74,14 @@ RUN chown -R www-data:www-data /var/www \
 EXPOSE 9000
 
 CMD ["php-fpm"]
+
+# ==========================================
+# Stage 4: Nginx Web Server for Production
+# ==========================================
+FROM nginx:alpine AS web-stage
+
+# Copy Nginx configuration file
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy public directory from node-stage (contains icons, manifest, and Vite build output)
+COPY --from=node-stage /app/public /var/www/public

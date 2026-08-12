@@ -1,6 +1,6 @@
-const CACHE_NAME = 'pedidos-negocio-cache-v2';
+const CACHE_NAME = 'pedidos-negocio-cache-v3';
 const STATIC_ASSETS = [
-    '/',
+    '/offline.html',
     '/manifest.json',
     '/icons/icon-192x192.png',
     '/icons/icon-512x512.png',
@@ -22,7 +22,7 @@ const DYNAMIC_PATTERNS = [
     /^\/user/i,
 ];
 
-// Install event: cache static skeleton
+// Install event: cache static assets and offline fallback
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
@@ -63,26 +63,14 @@ self.addEventListener('fetch', event => {
         return; // Let the browser handle it purely via network
     }
 
-    // 2. Navigation requests: Network-First strategy (never show stale HTML when online)
+    // 2. Navigation requests: Network-Only with Offline Fallback
+    // We never cache operational HTML pages to prevent showing stale data.
     if (event.request.mode === 'navigate' || (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'))) {
         event.respondWith(
-            fetch(event.request)
-                .then(response => {
-                    // Update cache with the fresh page
-                    if (response && response.status === 200) {
-                        const responseClone = response.clone();
-                        caches.open(CACHE_NAME).then(cache => {
-                            cache.put(event.request, responseClone);
-                        });
-                    }
-                    return response;
-                })
-                .catch(() => {
-                    // If offline, return cached page or root fallback
-                    return caches.match(event.request).then(cachedResponse => {
-                        return cachedResponse || caches.match('/');
-                    });
-                })
+            fetch(event.request).catch(() => {
+                // If offline, serve the offline fallback page
+                return caches.match('/offline.html');
+            })
         );
         return;
     }

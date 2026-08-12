@@ -10,7 +10,7 @@ storage/framework/sessions/*
 storage/framework/views/*
 storage/logs/*
 tests/
-Docker-compose.yml
+docker-compose.yml
 .dockerignore
 .gitignore
 .editorconfig
