@@ -82,12 +82,6 @@ class CustomerResource extends Resource
             ])
             ->actions([
                 EditAction::make(),
-                DeleteAction::make(),
-            ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
             ]);
     }
 

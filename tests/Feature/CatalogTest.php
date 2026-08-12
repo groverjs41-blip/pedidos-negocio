@@ -165,4 +165,33 @@ class CatalogTest extends TestCase
         $res->call('create');
         $res->assertHasErrors(['data.estimated_cost']);
     }
+
+    /**
+     * Test deleting a category containing active products throws a QueryException (restrictOnDelete).
+     */
+    public function test_cannot_delete_category_with_products(): void
+    {
+        $category = Category::factory()->create();
+        Product::factory()->create([
+            'category_id' => $category->id,
+        ]);
+
+        $this->expectException(\Illuminate\Database\QueryException::class);
+        $category->delete();
+    }
+
+    /**
+     * Test a category can be deactivated.
+     */
+    public function test_category_can_be_disabled(): void
+    {
+        $category = Category::factory()->create(['active' => true]);
+
+        $category->update(['active' => false]);
+
+        $this->assertDatabaseHas('categories', [
+            'id' => $category->id,
+            'active' => false,
+        ]);
+    }
 }

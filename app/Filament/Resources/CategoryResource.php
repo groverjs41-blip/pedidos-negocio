@@ -36,6 +36,7 @@ class CategoryResource extends Resource
                     ->label('Nombre'),
                 TextInput::make('sort_order')
                     ->numeric()
+                    ->minValue(0)
                     ->required()
                     ->default(0)
                     ->label('Orden de clasificación'),
@@ -67,12 +68,6 @@ class CategoryResource extends Resource
             ])
             ->actions([
                 EditAction::make(),
-                DeleteAction::make(),
-            ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
             ]);
     }
 
