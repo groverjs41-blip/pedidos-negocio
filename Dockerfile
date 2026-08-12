@@ -37,6 +37,16 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --no-script
 # Stage 2: Node asset compilation
 # ==========================================
 FROM node:20-alpine AS node-stage
+ARG VITE_REVERB_APP_KEY
+ARG VITE_REVERB_HOST
+ARG VITE_REVERB_PORT
+ARG VITE_REVERB_SCHEME
+
+ENV VITE_REVERB_APP_KEY=$VITE_REVERB_APP_KEY
+ENV VITE_REVERB_HOST=$VITE_REVERB_HOST
+ENV VITE_REVERB_PORT=$VITE_REVERB_PORT
+ENV VITE_REVERB_SCHEME=$VITE_REVERB_SCHEME
+
 WORKDIR /app
 COPY package.json package-lock.json vite.config.js ./
 COPY resources/ ./resources/

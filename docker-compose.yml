@@ -4,6 +4,11 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runtime-stage
+      args:
+        - VITE_REVERB_APP_KEY=${VITE_REVERB_APP_KEY}
+        - VITE_REVERB_HOST=${VITE_REVERB_HOST}
+        - VITE_REVERB_PORT=${VITE_REVERB_PORT}
+        - VITE_REVERB_SCHEME=${VITE_REVERB_SCHEME}
     container_name: pedidos-app
     restart: unless-stopped
     env_file:
@@ -21,6 +26,11 @@ services:
       context: .
       dockerfile: Dockerfile
       target: web-stage
+      args:
+        - VITE_REVERB_APP_KEY=${VITE_REVERB_APP_KEY}
+        - VITE_REVERB_HOST=${VITE_REVERB_HOST}
+        - VITE_REVERB_PORT=${VITE_REVERB_PORT}
+        - VITE_REVERB_SCHEME=${VITE_REVERB_SCHEME}
     container_name: pedidos-web
     restart: unless-stopped
     ports:
@@ -37,6 +47,11 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runtime-stage
+      args:
+        - VITE_REVERB_APP_KEY=${VITE_REVERB_APP_KEY}
+        - VITE_REVERB_HOST=${VITE_REVERB_HOST}
+        - VITE_REVERB_PORT=${VITE_REVERB_PORT}
+        - VITE_REVERB_SCHEME=${VITE_REVERB_SCHEME}
     container_name: pedidos-reverb
     restart: unless-stopped
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
