@@ -8,11 +8,11 @@
 }
 
 /* ========================================================
-   PREMIUM DARK MINT DESIGN SYSTEM - PEDIDOS NEGOCIO
+   PREMIUM DUAL THEME DESIGN SYSTEM (DARK & LIGHT)
    ======================================================== */
 
-:root {
-    /* Layout Surfaces */
+:root, html.dark {
+    /* Layout Surfaces - Dark */
     --bg-main: #090D12;
     --bg-surface: #0E141B;
     --bg-sidebar: #0B1118;
@@ -20,7 +20,7 @@
     --bg-card-hover: #18232E;
     --bg-elevated: #1A2530;
 
-    /* Borders */
+    /* Borders - Dark */
     --border: rgba(255, 255, 255, 0.07);
     --border-hover: rgba(255, 255, 255, 0.15);
 
@@ -52,7 +52,7 @@
     --violet-light: rgba(167, 139, 250, 0.12);
     --violet-text: #B99AFF;
 
-    /* Typography */
+    /* Typography - Dark */
     --text-main: #F7FAFC;
     --text-secondary: #C3CDE0;
     --text-muted: #8996A8;
@@ -71,8 +71,36 @@
     --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.4);
     --shadow-xl: 0 20px 32px rgba(0, 0, 0, 0.5);
 
-    /* Animation Easing */
     --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- LIGHT MODE OVERRIDES --- */
+html:not(.dark), body.light-mode {
+    --bg-main: #F4F6F8;
+    --bg-surface: #FFFFFF;
+    --bg-sidebar: #0B1118; /* Navy sidebar stays sleek */
+    --bg-card: #FFFFFF;
+    --bg-card-hover: #F8FAFC;
+    --bg-elevated: #F1F5F9;
+
+    --border: #E2E8F0;
+    --border-hover: #CBD5E1;
+
+    --primary: #10B981;
+    --primary-hover: #059669;
+    --primary-light: rgba(16, 185, 129, 0.12);
+    --primary-soft: rgba(16, 185, 129, 0.06);
+    --primary-text: #FFFFFF;
+
+    --text-main: #0F172A;
+    --text-secondary: #334155;
+    --text-muted: #64748B;
+    --text-light: #94A3B8;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
 /* ========================================================
@@ -116,7 +144,6 @@ body {
     }
 }
 
-/* Stagger animation for lists/grids */
 .stagger-item {
     opacity: 0;
     animation: staggerIn 200ms var(--ease-out) forwards;
@@ -188,7 +215,6 @@ body {
 }
 .close-alert:hover { opacity: 1; }
 
-/* Connection status dot */
 .connection-status, .connection-status-inline {
     display: flex;
     align-items: center;
@@ -248,7 +274,7 @@ body {
 .brand-icon-wrap {
     width: 34px;
     height: 34px;
-    background: var(--primary-light);
+    background: rgba(39, 230, 164, 0.12);
     border: 1px solid rgba(39, 230, 164, 0.25);
     border-radius: 10px;
     display: flex;
@@ -259,24 +285,24 @@ body {
 .brand-icon-wrap svg {
     width: 18px;
     height: 18px;
-    stroke: var(--primary);
+    stroke: #27E6A4;
     fill: none;
     stroke-width: 2;
 }
 .brand-title {
     font-weight: 800;
     font-size: 1.05rem;
-    color: var(--text-main);
+    color: #F7FAFC;
     letter-spacing: -0.02em;
 }
-.brand-title span { color: var(--primary); }
+.brand-title span { color: #27E6A4; }
 
 .nav-section-header {
     font-size: 0.65rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-light);
+    color: #5A687B;
     padding: 1.25rem 1rem 0.35rem 1rem;
 }
 
@@ -295,7 +321,7 @@ body {
     gap: 0.75rem;
     padding: 0.65rem 0.85rem;
     border-radius: var(--radius-md);
-    color: var(--text-muted);
+    color: #8996A8;
     text-decoration: none;
     font-size: 0.875rem;
     font-weight: 500;
@@ -303,12 +329,12 @@ body {
     position: relative;
 }
 .nav-item:hover {
-    color: var(--text-main);
+    color: #F7FAFC;
     background-color: rgba(255, 255, 255, 0.04);
 }
 .nav-item.active {
-    background-color: var(--primary-light);
-    color: var(--primary);
+    background-color: rgba(39, 230, 164, 0.12);
+    color: #27E6A4;
     font-weight: 600;
 }
 .nav-item.active::before {
@@ -318,7 +344,7 @@ body {
     top: 20%;
     height: 60%;
     width: 3px;
-    background-color: var(--primary);
+    background-color: #27E6A4;
     border-radius: 0 4px 4px 0;
 }
 .nav-item svg {
@@ -348,9 +374,9 @@ body {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: var(--primary-light);
+    background: rgba(39, 230, 164, 0.12);
     border: 1px solid rgba(39, 230, 164, 0.25);
-    color: var(--primary);
+    color: #27E6A4;
     font-weight: 700;
     font-size: 0.85rem;
     display: flex;
@@ -363,8 +389,8 @@ body {
     flex-direction: column;
     overflow: hidden;
 }
-.profile-name { font-weight: 600; font-size: 0.85rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.profile-role { font-size: 0.725rem; color: var(--text-muted); }
+.profile-name { font-weight: 600; font-size: 0.85rem; color: #F7FAFC; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.profile-role { font-size: 0.725rem; color: #8996A8; }
 
 .btn-logout-sidebar {
     width: 100%;
@@ -408,7 +434,6 @@ body {
     display: none;
 }
 
-/* Mobile responsive app shell */
 @media (max-width: 768px) {
     .sidebar {
         display: none;
@@ -459,13 +484,13 @@ body {
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        color: var(--text-muted);
+        color: #8996A8;
         text-decoration: none;
         gap: 3px;
         transition: color 150ms var(--ease-out);
     }
     .mobile-nav-item.active {
-        color: var(--primary);
+        color: #27E6A4;
     }
     .mobile-nav-item svg {
         width: 20px;
@@ -521,7 +546,6 @@ body {
 .form-input:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px var(--primary-light);
-    background: #111A24;
 }
 .form-input::placeholder {
     color: var(--text-light);
@@ -765,7 +789,7 @@ body {
 .product-placeholder {
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #111A24 0%, #0A1118 100%);
+    background: var(--bg-surface);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1261,20 +1285,20 @@ body {
 .login-brand-icon {
     width: 44px;
     height: 44px;
-    background: var(--primary-light);
+    background: rgba(39, 230, 164, 0.12);
     border: 1px solid rgba(39, 230, 164, 0.3);
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
-.login-brand-icon svg { width: 22px; height: 22px; stroke: var(--primary); fill: none; stroke-width: 2; }
+.login-brand-icon svg { width: 22px; height: 22px; stroke: #27E6A4; fill: none; stroke-width: 2; }
 .login-brand-name {
     font-size: 1.4rem;
     font-weight: 800;
     color: var(--text-main);
 }
-.login-brand-name span { color: var(--primary); }
+.login-brand-name span { color: #27E6A4; }
 
 .login-brand-tagline {
     font-size: 2.5rem;
@@ -1300,14 +1324,14 @@ body {
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background: var(--primary-light);
+    background: rgba(39, 230, 164, 0.12);
     border: 1px solid rgba(39, 230, 164, 0.3);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
 }
-.login-feature-check svg { width: 14px; height: 14px; stroke: var(--primary); fill: none; stroke-width: 2.5; }
+.login-feature-check svg { width: 14px; height: 14px; stroke: #27E6A4; fill: none; stroke-width: 2.5; }
 .login-feature-text {
     font-size: 0.95rem;
     color: var(--text-secondary);
