@@ -1,112 +1,108 @@
 <div class="pos-layout" x-data="{ mobileCartOpen: false }">
-    <!-- Offline status warning -->
+    {{-- Offline status warning --}}
     <div wire:offline class="alert alert-danger">
-        ⚠️ <strong>SIN CONEXIÓN:</strong> Este pedido NO se ha enviado a cocina. El envío está temporalmente inhabilitado.
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; flex-shrink: 0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        <strong>SIN CONEXIÓN:</strong> Este pedido NO se ha enviado a cocina.
     </div>
 
     @if($successMessage)
         <div class="alert alert-success">
-            <span>🎉 {{ $successMessage }}</span>
+            <span>{{ $successMessage }}</span>
             <button wire:click="$set('successMessage', null)" class="close-alert">&times;</button>
         </div>
     @endif
 
     @if($errorMessage)
         <div class="alert alert-danger">
-            <span>⚠️ {{ $errorMessage }}</span>
+            <span>{{ $errorMessage }}</span>
             <button wire:click="$set('errorMessage', null)" class="close-alert">&times;</button>
         </div>
     @endif
 
     <div class="pos-container">
-        <!-- LEFT PANEL (65% on Desktop) -->
+        {{-- LEFT PANEL (65% on Desktop) --}}
         <div class="pos-left">
-            <!-- 1. Customer Selection Area -->
-            <div style="background: var(--bg-surface); padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.75rem;">
+            {{-- 1. Customer Selection --}}
+            <div class="pos-customer-card">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <label class="login-label">Cliente del Pedido</label>
+                    <label class="form-label">Cliente del Pedido</label>
                     @if($selectedCustomerName)
-                        <button type="button" wire:click="clearCustomer" style="background: transparent; border: none; color: var(--danger); font-size: 0.8rem; font-weight: 600; cursor: pointer;">
-                            ❌ Cambiar cliente
+                        <button type="button" wire:click="clearCustomer" class="btn-change-customer">
+                            Cambiar cliente
                         </button>
                     @endif
                 </div>
 
                 @if(!$selectedCustomerName)
-                    <!-- Search Field -->
                     <div style="position: relative;">
-                        <input 
-                            type="text" 
-                            wire:model.live.debounce.300ms="searchQuery" 
+                        <input
+                            type="text"
+                            wire:model.live.debounce.300ms="searchQuery"
                             id="customerSearchInput"
-                            class="login-input" 
+                            class="form-input"
                             placeholder="Buscar cliente por nombre o teléfono (min. 2 letras)..."
                             autocomplete="off"
                         >
-                        <!-- Quick Counter Sale Button -->
-                        <button type="button" wire:click="selectCounterSale" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: var(--primary-light); color: var(--primary); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; padding: 4px 10px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
+                        <button type="button" wire:click="selectCounterSale" class="btn-counter-sale">
                             Mostrador
                         </button>
                     </div>
 
-                    <!-- Search Results Dropdown -->
                     @if(count($this->customers) > 0)
-                        <div style="background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; margin-top: 0.25rem; overflow: hidden; z-index: 10; display: flex; flex-direction: column;">
+                        <div class="pos-customer-results">
                             @foreach($this->customers as $cust)
-                                <button type="button" wire:click="selectCustomer({{ $cust->id }})" style="background: transparent; border: none; border-bottom: 1px solid var(--border); padding: 0.75rem 1rem; color: var(--text-main); text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%; transition: background 0.2s;">
+                                <button type="button" wire:click="selectCustomer({{ $cust->id }})" class="pos-customer-result-item">
                                     <div>
                                         <span style="font-weight: 600;">{{ $cust->name }}</span>
-                                        @if($cust->phone) <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">📞 {{ $cust->phone }}</span> @endif
+                                        @if($cust->phone)
+                                            <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">{{ $cust->phone }}</span>
+                                        @endif
                                     </div>
                                     <span style="font-size: 0.75rem; color: var(--primary); font-weight: 700;">Seleccionar</span>
                                 </button>
                             @endforeach
                         </div>
                     @elseif(strlen($searchQuery) >= 2)
-                        <div style="background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; margin-top: 0.25rem; padding: 0.75rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                        <div style="background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-md); margin-top: 0.25rem; padding: 0.75rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
                             No se encontraron clientes activos con "{{ $searchQuery }}".
                         </div>
                     @endif
                 @else
-                    <!-- Customer Information Block -->
-                    <div style="background: var(--bg-elevated); border: 1px solid var(--border); padding: 0.85rem 1rem; border-radius: 12px; display: flex; flex-direction: column; gap: 0.25rem;">
-                        <div style="font-weight: 700; font-size: 1rem; color: var(--primary);">
-                            👤 {{ $selectedCustomerName }}
-                        </div>
+                    <div class="pos-customer-selected">
+                        <div class="pos-customer-name">{{ $selectedCustomerName }}</div>
                         @if($selectedCustomerPhone)
-                            <div style="font-size: 0.85rem; color: var(--text-muted);">
-                                📞 Teléfono: <span style="color: var(--text-main); font-weight: 500;">{{ $selectedCustomerPhone }}</span>
+                            <div class="pos-customer-detail">
+                                Teléfono: <span>{{ $selectedCustomerPhone }}</span>
                             </div>
                         @endif
                         @if($selectedCustomerAddress)
-                            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.15rem;">
-                                📍 Dirección: <span style="color: var(--text-main); font-weight: 500;">{{ $selectedCustomerAddress }}</span>
+                            <div class="pos-customer-detail">
+                                Dirección: <span>{{ $selectedCustomerAddress }}</span>
                             </div>
                         @endif
                     </div>
                 @endif
             </div>
 
-            <!-- 2. Product Search & Categories Slider -->
-            <div style="background: var(--bg-surface); padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 1rem;">
+            {{-- 2. Product Search & Categories --}}
+            <div class="pos-catalog-card">
                 <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
                     <div style="flex-grow: 1; min-width: 200px;">
-                        <input 
-                            type="text" 
-                            wire:model.live.debounce.300ms="productSearch" 
+                        <input
+                            type="text"
+                            wire:model.live.debounce.300ms="productSearch"
                             id="productSearchInput"
-                            class="login-input" 
+                            class="form-input"
                             placeholder="Buscar producto por nombre..."
                         >
                     </div>
                 </div>
 
-                <!-- Horizontal scrollable categories -->
                 <div class="pos-categories">
                     @foreach($activeCategories as $cat)
-                        <button 
-                            type="button" 
-                            wire:click="selectCategory({{ $cat->id }})" 
+                        <button
+                            type="button"
+                            wire:click="selectCategory({{ $cat->id }})"
                             class="category-btn {{ $selectedCategoryId === $cat->id && empty($productSearch) ? 'active' : '' }}"
                         >
                             {{ $cat->name }}
@@ -114,7 +110,6 @@
                     @endforeach
                 </div>
 
-                <!-- Products Grid -->
                 <div class="pos-products">
                     @forelse($categoryProducts as $prod)
                         <div wire:click="addToCart({{ $prod->id }})" class="pos-product-card">
@@ -138,7 +133,7 @@
                             </div>
                         </div>
                     @empty
-                        <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.9rem;">
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.875rem;">
                             No hay productos disponibles en esta categoría.
                         </div>
                     @endforelse
@@ -146,12 +141,10 @@
             </div>
         </div>
 
-        <!-- RIGHT PANEL (35% on Desktop - Cart Details) -->
+        {{-- RIGHT PANEL (35% on Desktop - Cart) --}}
         <div class="pos-right">
             <div class="pos-cart-panel">
-                <h3 style="font-size: 1.1rem; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
-                    Carrito de Compra
-                </h3>
+                <h3 class="pos-cart-title">Carrito de Compra</h3>
 
                 <div class="pos-cart-items">
                     @forelse($cart as $item)
@@ -164,7 +157,9 @@
                                 <button type="button" wire:click="decrementQty({{ $item['id'] }})" class="pos-qty-btn">-</button>
                                 <span class="pos-qty-val">{{ $item['quantity'] }}</span>
                                 <button type="button" wire:click="incrementQty({{ $item['id'] }})" class="pos-qty-btn">+</button>
-                                <button type="button" wire:click="removeFromCart({{ $item['id'] }})" class="pos-remove-btn">🗑️</button>
+                                <button type="button" wire:click="removeFromCart({{ $item['id'] }})" class="pos-remove-btn">
+                                    <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
                             </div>
                         </div>
                     @empty
@@ -174,27 +169,27 @@
                     @endforelse
                 </div>
 
-                <!-- Notes -->
+                {{-- Notes --}}
                 <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                    <label class="login-label" style="font-size: 0.8rem;">Notas del Pedido</label>
-                    <textarea 
-                        wire:model="notes" 
-                        rows="2" 
-                        class="login-input" 
+                    <label class="form-label" style="font-size: 0.8rem;">Notas del Pedido</label>
+                    <textarea
+                        wire:model="notes"
+                        rows="2"
+                        class="form-input"
                         placeholder="Ej. Sin cebolla, entregar rápido..."
                         style="resize: none; font-size: 0.85rem; padding: 6px 10px;"
                     ></textarea>
                 </div>
 
-                <!-- Total and Submission -->
+                {{-- Total and Submission --}}
                 <div class="pos-cart-footer">
                     <div class="pos-total-row">
                         <span>Total:</span>
                         <span class="pos-total-amount">${{ number_format($this->cartTotal, 2) }}</span>
                     </div>
 
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         wire:click="submitOrder"
                         wire:loading.attr="disabled"
                         wire:target="submitOrder"
@@ -202,7 +197,6 @@
                         class="btn-pos-submit"
                         @if(empty($selectedCustomerName) || empty($cart)) disabled @endif
                     >
-                        <!-- Loading spinner during submission -->
                         <span wire:loading wire:target="submitOrder" class="spinner"></span>
                         <span wire:loading.remove wire:target="submitOrder">ENVIAR PEDIDO A COCINA</span>
                         <span wire:loading wire:target="submitOrder">ENVIANDO PEDIDO...</span>
@@ -212,7 +206,7 @@
         </div>
     </div>
 
-    <!-- MOBILE STICKY BOTTOM BAR (Visible only on mobile screen widths) -->
+    {{-- MOBILE STICKY BOTTOM BAR --}}
     @if(count($cart) > 0)
         <div class="mobile-cart-bar">
             <div class="mobile-cart-bar-info">
@@ -225,17 +219,16 @@
         </div>
     @endif
 
-    <!-- MOBILE CART BOTTOM SHEET (Visible on click when mobileCartOpen is true) -->
+    {{-- MOBILE CART BOTTOM SHEET --}}
     <div class="bottom-sheet-overlay" x-show="mobileCartOpen" x-transition.opacity @click.self="mobileCartOpen = false" style="display: none;">
         <div class="bottom-sheet-content" x-show="mobileCartOpen" x-transition.scale.95>
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
-                <span style="font-weight: 700; font-size: 1.1rem;">Resumen del Pedido</span>
+                <span style="font-weight: 700; font-size: 1.1rem; color: var(--text-main);">Resumen del Pedido</span>
                 <button type="button" @click="mobileCartOpen = false" style="background: transparent; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; line-height: 1;">
                     &times;
                 </button>
             </div>
 
-            <!-- Items -->
             <div style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; max-height: 35vh;">
                 @foreach($cart as $item)
                     <div class="pos-cart-item">
@@ -247,39 +240,38 @@
                             <button type="button" wire:click="decrementQty({{ $item['id'] }})" class="pos-qty-btn">-</button>
                             <span class="pos-qty-val">{{ $item['quantity'] }}</span>
                             <button type="button" wire:click="incrementQty({{ $item['id'] }})" class="pos-qty-btn">+</button>
-                            <button type="button" wire:click="removeFromCart({{ $item['id'] }})" class="pos-remove-btn">🗑️</button>
+                            <button type="button" wire:click="removeFromCart({{ $item['id'] }})" class="pos-remove-btn">
+                                <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            </button>
                         </div>
                     </div>
                 @endforeach
             </div>
 
-            <!-- Notes -->
             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                <label class="login-label" style="font-size: 0.8rem;">Notas del Pedido</label>
-                <textarea 
-                    wire:model="notes" 
-                    rows="2" 
-                    class="login-input" 
+                <label class="form-label" style="font-size: 0.8rem;">Notas del Pedido</label>
+                <textarea
+                    wire:model="notes"
+                    rows="2"
+                    class="form-input"
                     placeholder="Notas adicionales..."
                     style="resize: none; font-size: 0.85rem;"
                 ></textarea>
             </div>
 
-            <!-- Total and send -->
-            <div style="border-top: 1px solid var(--border); padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="border-top: 2px solid var(--border); padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
                 <div class="pos-total-row">
                     <span>Total:</span>
                     <span class="pos-total-amount">${{ number_format($this->cartTotal, 2) }}</span>
                 </div>
 
-                <button 
-                    type="button" 
+                <button
+                    type="button"
                     wire:click="submitOrder"
                     wire:loading.attr="disabled"
                     wire:target="submitOrder"
                     wire:offline.attr="disabled"
                     class="btn-pos-submit"
-                    @click="if (loginForm.checkValidity()) mobileCartOpen = false"
                 >
                     <span wire:loading wire:target="submitOrder" class="spinner"></span>
                     <span wire:loading.remove wire:target="submitOrder">ENVIAR PEDIDO A COCINA</span>
@@ -289,7 +281,6 @@
         </div>
     </div>
 
-    <!-- Scripts to handle focuses from component emits -->
     <script>
         document.addEventListener('livewire:init', () => {
             Livewire.on('focus-search-customer', () => {

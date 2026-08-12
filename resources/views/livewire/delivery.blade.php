@@ -1,110 +1,35 @@
 <div wire:poll.15s class="delivery-layout" style="max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; width: 100%;">
-    <style>
-        .section-heading {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--text-main);
-            margin-bottom: 0.75rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .delivery-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 1.25rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
-        }
-        .delivery-card.my-delivery {
-            border-color: rgba(168, 85, 247, 0.3);
-            background: var(--bg-elevated);
-        }
-
-        .delivery-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 0.5rem;
-        }
-        .delivery-order-number { font-size: 1.15rem; font-weight: 800; }
-        .delivery-time { font-size: 0.75rem; color: var(--text-muted); }
-
-        .delivery-info-group { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.95rem; }
-        .info-row { display: flex; gap: 0.5rem; align-items: flex-start; }
-        .info-label { color: var(--text-muted); min-width: 20px; }
-        .info-value { color: var(--text-main); font-weight: 500; }
-
-        .phone-link { color: var(--primary); text-decoration: none; font-weight: 700; }
-        .phone-link:hover { text-decoration: underline; }
-
-        .delivery-items-summary {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            background: rgba(0,0,0,0.15);
-            padding: 0.5rem 0.75rem;
-            border-radius: 8px;
-        }
-
-        .btn-delivery-action {
-            width: 100%;
-            border: none;
-            padding: 0.85rem;
-            border-radius: 12px;
-            font-family: inherit;
-            font-size: 0.95rem;
-            font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
-            transition: all 0.2s;
-        }
-        .btn-claim { background: var(--info); color: #0b1220; }
-        .btn-claim:hover { background: #2563eb; }
-        .btn-deliver { background: var(--success); color: #0b1220; }
-        .btn-deliver:hover { background: #059669; }
-        .btn-delivery-action:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .no-delivery-orders {
-            text-align: center;
-            padding: 2rem;
-            background: var(--bg-surface);
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-    </style>
 
     @if($successMessage)
         <div class="alert alert-success">
-            <span>🎉 {{ $successMessage }}</span>
+            <span>{{ $successMessage }}</span>
             <button wire:click="$set('successMessage', null)" class="close-alert">&times;</button>
         </div>
     @endif
 
     @if($errorMessage)
         <div class="alert alert-danger">
-            <span>⚠️ {{ $errorMessage }}</span>
+            <span>{{ $errorMessage }}</span>
             <button wire:click="$set('errorMessage', null)" class="close-alert">&times;</button>
         </div>
     @endif
 
-    <div style="border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
-        <h1 style="font-size: 1.35rem; font-weight: 700;">🛵 Panel de Reparto</h1>
+    <div class="page-header">
+        <h1 class="page-title">
+            <span class="page-title-icon violet">
+                <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+            </span>
+            Panel de Reparto
+        </h1>
     </div>
 
-    <!-- Section 1: Mis Entregas (Claimed by current user) -->
+    {{-- Section 1: My Active Deliveries --}}
     <div>
         <h2 class="section-heading">
             <span>Mis Repartos Activos</span>
-            <span class="delivery-badge-count active" style="font-size: 0.85rem; padding: 2px 10px;">{{ count($myDeliveries) }}</span>
+            <span class="delivery-badge-count active">{{ count($myDeliveries) }}</span>
         </h2>
-        
+
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
             @forelse($myDeliveries as $order)
                 <div class="delivery-card my-delivery">
@@ -115,12 +40,16 @@
 
                     <div class="delivery-info-group">
                         <div class="info-row">
-                            <span class="info-label">👤</span>
+                            <span class="info-label">
+                                <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            </span>
                             <span class="info-value">{{ $order->customer_name_snapshot ?? 'Venta Mostrador' }}</span>
                         </div>
                         @if($order->customer_phone_snapshot)
                             <div class="info-row">
-                                <span class="info-label">📞</span>
+                                <span class="info-label">
+                                    <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                                </span>
                                 <span class="info-value">
                                     <a href="tel:{{ $order->customer_phone_snapshot }}" class="phone-link">
                                         {{ $order->customer_phone_snapshot }}
@@ -130,12 +59,16 @@
                         @endif
                         @if($order->delivery_address_snapshot)
                             <div class="info-row">
-                                <span class="info-label">📍</span>
+                                <span class="info-label">
+                                    <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                </span>
                                 <span class="info-value">{{ $order->delivery_address_snapshot }}</span>
                             </div>
                         @endif
                         <div class="info-row">
-                            <span class="info-label">💵</span>
+                            <span class="info-label">
+                                <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2;"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                            </span>
                             <span class="info-value" style="color: var(--primary); font-weight: 700;">
                                 Total a cobrar: ${{ number_format($order->total, 2) }}
                             </span>
@@ -143,21 +76,20 @@
                     </div>
 
                     <div class="delivery-items-summary">
-                        🍔
                         @foreach($order->items as $index => $item)
                             {{ $item->quantity }}x {{ $item->product_name }}{{ $index < count($order->items) - 1 ? ', ' : '' }}
                         @endforeach
                     </div>
 
                     @if($order->notes)
-                        <div style="font-size: 0.85rem; font-style: italic; color: var(--text-muted);">
+                        <div style="font-size: 0.825rem; font-style: italic; color: var(--text-muted);">
                             Nota: "{{ $order->notes }}"
                         </div>
                     @endif
 
                     <div>
-                        <button type="button" 
-                                wire:click="markOrderDelivered({{ $order->id }})" 
+                        <button type="button"
+                                wire:click="markOrderDelivered({{ $order->id }})"
                                 wire:loading.attr="disabled"
                                 wire:target="markOrderDelivered({{ $order->id }})"
                                 class="btn-delivery-action btn-deliver">
@@ -175,13 +107,13 @@
         </div>
     </div>
 
-    <!-- Section 2: Pedidos Listos (Open for claiming) -->
+    {{-- Section 2: Ready Orders --}}
     <div>
         <h2 class="section-heading">
             <span>Pedidos Listos para Retirar</span>
-            <span class="delivery-badge-count" style="font-size: 0.85rem; padding: 2px 10px;">{{ count($readyOrders) }}</span>
+            <span class="delivery-badge-count">{{ count($readyOrders) }}</span>
         </h2>
-        
+
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
             @forelse($readyOrders as $order)
                 <div class="delivery-card">
@@ -192,27 +124,30 @@
 
                     <div class="delivery-info-group">
                         <div class="info-row">
-                            <span class="info-label">👤</span>
+                            <span class="info-label">
+                                <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            </span>
                             <span class="info-value">{{ $order->customer_name_snapshot ?? 'Venta Mostrador' }}</span>
                         </div>
                         @if($order->delivery_address_snapshot)
                             <div class="info-row">
-                                <span class="info-label">📍</span>
+                                <span class="info-label">
+                                    <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                </span>
                                 <span class="info-value">{{ $order->delivery_address_snapshot }}</span>
                             </div>
                         @endif
                     </div>
 
                     <div class="delivery-items-summary">
-                        🍔
                         @foreach($order->items as $index => $item)
                             {{ $item->quantity }}x {{ $item->product_name }}{{ $index < count($order->items) - 1 ? ', ' : '' }}
                         @endforeach
                     </div>
 
                     <div>
-                        <button type="button" 
-                                wire:click="claimOrder({{ $order->id }})" 
+                        <button type="button"
+                                wire:click="claimOrder({{ $order->id }})"
                                 wire:loading.attr="disabled"
                                 wire:target="claimOrder({{ $order->id }})"
                                 class="btn-delivery-action btn-claim">
