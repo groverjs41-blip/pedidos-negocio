@@ -1,74 +1,111 @@
 <x-layouts.app title="Inicio - Pedidos Negocio">
-    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-        {{-- Welcome Header --}}
+    <div style="display: flex; flex-direction: column; gap: 1.75rem;">
+        {{-- Header Greeting --}}
         <div>
-            <h1 class="dashboard-greeting">Hola, {{ $user->name }}</h1>
-            <div class="dashboard-roles">
-                @foreach($user->roles as $role)
-                    <span class="role-badge">{{ $role->name }}</span>
-                @endforeach
+            <h1 style="font-size: 1.6rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.02em;">
+                ¡Hola, {{ $user->name }}!
+            </h1>
+            <p style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem;">
+                Así va la operación de tu negocio hoy.
+            </p>
+        </div>
+
+        {{-- Metrics Summary Grid --}}
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <span class="metric-val" style="color: var(--info-text);">
+                    {{ \App\Models\Order::whereDate('created_at', today())->count() }}
+                </span>
+                <span class="metric-label">Pedidos Hoy</span>
+            </div>
+
+            <div class="metric-card">
+                <span class="metric-val" style="color: var(--warning-text);">
+                    {{ \App\Models\Order::where('status', \App\Enums\OrderStatus::PREPARING)->count() }}
+                </span>
+                <span class="metric-label">En Cocina</span>
+            </div>
+
+            <div class="metric-card">
+                <span class="metric-val" style="color: var(--primary);">
+                    {{ \App\Models\Order::where('status', \App\Enums\OrderStatus::READY)->count() }}
+                </span>
+                <span class="metric-label">Listos</span>
+            </div>
+
+            <div class="metric-card">
+                <span class="metric-val" style="color: var(--violet-text);">
+                    {{ \App\Models\Order::where('status', \App\Enums\OrderStatus::DELIVERING)->count() }}
+                </span>
+                <span class="metric-label">En Reparto</span>
             </div>
         </div>
 
-        {{-- Module Cards --}}
-        <div class="dashboard-modules">
-            @if($user->hasRole('pedidos') || $user->hasRole('admin'))
-                <a href="{{ url('/pedidos/nuevo') }}" class="module-card">
-                    <div class="module-icon amber">
-                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                    </div>
-                    <span class="module-title">Nueva Orden</span>
-                    <span class="module-description">Registrar y gestionar pedidos de clientes.</span>
-                </a>
+        {{-- Quick Actions --}}
+        <div>
+            <h2 style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.85rem;">
+                Acciones Rápidas
+            </h2>
 
-                <a href="{{ url('/pedidos') }}" class="module-card">
-                    <div class="module-icon blue">
-                        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                    </div>
-                    <span class="module-title">Pedidos</span>
-                    <span class="module-description">Ver el historial de pedidos del día.</span>
-                </a>
-            @endif
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem;">
+                @if($user->hasRole('pedidos') || $user->hasRole('admin'))
+                    <a href="{{ url('/pedidos/nuevo') }}" class="card" style="padding: 1.25rem; text-decoration: none; display: flex; align-items: center; gap: 1rem;">
+                        <div class="header-icon-wrap mint" style="width: 44px; height: 44px; border-radius: 14px;">
+                            <x-ui.icon name="plus" class="w-6 h-6" />
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Nuevo Pedido</div>
+                            <div style="font-size: 0.775rem; color: var(--text-muted);">Registrar venta en POS</div>
+                        </div>
+                    </a>
 
-            @if($user->hasRole('cocina') || $user->hasRole('admin'))
-                <a href="{{ url('/cocina') }}" class="module-card">
-                    <div class="module-icon green">
-                        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-3-3.87"></path><path d="M7 21v-2a4 4 0 0 1 3-3.87"></path><circle cx="12" cy="7" r="4"></circle><line x1="5.4" y1="2" x2="18.6" y2="2" stroke-width="2"></line></svg>
-                    </div>
-                    <span class="module-title">Cocina</span>
-                    <span class="module-description">Ver comandas y actualizar estado de preparación.</span>
-                </a>
-            @endif
+                    <a href="{{ url('/pedidos') }}" class="card" style="padding: 1.25rem; text-decoration: none; display: flex; align-items: center; gap: 1rem;">
+                        <div class="header-icon-wrap blue" style="width: 44px; height: 44px; border-radius: 14px;">
+                            <x-ui.icon name="list" class="w-6 h-6" />
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Ver Pedidos</div>
+                            <div style="font-size: 0.775rem; color: var(--text-muted);">Historial y seguimiento</div>
+                        </div>
+                    </a>
+                @endif
 
-            @if($user->hasRole('reparto') || $user->hasRole('admin'))
-                <a href="{{ url('/reparto') }}" class="module-card">
-                    <div class="module-icon violet">
-                        <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
-                    </div>
-                    <span class="module-title">Reparto</span>
-                    <span class="module-description">Monitorear entregas y despachos a domicilio.</span>
-                </a>
-            @endif
+                @if($user->hasRole('cocina') || $user->hasRole('admin'))
+                    <a href="{{ url('/cocina') }}" class="card" style="padding: 1.25rem; text-decoration: none; display: flex; align-items: center; gap: 1rem;">
+                        <div class="header-icon-wrap warning" style="width: 44px; height: 44px; border-radius: 14px;">
+                            <x-ui.icon name="chef" class="w-6 h-6" />
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Cocina KDS</div>
+                            <div style="font-size: 0.775rem; color: var(--text-muted);">Pantalla de preparación</div>
+                        </div>
+                    </a>
+                @endif
 
-            @if($user->hasRole('caja') || $user->hasRole('admin'))
-                <a href="{{ url('/caja') }}" class="module-card">
-                    <div class="module-icon slate">
-                        <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                    </div>
-                    <span class="module-title">Cobranza</span>
-                    <span class="module-description">Cerrar cuentas, procesar pagos y emitir recibos.</span>
-                </a>
-            @endif
+                @if($user->hasRole('reparto') || $user->hasRole('admin'))
+                    <a href="{{ url('/reparto') }}" class="card" style="padding: 1.25rem; text-decoration: none; display: flex; align-items: center; gap: 1rem;">
+                        <div class="header-icon-wrap violet" style="width: 44px; height: 44px; border-radius: 14px;">
+                            <x-ui.icon name="truck" class="w-6 h-6" />
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Panel Reparto</div>
+                            <div style="font-size: 0.775rem; color: var(--text-muted);">Gestión de entregas</div>
+                        </div>
+                    </a>
+                @endif
 
-            @if($user->hasRole('admin'))
-                <a href="{{ url('/admin') }}" class="module-card" style="border-color: rgba(245, 158, 11, 0.2);">
-                    <div class="module-icon amber">
-                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                    </div>
-                    <span class="module-title" style="color: var(--primary-hover);">Administración</span>
-                    <span class="module-description">Gestionar usuarios, roles y configuraciones.</span>
-                </a>
-            @endif
+                @if($user->hasRole('admin'))
+                    <a href="{{ url('/admin') }}" class="card" style="padding: 1.25rem; text-decoration: none; display: flex; align-items: center; gap: 1rem;">
+                        <div class="header-icon-wrap mint" style="width: 44px; height: 44px; border-radius: 14px;">
+                            <x-ui.icon name="gear" class="w-6 h-6" />
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Administración</div>
+                            <div style="font-size: 0.775rem; color: var(--text-muted);">Panel de Filament</div>
+                        </div>
+                    </a>
+                @endif
+            </div>
         </div>
     </div>
 </x-layouts.app>

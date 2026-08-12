@@ -1,4 +1,4 @@
-<div wire:poll.15s class="kitchen-layout" style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem;">
+<div wire:poll.15s class="kitchen-layout" style="max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
 
     @if($successMessage)
         <div class="alert alert-success">
@@ -15,62 +15,66 @@
     @endif
 
     <div class="page-header">
-        <h1 class="page-title">
-            <span class="page-title-icon green">
-                <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-3-3.87"></path><path d="M7 21v-2a4 4 0 0 1 3-3.87"></path><circle cx="12" cy="7" r="4"></circle><line x1="5.4" y1="2" x2="18.6" y2="2" stroke-width="2"></line></svg>
-            </span>
-            Vista Cocina
-            <span class="delivery-badge-count active">{{ count($orders) }} pendientes</span>
-        </h1>
+        <div>
+            <h1 class="page-header-title">
+                <div class="header-icon-wrap warning">
+                    <x-ui.icon name="chef" class="w-5 h-5" />
+                </div>
+                Cocina KDS
+                <span class="status-badge PREPARING" style="font-size: 0.8rem; padding: 4px 12px; margin-left: 0.5rem;">{{ count($orders) }} pendientes</span>
+            </h1>
+            <div class="page-header-subtitle">Comandas de preparación en tiempo real</div>
+        </div>
     </div>
 
     {{-- Active orders --}}
-    <div style="display: flex; flex-direction: column; gap: 1rem;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
         @forelse($orders as $order)
             @php
                 $elapsedMinutes = now()->diffInMinutes($order->ordered_at);
                 $isDelayed = $elapsedMinutes >= 15;
             @endphp
-            <div class="kitchen-card {{ $order->status === \App\Enums\OrderStatus::PREPARING ? 'status-preparing' : '' }}">
-                <div class="kitchen-card-header">
+            <div class="kds-card {{ $order->status === \App\Enums\OrderStatus::PREPARING ? 'status-preparing' : '' }} stagger-item">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 0.85rem;">
                     <div>
-                        <div class="kitchen-order-number">{{ $order->number }}</div>
-                        <div class="kitchen-order-customer">
-                            {{ $order->customer_name_snapshot ?? 'Venta Mostrador' }}
+                        <div class="kds-order-num">{{ $order->number }}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.15rem;">
+                            👤 {{ $order->customer_name_snapshot ?? 'Venta Mostrador' }}
                         </div>
                     </div>
 
-                    <span class="elapsed-badge {{ $isDelayed ? 'delayed' : 'fresh' }}">
-                        <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                        {{ $elapsedMinutes }}m
+                    <span class="{{ $isDelayed ? 'delayed-badge' : 'status-badge NEW' }}">
+                        <x-ui.icon name="clock" class="w-3.5 h-3.5" />
+                        {{ $isDelayed ? 'DEMORADO' : '' }} {{ $elapsedMinutes }}m
                     </span>
                 </div>
 
-                {{-- Items --}}
-                <div class="kitchen-items-list">
+                {{-- Items List (LARGE TEXT FOR KITCHEN READABILITY) --}}
+                <div style="display: flex; flex-direction: column; gap: 0.85rem;">
                     @foreach($order->items as $item)
-                        <div class="kitchen-item">
-                            <span class="kitchen-item-qty">{{ $item->quantity }}x</span>
-                            <span class="kitchen-item-name">{{ $item->product_name }}</span>
+                        <div style="display: flex; align-items: center; gap: 0.85rem;">
+                            <span class="kds-item-qty">{{ $item->quantity }}x</span>
+                            <span class="kds-item-name">{{ $item->product_name }}</span>
                         </div>
                     @endforeach
                 </div>
 
                 {{-- Special notes --}}
                 @if($order->notes)
-                    <div class="kitchen-notes">
+                    <div style="background: var(--warning-light); border: 1px solid rgba(245, 185, 66, 0.2); border-left: 4px solid var(--warning); padding: 0.85rem; border-radius: var(--radius-sm); font-size: 0.875rem; font-style: italic; color: var(--warning-text);">
                         "{{ $order->notes }}"
                     </div>
                 @endif
 
-                {{-- Action Buttons --}}
-                <div>
+                {{-- KDS Action Buttons --}}
+                <div style="margin-top: auto;">
                     @if($order->status === \App\Enums\OrderStatus::NEW)
                         <button type="button"
                                 wire:click="startPreparingOrder({{ $order->id }})"
                                 wire:loading.attr="disabled"
                                 wire:target="startPreparingOrder({{ $order->id }})"
-                                class="btn-kitchen-action btn-start">
+                                class="btn-kds-action"
+                                style="background: var(--warning); color: #0E141B;">
                             <span wire:loading wire:target="startPreparingOrder({{ $order->id }})" class="spinner"></span>
                             <span wire:loading.remove wire:target="startPreparingOrder({{ $order->id }})">EMPEZAR PREPARACIÓN</span>
                             <span wire:loading wire:target="startPreparingOrder({{ $order->id }})">Procesando...</span>
@@ -80,7 +84,8 @@
                                 wire:click="markOrderReady({{ $order->id }})"
                                 wire:loading.attr="disabled"
                                 wire:target="markOrderReady({{ $order->id }})"
-                                class="btn-kitchen-action btn-ready">
+                                class="btn-kds-action"
+                                style="background: var(--primary); color: var(--primary-text);">
                             <span wire:loading wire:target="markOrderReady({{ $order->id }})" class="spinner"></span>
                             <span wire:loading.remove wire:target="markOrderReady({{ $order->id }})">MARCAR COMO LISTO</span>
                             <span wire:loading wire:target="markOrderReady({{ $order->id }})">Procesando...</span>
@@ -89,9 +94,12 @@
                 </div>
             </div>
         @empty
-            <div class="empty-state">
-                <svg viewBox="0 0 24 24" style="width: 32px; height: 32px; stroke: var(--text-light); fill: none; stroke-width: 1.5; margin: 0 auto 0.75rem;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                <div>¡Todo al día! No hay pedidos pendientes de preparar.</div>
+            <div style="grid-column: 1 / -1;">
+                <x-ui.empty-state
+                    title="¡Cocina al día!"
+                    description="No hay comandas pendientes de preparación en este momento."
+                    icon="chef"
+                />
             </div>
         @endforelse
     </div>
