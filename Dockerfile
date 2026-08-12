@@ -51,6 +51,7 @@ WORKDIR /app
 COPY package.json package-lock.json vite.config.js ./
 COPY resources/ ./resources/
 COPY public/ ./public/
+COPY --from=composer-stage /app/vendor ./vendor
 RUN npm ci
 RUN npm run build
 
