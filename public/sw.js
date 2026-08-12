@@ -1,22 +1,38 @@
-const CACHE_NAME = 'pedidos-negocio-cache-v1';
-const ASSETS = [
+const CACHE_NAME = 'pedidos-negocio-cache-v2';
+const STATIC_ASSETS = [
     '/',
     '/manifest.json',
     '/icons/icon-192x192.png',
     '/icons/icon-512x512.png',
 ];
 
-// Install Event
+// Exclude dynamic patterns from any caching
+const DYNAMIC_PATTERNS = [
+    /^\/admin/i,
+    /^\/livewire/i,
+    /^\/api/i,
+    /^\/login/i,
+    /^\/logout/i,
+    /^\/register/i,
+    /^\/pedidos/i,
+    /^\/cocina/i,
+    /^\/repartos/i,
+    /^\/cobranza/i,
+    /^\/auth/i,
+    /^\/user/i,
+];
+
+// Install event: cache static skeleton
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            return cache.addAll(ASSETS);
+            return cache.addAll(STATIC_ASSETS);
         })
     );
     self.skipWaiting();
 });
 
-// Activate Event
+// Activate event: clean old caches
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(keys => {
@@ -32,47 +48,63 @@ self.addEventListener('activate', event => {
     self.clients.claim();
 });
 
-// Fetch Event
+// Fetch event
 self.addEventListener('fetch', event => {
     // Only handle GET requests from the same origin
     if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
         return;
     }
 
-    // Bypass caching for admin panel or Livewire updates to avoid conflicts
     const url = new URL(event.request.url);
-    if (url.pathname.startsWith('/admin') || url.pathname.startsWith('/livewire')) {
-        return;
+
+    // 1. Strict Exclusion check: skip caching for all dynamic modules and system routes
+    const isDynamic = DYNAMIC_PATTERNS.some(regex => regex.test(url.pathname));
+    if (isDynamic) {
+        return; // Let the browser handle it purely via network
     }
 
-    event.respondWith(
-        caches.match(event.request).then(cachedResponse => {
-            if (cachedResponse) {
-                return cachedResponse;
-            }
-
-            return fetch(event.request)
+    // 2. Navigation requests: Network-First strategy (never show stale HTML when online)
+    if (event.request.mode === 'navigate' || (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'))) {
+        event.respondWith(
+            fetch(event.request)
                 .then(response => {
-                    // Check if we received a valid response
-                    if (!response || response.status !== 200 || response.type !== 'basic') {
-                        return response;
+                    // Update cache with the fresh page
+                    if (response && response.status === 200) {
+                        const responseClone = response.clone();
+                        caches.open(CACHE_NAME).then(cache => {
+                            cache.put(event.request, responseClone);
+                        });
                     }
-
-                    // Clone the response because it can only be consumed once
-                    const responseToCache = response.clone();
-
-                    caches.open(CACHE_NAME).then(cache => {
-                        cache.put(event.request, responseToCache);
-                    });
-
                     return response;
                 })
                 .catch(() => {
-                    // If network fails, try to return offline fallback for HTML requests
-                    if (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html')) {
-                        return caches.match('/');
+                    // If offline, return cached page or root fallback
+                    return caches.match(event.request).then(cachedResponse => {
+                        return cachedResponse || caches.match('/');
+                    });
+                })
+        );
+        return;
+    }
+
+    // 3. Static Assets: Cache-First strategy
+    const isStaticAsset = url.pathname.match(/\.(js|css|png|jpg|jpeg|gif|svg|woff2|woff|ttf|ico|json)$/i) || url.pathname.startsWith('/icons/');
+    if (isStaticAsset) {
+        event.respondWith(
+            caches.match(event.request).then(cachedResponse => {
+                if (cachedResponse) {
+                    return cachedResponse;
+                }
+                return fetch(event.request).then(response => {
+                    if (response && response.status === 200) {
+                        const responseClone = response.clone();
+                        caches.open(CACHE_NAME).then(cache => {
+                            cache.put(event.request, responseClone);
+                        });
                     }
+                    return response;
                 });
-        })
-    );
+            })
+        );
+    }
 });
