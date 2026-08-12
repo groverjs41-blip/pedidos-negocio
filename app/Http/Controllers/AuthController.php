@@ -12,12 +12,6 @@ class AuthController extends Controller
      */
     public function showLogin()
     {
-        if (Auth::check()) {
-            return Auth::user()->hasRole('admin') 
-                ? redirect()->intended('/admin') 
-                : redirect()->intended('/inicio');
-        }
-
         return view('auth.login');
     }
 
@@ -48,11 +42,13 @@ class AuthController extends Controller
 
             $request->session()->regenerate();
 
+            $request->session()->forget('url.intended');
+
             if ($user->hasRole('admin')) {
-                return redirect()->intended('/admin');
+                return redirect('/admin');
             }
 
-            return redirect()->intended('/inicio');
+            return redirect('/inicio');
         }
 
         return back()->withErrors([

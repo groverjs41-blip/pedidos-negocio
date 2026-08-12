@@ -4,7 +4,15 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
+Route::get('/', function (\Illuminate\Http\Request $request) {
+    $user = $request->user();
+
+    if ($user && $user->isActive()) {
+        return $user->hasRole('admin')
+            ? redirect('/admin')
+            : redirect('/inicio');
+    }
+
     return redirect()->route('login');
 });
 

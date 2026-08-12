@@ -16,6 +16,20 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'active' => \App\Http\Middleware\EnsureUserIsActive::class,
         ]);
+
+        $middleware->redirectGuestsTo(
+            fn (Request $request) => route('login')
+        );
+
+        $middleware->redirectUsersTo(function (Request $request) {
+            $user = $request->user();
+
+            if ($user && $user->isActive() && $user->hasRole('admin')) {
+                return '/admin';
+            }
+
+            return '/inicio';
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

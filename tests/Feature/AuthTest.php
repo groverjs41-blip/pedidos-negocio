@@ -19,17 +19,105 @@ class AuthTest extends TestCase
     }
 
     /**
-     * Test active user can log in and redirect to dashboard.
+     * 1. GET / siendo invitado -> redirect /login
      */
-    public function test_active_user_can_login(): void
+    public function test_guest_accessing_root_redirects_to_login(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * 2. GET / siendo admin -> redirect /admin
+     */
+    public function test_admin_accessing_root_redirects_to_admin_panel(): void
+    {
+        $user = User::factory()->create(['active' => true]);
+        $user->roles()->attach(Role::where('slug', 'admin')->first());
+
+        $this->actingAs($user);
+
+        $response = $this->get('/');
+
+        $response->assertRedirect('/admin');
+    }
+
+    /**
+     * 3. GET / siendo usuario normal -> redirect /inicio
+     */
+    public function test_normal_user_accessing_root_redirects_to_inicio(): void
+    {
+        $user = User::factory()->create(['active' => true]);
+        $user->roles()->attach(Role::where('slug', 'pedidos')->first());
+
+        $this->actingAs($user);
+
+        $response = $this->get('/');
+
+        $response->assertRedirect('/inicio');
+    }
+
+    /**
+     * 4. admin autenticado entrando a /login -> redirect /admin
+     */
+    public function test_authenticated_admin_accessing_login_redirects_to_admin(): void
+    {
+        $user = User::factory()->create(['active' => true]);
+        $user->roles()->attach(Role::where('slug', 'admin')->first());
+
+        $this->actingAs($user);
+
+        $response = $this->get('/login');
+
+        $response->assertRedirect('/admin');
+    }
+
+    /**
+     * 5. usuario normal autenticado entrando a /login -> redirect /inicio
+     */
+    public function test_authenticated_normal_user_accessing_login_redirects_to_inicio(): void
+    {
+        $user = User::factory()->create(['active' => true]);
+        $user->roles()->attach(Role::where('slug', 'pedidos')->first());
+
+        $this->actingAs($user);
+
+        $response = $this->get('/login');
+
+        $response->assertRedirect('/inicio');
+    }
+
+    /**
+     * 6. login admin correcto -> redirect /admin
+     */
+    public function test_admin_login_redirects_to_admin(): void
     {
         $user = User::factory()->create([
             'active' => true,
             'password' => bcrypt('password123'),
         ]);
+        $user->roles()->attach(Role::where('slug', 'admin')->first());
 
-        $pedidosRole = Role::where('slug', 'pedidos')->first();
-        $user->roles()->attach($pedidosRole);
+        $response = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password123',
+        ]);
+
+        $response->assertRedirect('/admin');
+        $this->assertAuthenticatedAs($user);
+    }
+
+    /**
+     * 7. login usuario normal correcto -> redirect /inicio
+     */
+    public function test_normal_user_login_redirects_to_inicio(): void
+    {
+        $user = User::factory()->create([
+            'active' => true,
+            'password' => bcrypt('password123'),
+        ]);
+        $user->roles()->attach(Role::where('slug', 'pedidos')->first());
 
         $response = $this->post('/login', [
             'email' => $user->email,
@@ -68,9 +156,7 @@ class AuthTest extends TestCase
             'active' => false,
             'password' => bcrypt('password123'),
         ]);
-
-        $pedidosRole = Role::where('slug', 'pedidos')->first();
-        $user->roles()->attach($pedidosRole);
+        $user->roles()->attach(Role::where('slug', 'pedidos')->first());
 
         $response = $this->post('/login', [
             'email' => $user->email,
@@ -90,9 +176,7 @@ class AuthTest extends TestCase
             'active' => true,
             'password' => bcrypt('password123'),
         ]);
-
-        $pedidosRole = Role::where('slug', 'pedidos')->first();
-        $user->roles()->attach($pedidosRole);
+        $user->roles()->attach(Role::where('slug', 'pedidos')->first());
 
         $this->actingAs($user);
 
@@ -110,9 +194,7 @@ class AuthTest extends TestCase
             'active' => true,
             'password' => bcrypt('password123'),
         ]);
-
-        $adminRole = Role::where('slug', 'admin')->first();
-        $user->roles()->attach($adminRole);
+        $user->roles()->attach(Role::where('slug', 'admin')->first());
 
         $this->actingAs($user);
 
