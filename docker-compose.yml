@@ -1,0 +1,65 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pedidos-app
+    restart: unless-stopped
+    volumes:
+      - .:/var/www
+    networks:
+      - pedidos-network
+    depends_on:
+      - db
+
+  web:
+    image: nginx:alpine
+    container_name: pedidos-web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - .:/var/www
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - pedidos-network
+    depends_on:
+      - app
+
+  reverb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pedidos-reverb
+    restart: unless-stopped
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    volumes:
+      - .:/var/www
+    networks:
+      - pedidos-network
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8.0
+    container_name: pedidos-db
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-laravel}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_USER: ${DB_USERNAME:-laravel}
+    volumes:
+      - db-data:/var/lib/mysql
+    networks:
+      - pedidos-network
+
+networks:
+  pedidos-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local

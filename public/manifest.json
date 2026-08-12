@@ -1,0 +1,24 @@
+{
+  "name": "Pedidos Negocio - Sándwiches, Tés y Almuerzos",
+  "short_name": "Pedidos Negocio",
+  "description": "Aplicación para realizar y gestionar pedidos de sándwiches, tés y almuerzos.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbfbfb",
+  "theme_color": "#d97706",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ]
+}
