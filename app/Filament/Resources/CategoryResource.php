@@ -6,6 +6,7 @@ use App\Filament\Resources\CategoryResource\Pages;
 use App\Models\Category;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -22,6 +23,8 @@ class CategoryResource extends Resource
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-tag';
 
+    protected static \UnitEnum|string|null $navigationGroup = 'Catálogo';
+
     protected static ?string $modelLabel = 'Categoría';
     protected static ?string $pluralModelLabel = 'Categorías';
 
@@ -29,21 +32,27 @@ class CategoryResource extends Resource
     {
         return $schema
             ->components([
-                TextInput::make('name')
-                    ->required()
-                    ->unique(ignoreRecord: true)
-                    ->maxLength(255)
-                    ->label('Nombre'),
-                TextInput::make('sort_order')
-                    ->numeric()
-                    ->minValue(0)
-                    ->required()
-                    ->default(0)
-                    ->label('Orden de clasificación'),
-                Toggle::make('active')
-                    ->required()
-                    ->default(true)
-                    ->label('Activo'),
+                Grid::make(2)
+                    ->schema([
+                        TextInput::make('name')
+                            ->required()
+                            ->unique(ignoreRecord: true)
+                            ->maxLength(255)
+                            ->label('Nombre')
+                            ->columnSpan(2),
+                        TextInput::make('sort_order')
+                            ->numeric()
+                            ->minValue(0)
+                            ->required()
+                            ->default(0)
+                            ->label('Orden de clasificación')
+                            ->columnSpan(1),
+                        Toggle::make('active')
+                            ->required()
+                            ->default(true)
+                            ->label('Activo')
+                            ->columnSpan(1),
+                    ]),
             ]);
     }
 

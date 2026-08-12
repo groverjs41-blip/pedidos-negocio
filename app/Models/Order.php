@@ -14,6 +14,7 @@ class Order extends Model
 
     protected $fillable = [
         'number',
+        'submission_token',
         'customer_id',
         'customer_name_snapshot',
         'customer_phone_snapshot',

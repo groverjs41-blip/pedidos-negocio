@@ -7,10 +7,11 @@ use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Broadcasting\InteractsWithSockets;
 
 class OrderChanged implements ShouldBroadcastNow
 {
-    use SerializesModels;
+    use InteractsWithSockets, SerializesModels;
 
     public Order $order;
     public string $orderId;

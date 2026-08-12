@@ -1,458 +1,9 @@
-<div class="create-order-layout">
-    <style>
-        .create-order-layout {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            max-width: 600px;
-            margin: 0 auto;
-            width: 100%;
-        }
-
-        .section-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 0.75rem;
-            color: var(--text-main);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .alert {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem 1rem;
-            border-radius: 12px;
-            font-weight: 500;
-            font-size: 0.9rem;
-        }
-
-        .alert-success {
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            color: #a7f3d0;
-        }
-
-        .alert-danger {
-            background: rgba(239, 68, 68, 0.15);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: #fca5a5;
-        }
-
-        .close-alert {
-            background: transparent;
-            border: none;
-            color: inherit;
-            font-size: 1.2rem;
-            cursor: pointer;
-            line-height: 1;
-        }
-
-        /* Search input */
-        .search-box {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .form-input {
-            flex-grow: 1;
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 0.75rem 1rem;
-            border-radius: 12px;
-            font-family: inherit;
-            font-size: 0.9rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .form-input:focus {
-            border-color: var(--primary);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 0.75rem 1rem;
-            border-radius: 12px;
-            font-family: inherit;
-            font-size: 0.85rem;
-            font-weight: 500;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s;
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        /* Search dropdown results */
-        .search-results {
-            list-style: none;
-            background: #1e293b;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            margin-top: 0.5rem;
-            overflow: hidden;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-        }
-
-        .search-result-item {
-            padding: 0.75rem 1rem;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.9rem;
-            transition: background 0.2s;
-        }
-
-        .search-result-item:hover {
-            background: rgba(245, 158, 11, 0.1);
-        }
-
-        .customer-name {
-            font-weight: 500;
-        }
-
-        .customer-phone {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
-        /* Selected customer badge */
-        .customer-badge {
-            background: rgba(245, 158, 11, 0.08);
-            border: 1px solid rgba(245, 158, 11, 0.25);
-            border-radius: 12px;
-            padding: 0.75rem 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .customer-badge-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .customer-badge-name {
-            font-weight: 600;
-            color: var(--text-main);
-        }
-
-        .customer-badge-detail {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
-        .btn-clear-customer {
-            background: transparent;
-            border: none;
-            color: var(--danger);
-            font-family: inherit;
-            font-size: 0.85rem;
-            font-weight: 500;
-            cursor: pointer;
-        }
-
-        /* Category scrolling Chips */
-        .category-scroll-container {
-            display: flex;
-            gap: 0.5rem;
-            overflow-x: auto;
-            padding-bottom: 0.5rem;
-            scrollbar-width: none; /* Firefox */
-        }
-
-        .category-scroll-container::-webkit-scrollbar {
-            display: none; /* Chrome */
-        }
-
-        .category-chip {
-            background: rgba(30, 41, 59, 0.6);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            padding: 0.6rem 1.2rem;
-            border-radius: 99px;
-            font-family: inherit;
-            font-size: 0.85rem;
-            font-weight: 500;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s ease;
-        }
-
-        .category-chip:hover {
-            border-color: rgba(255, 255, 255, 0.2);
-            color: var(--text-main);
-        }
-
-        .category-chip.active {
-            background: var(--primary);
-            border-color: var(--primary);
-            color: #0f172a;
-            font-weight: 600;
-            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-        }
-
-        /* Product Grid */
-        .products-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-            gap: 0.75rem;
-        }
-
-        .product-card {
-            background: var(--panel-bg);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-
-        .product-card:hover {
-            transform: translateY(-2px);
-            border-color: rgba(255, 255, 255, 0.15);
-            background: var(--card-hover);
-        }
-
-        .product-image-container {
-            width: 100%;
-            height: 100px;
-            overflow: hidden;
-            background: rgba(0,0,0,0.2);
-        }
-
-        .product-image {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .product-image-placeholder {
-            width: 100%;
-            height: 100px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.2rem;
-            background: rgba(0, 0, 0, 0.15);
-        }
-
-        .product-info {
-            padding: 0.75rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-            flex-grow: 1;
-        }
-
-        .product-name {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-main);
-            line-height: 1.3;
-        }
-
-        .product-price {
-            font-size: 0.85rem;
-            color: var(--primary);
-            font-weight: 700;
-            margin-top: auto;
-        }
-
-        .no-products {
-            grid-column: 1 / -1;
-            text-align: center;
-            padding: 2rem;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-
-        /* Shopping Cart section */
-        .cart-section {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            margin-top: 0.5rem;
-            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
-            border-color: rgba(245, 158, 11, 0.15);
-        }
-
-        .cart-items-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            max-height: 180px;
-            overflow-y: auto;
-        }
-
-        .cart-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .cart-item:last-child {
-            border-bottom: none;
-        }
-
-        .cart-item-details {
-            display: flex;
-            flex-direction: column;
-            gap: 0.15rem;
-        }
-
-        .cart-item-name {
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-
-        .cart-item-price {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
-        .cart-item-actions {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .btn-qty {
-            width: 26px;
-            height: 26px;
-            border-radius: 50%;
-            border: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.03);
-            color: var(--text-main);
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
-        }
-
-        .btn-qty:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .cart-item-qty {
-            font-size: 0.85rem;
-            font-weight: 600;
-            min-width: 14px;
-            text-align: center;
-        }
-
-        .btn-remove {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            font-size: 1.2rem;
-            cursor: pointer;
-            margin-left: 0.25rem;
-            transition: color 0.2s;
-        }
-
-        .btn-remove:hover {
-            color: var(--danger);
-        }
-
-        /* Notes box */
-        .notes-container {
-            width: 100%;
-        }
-
-        .form-textarea {
-            width: 100%;
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 0.6rem 0.8rem;
-            border-radius: 12px;
-            font-family: inherit;
-            font-size: 0.85rem;
-            outline: none;
-            resize: none;
-        }
-
-        .form-textarea:focus {
-            border-color: var(--primary);
-        }
-
-        /* Cart footer */
-        .cart-footer {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            padding-top: 0.75rem;
-            border-top: 1px solid var(--border);
-        }
-
-        .cart-total-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 1.15rem;
-            font-weight: 700;
-        }
-
-        .cart-total-amount {
-            color: var(--primary);
-        }
-
-        .btn-submit-order {
-            background: var(--primary);
-            border: none;
-            color: #0f172a;
-            font-family: inherit;
-            font-size: 1rem;
-            font-weight: 700;
-            padding: 0.9rem;
-            border-radius: 14px;
-            cursor: pointer;
-            width: 100%;
-            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
-            transition: all 0.2s ease;
-        }
-
-        .btn-submit-order:hover {
-            background: var(--primary-hover);
-            transform: translateY(-1px);
-        }
-
-        .btn-submit-order:active {
-            transform: translateY(0);
-        }
-
-        .btn-submit-order:disabled {
-            background: var(--text-muted);
-            opacity: 0.5;
-            cursor: not-allowed;
-            box-shadow: none;
-            transform: none;
-        }
-    </style>
-
-    <!-- Offline Connection Status -->
-    <div wire:offline class="offline-banner">
-        ⚠️ SIN CONEXIÓN - Este pedido NO se ha enviado a cocina.
+<div class="pos-layout" x-data="{ mobileCartOpen: false }">
+    <!-- Offline status warning -->
+    <div wire:offline class="alert alert-danger">
+        ⚠️ <strong>SIN CONEXIÓN:</strong> Este pedido NO se ha enviado a cocina. El envío está temporalmente inhabilitado.
     </div>
 
-    <!-- Feedback messages -->
     @if($successMessage)
         <div class="alert alert-success">
             <span>🎉 {{ $successMessage }}</span>
@@ -467,126 +18,295 @@
         </div>
     @endif
 
-    <!-- 1. Customer Selection Panel -->
-    <div class="glass-panel" style="padding: 1.25rem;">
-        <h2 class="section-title">Cliente</h2>
-        
-        @if(empty($selectedCustomerName))
-            <div class="search-box">
-                <input type="text" 
-                       wire:model.live="searchQuery" 
-                       placeholder="Buscar cliente por nombre o teléfono..." 
-                       class="form-input">
-                <button type="button" wire:click="selectCounterSale" class="btn-secondary">
-                    Mostrador
+    <div class="pos-container">
+        <!-- LEFT PANEL (65% on Desktop) -->
+        <div class="pos-left">
+            <!-- 1. Customer Selection Area -->
+            <div style="background: var(--bg-surface); padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.75rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label class="login-label">Cliente del Pedido</label>
+                    @if($selectedCustomerName)
+                        <button type="button" wire:click="clearCustomer" style="background: transparent; border: none; color: var(--danger); font-size: 0.8rem; font-weight: 600; cursor: pointer;">
+                            ❌ Cambiar cliente
+                        </button>
+                    @endif
+                </div>
+
+                @if(!$selectedCustomerName)
+                    <!-- Search Field -->
+                    <div style="position: relative;">
+                        <input 
+                            type="text" 
+                            wire:model.live.debounce.300ms="searchQuery" 
+                            id="customerSearchInput"
+                            class="login-input" 
+                            placeholder="Buscar cliente por nombre o teléfono (min. 2 letras)..."
+                            autocomplete="off"
+                        >
+                        <!-- Quick Counter Sale Button -->
+                        <button type="button" wire:click="selectCounterSale" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: var(--primary-light); color: var(--primary); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; padding: 4px 10px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
+                            Mostrador
+                        </button>
+                    </div>
+
+                    <!-- Search Results Dropdown -->
+                    @if(count($this->customers) > 0)
+                        <div style="background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; margin-top: 0.25rem; overflow: hidden; z-index: 10; display: flex; flex-direction: column;">
+                            @foreach($this->customers as $cust)
+                                <button type="button" wire:click="selectCustomer({{ $cust->id }})" style="background: transparent; border: none; border-bottom: 1px solid var(--border); padding: 0.75rem 1rem; color: var(--text-main); text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%; transition: background 0.2s;">
+                                    <div>
+                                        <span style="font-weight: 600;">{{ $cust->name }}</span>
+                                        @if($cust->phone) <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">📞 {{ $cust->phone }}</span> @endif
+                                    </div>
+                                    <span style="font-size: 0.75rem; color: var(--primary); font-weight: 700;">Seleccionar</span>
+                                </button>
+                            @endforeach
+                        </div>
+                    @elseif(strlen($searchQuery) >= 2)
+                        <div style="background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; margin-top: 0.25rem; padding: 0.75rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                            No se encontraron clientes activos con "{{ $searchQuery }}".
+                        </div>
+                    @endif
+                @else
+                    <!-- Customer Information Block -->
+                    <div style="background: var(--bg-elevated); border: 1px solid var(--border); padding: 0.85rem 1rem; border-radius: 12px; display: flex; flex-direction: column; gap: 0.25rem;">
+                        <div style="font-weight: 700; font-size: 1rem; color: var(--primary);">
+                            👤 {{ $selectedCustomerName }}
+                        </div>
+                        @if($selectedCustomerPhone)
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">
+                                📞 Teléfono: <span style="color: var(--text-main); font-weight: 500;">{{ $selectedCustomerPhone }}</span>
+                            </div>
+                        @endif
+                        @if($selectedCustomerAddress)
+                            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.15rem;">
+                                📍 Dirección: <span style="color: var(--text-main); font-weight: 500;">{{ $selectedCustomerAddress }}</span>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+            </div>
+
+            <!-- 2. Product Search & Categories Slider -->
+            <div style="background: var(--bg-surface); padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 1rem;">
+                <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                    <div style="flex-grow: 1; min-width: 200px;">
+                        <input 
+                            type="text" 
+                            wire:model.live.debounce.300ms="productSearch" 
+                            id="productSearchInput"
+                            class="login-input" 
+                            placeholder="Buscar producto por nombre..."
+                        >
+                    </div>
+                </div>
+
+                <!-- Horizontal scrollable categories -->
+                <div class="pos-categories">
+                    @foreach($activeCategories as $cat)
+                        <button 
+                            type="button" 
+                            wire:click="selectCategory({{ $cat->id }})" 
+                            class="category-btn {{ $selectedCategoryId === $cat->id && empty($productSearch) ? 'active' : '' }}"
+                        >
+                            {{ $cat->name }}
+                        </button>
+                    @endforeach
+                </div>
+
+                <!-- Products Grid -->
+                <div class="pos-products">
+                    @forelse($categoryProducts as $prod)
+                        <div wire:click="addToCart({{ $prod->id }})" class="pos-product-card">
+                            @if(isset($cart[$prod->id]))
+                                <div class="pos-qty-badge">{{ $cart[$prod->id]['quantity'] }}</div>
+                            @endif
+
+                            @if($prod->image_path)
+                                <img src="{{ asset('storage/' . $prod->image_path) }}" alt="{{ $prod->name }}" class="pos-product-image">
+                            @else
+                                <div class="pos-product-image-placeholder">
+                                    <svg class="pos-product-placeholder-svg" viewBox="0 0 24 24">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                                    </svg>
+                                </div>
+                            @endif
+
+                            <div class="pos-product-info">
+                                <span class="pos-product-name">{{ $prod->name }}</span>
+                                <span class="pos-product-price">${{ number_format($prod->price, 2) }}</span>
+                            </div>
+                        </div>
+                    @empty
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.9rem;">
+                            No hay productos disponibles en esta categoría.
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL (35% on Desktop - Cart Details) -->
+        <div class="pos-right">
+            <div class="pos-cart-panel">
+                <h3 style="font-size: 1.1rem; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+                    Carrito de Compra
+                </h3>
+
+                <div class="pos-cart-items">
+                    @forelse($cart as $item)
+                        <div class="pos-cart-item">
+                            <div class="pos-cart-details">
+                                <span class="pos-cart-name">{{ $item['name'] }}</span>
+                                <span class="pos-cart-sub">${{ number_format($item['price'], 2) }} c/u</span>
+                            </div>
+                            <div class="pos-cart-actions">
+                                <button type="button" wire:click="decrementQty({{ $item['id'] }})" class="pos-qty-btn">-</button>
+                                <span class="pos-qty-val">{{ $item['quantity'] }}</span>
+                                <button type="button" wire:click="incrementQty({{ $item['id'] }})" class="pos-qty-btn">+</button>
+                                <button type="button" wire:click="removeFromCart({{ $item['id'] }})" class="pos-remove-btn">🗑️</button>
+                            </div>
+                        </div>
+                    @empty
+                        <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 2rem 0;">
+                            El carrito está vacío.<br>Agrega productos haciendo clic en ellos.
+                        </div>
+                    @endforelse
+                </div>
+
+                <!-- Notes -->
+                <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                    <label class="login-label" style="font-size: 0.8rem;">Notas del Pedido</label>
+                    <textarea 
+                        wire:model="notes" 
+                        rows="2" 
+                        class="login-input" 
+                        placeholder="Ej. Sin cebolla, entregar rápido..."
+                        style="resize: none; font-size: 0.85rem; padding: 6px 10px;"
+                    ></textarea>
+                </div>
+
+                <!-- Total and Submission -->
+                <div class="pos-cart-footer">
+                    <div class="pos-total-row">
+                        <span>Total:</span>
+                        <span class="pos-total-amount">${{ number_format($this->cartTotal, 2) }}</span>
+                    </div>
+
+                    <button 
+                        type="button" 
+                        wire:click="submitOrder"
+                        wire:loading.attr="disabled"
+                        wire:target="submitOrder"
+                        wire:offline.attr="disabled"
+                        class="btn-pos-submit"
+                        @if(empty($selectedCustomerName) || empty($cart)) disabled @endif
+                    >
+                        <!-- Loading spinner during submission -->
+                        <span wire:loading wire:target="submitOrder" class="spinner"></span>
+                        <span wire:loading.remove wire:target="submitOrder">ENVIAR PEDIDO A COCINA</span>
+                        <span wire:loading wire:target="submitOrder">ENVIANDO PEDIDO...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOBILE STICKY BOTTOM BAR (Visible only on mobile screen widths) -->
+    @if(count($cart) > 0)
+        <div class="mobile-cart-bar">
+            <div class="mobile-cart-bar-info">
+                <span class="mobile-cart-bar-qty">{{ count($cart) }} {{ count($cart) === 1 ? 'producto' : 'productos' }}</span>
+                <span class="mobile-cart-bar-total">${{ number_format($this->cartTotal, 2) }}</span>
+            </div>
+            <button type="button" @click="mobileCartOpen = true" class="btn-mobile-cart-open">
+                VER PEDIDO
+            </button>
+        </div>
+    @endif
+
+    <!-- MOBILE CART BOTTOM SHEET (Visible on click when mobileCartOpen is true) -->
+    <div class="bottom-sheet-overlay" x-show="mobileCartOpen" x-transition.opacity @click.self="mobileCartOpen = false" style="display: none;">
+        <div class="bottom-sheet-content" x-show="mobileCartOpen" x-transition.scale.95>
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+                <span style="font-weight: 700; font-size: 1.1rem;">Resumen del Pedido</span>
+                <button type="button" @click="mobileCartOpen = false" style="background: transparent; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; line-height: 1;">
+                    &times;
                 </button>
             </div>
-            
-            @if(!empty($searchQuery) && count($this->customers) > 0)
-                <ul class="search-results">
-                    @foreach($this->customers as $customer)
-                        <li wire:click="selectCustomer({{ $customer->id }})" class="search-result-item">
-                            <span class="customer-name">{{ $customer->name }}</span>
-                            @if($customer->phone)
-                                <span class="customer-phone">📞 {{ $customer->phone }}</span>
-                            @endif
-                        </li>
-                    @endforeach
-                </ul>
-            @elseif(!empty($searchQuery))
-                <div class="search-results" style="padding: 0.75rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
-                    No se encontraron clientes activos.
-                </div>
-            @endif
-        @else
-            <div class="customer-badge">
-                <div class="customer-badge-info">
-                    <span class="customer-badge-name">👤 {{ $selectedCustomerName }}</span>
-                    @if($selectedCustomerPhone)
-                        <span class="customer-badge-detail">📞 {{ $selectedCustomerPhone }}</span>
-                    @endif
-                    @if($selectedCustomerAddress)
-                        <span class="customer-badge-detail">📍 {{ $selectedCustomerAddress }}</span>
-                    @endif
-                </div>
-                <button type="button" wire:click="clearCustomer" class="btn-clear-customer">Cambiar</button>
-            </div>
-        @endif
-    </div>
 
-    <!-- 2. Horizontal scrolling category chips -->
-    <div class="category-scroll-container">
-        @foreach($activeCategories as $category)
-            <button type="button" 
-                    wire:click="selectCategory({{ $category->id }})" 
-                    class="category-chip {{ $selectedCategoryId === $category->id ? 'active' : '' }}">
-                {{ $category->name }}
-            </button>
-        @endforeach
-    </div>
-
-    <!-- 3. Product Selection Grid -->
-    <div class="products-grid">
-        @forelse($categoryProducts as $product)
-            <div wire:click="addToCart({{ $product->id }})" class="product-card">
-                @if($product->image)
-                    <div class="product-image-container">
-                        <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" class="product-image">
-                    </div>
-                @else
-                    <div class="product-image-placeholder">🍔</div>
-                @endif
-                <div class="product-info">
-                    <span class="product-name">{{ $product->name }}</span>
-                    <span class="product-price">${{ number_format($product->price, 2) }}</span>
-                </div>
-            </div>
-        @empty
-            <div class="no-products">No hay productos activos en esta categoría.</div>
-        @endforelse
-    </div>
-
-    <!-- 4. Shopping Cart -->
-    @if(!empty($cart))
-        <div class="glass-panel cart-section">
-            <h2 class="section-title">Carrito de Compra</h2>
-            <div class="cart-items-list">
+            <!-- Items -->
+            <div style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; max-height: 35vh;">
                 @foreach($cart as $item)
-                    <div class="cart-item">
-                        <div class="cart-item-details">
-                            <span class="cart-item-name">{{ $item['name'] }}</span>
-                            <span class="cart-item-price">${{ number_format($item['price'], 2) }}</span>
+                    <div class="pos-cart-item">
+                        <div class="pos-cart-details">
+                            <span class="pos-cart-name">{{ $item['name'] }}</span>
+                            <span class="pos-cart-sub">${{ number_format($item['price'], 2) }} c/u</span>
                         </div>
-                        <div class="cart-item-actions">
-                            <button type="button" wire:click="decrementQty({{ $item['id'] }})" class="btn-qty">-</button>
-                            <span class="cart-item-qty">{{ $item['quantity'] }}</span>
-                            <button type="button" wire:click="incrementQty({{ $item['id'] }})" class="btn-qty">+</button>
-                            <button type="button" wire:click="removeFromCart({{ $item['id'] }})" class="btn-remove">&times;</button>
+                        <div class="pos-cart-actions">
+                            <button type="button" wire:click="decrementQty({{ $item['id'] }})" class="pos-qty-btn">-</button>
+                            <span class="pos-qty-val">{{ $item['quantity'] }}</span>
+                            <button type="button" wire:click="incrementQty({{ $item['id'] }})" class="pos-qty-btn">+</button>
+                            <button type="button" wire:click="removeFromCart({{ $item['id'] }})" class="pos-remove-btn">🗑️</button>
                         </div>
                     </div>
                 @endforeach
             </div>
-            
-            <div class="notes-container">
-                <textarea wire:model="notes" 
-                          placeholder="Notas especiales para cocina..." 
-                          class="form-textarea" 
-                          rows="2"></textarea>
+
+            <!-- Notes -->
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                <label class="login-label" style="font-size: 0.8rem;">Notas del Pedido</label>
+                <textarea 
+                    wire:model="notes" 
+                    rows="2" 
+                    class="login-input" 
+                    placeholder="Notas adicionales..."
+                    style="resize: none; font-size: 0.85rem;"
+                ></textarea>
             </div>
 
-            <div class="cart-footer">
-                <div class="cart-total-row">
-                    <span>Total Pedido:</span>
-                    <span class="cart-total-amount">${{ number_format($this->cartTotal, 2) }}</span>
+            <!-- Total and send -->
+            <div style="border-top: 1px solid var(--border); padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                <div class="pos-total-row">
+                    <span>Total:</span>
+                    <span class="pos-total-amount">${{ number_format($this->cartTotal, 2) }}</span>
                 </div>
-                
-                <button type="button" 
-                        wire:click="submitOrder" 
-                        wire:offline.attr="disabled"
-                        class="btn-submit-order">
-                    ENVIAR PEDIDO A COCINA
+
+                <button 
+                    type="button" 
+                    wire:click="submitOrder"
+                    wire:loading.attr="disabled"
+                    wire:target="submitOrder"
+                    wire:offline.attr="disabled"
+                    class="btn-pos-submit"
+                    @click="if (loginForm.checkValidity()) mobileCartOpen = false"
+                >
+                    <span wire:loading wire:target="submitOrder" class="spinner"></span>
+                    <span wire:loading.remove wire:target="submitOrder">ENVIAR PEDIDO A COCINA</span>
+                    <span wire:loading wire:target="submitOrder">ENVIANDO PEDIDO...</span>
                 </button>
             </div>
         </div>
-    @endif
+    </div>
+
+    <!-- Scripts to handle focuses from component emits -->
+    <script>
+        document.addEventListener('livewire:init', () => {
+            Livewire.on('focus-search-customer', () => {
+                const el = document.getElementById('customerSearchInput');
+                if(el) {
+                    el.value = '';
+                    el.focus();
+                }
+            });
+
+            Livewire.on('focus-search-product', () => {
+                const el = document.getElementById('productSearchInput');
+                if(el) {
+                    el.value = '';
+                    el.focus();
+                }
+            });
+        });
+    </script>
 </div>

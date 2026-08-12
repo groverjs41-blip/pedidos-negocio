@@ -7,6 +7,7 @@ use App\Models\User;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -24,6 +25,8 @@ class UserResource extends Resource
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-users';
 
+    protected static \UnitEnum|string|null $navigationGroup = 'Administración';
+
     protected static ?string $modelLabel = 'Usuario';
     protected static ?string $pluralModelLabel = 'Usuarios';
 
@@ -31,33 +34,41 @@ class UserResource extends Resource
     {
         return $schema
             ->components([
-                TextInput::make('name')
-                    ->required()
-                    ->maxLength(255)
-                    ->label('Nombre'),
-                TextInput::make('email')
-                    ->email()
-                    ->required()
-                    ->maxLength(255)
-                    ->unique(ignoreRecord: true)
-                    ->label('Correo Electrónico'),
-                Toggle::make('active')
-                    ->required()
-                    ->default(true)
-                    ->label('Activo'),
-                Select::make('roles')
-                    ->relationship('roles', 'name')
-                    ->multiple()
-                    ->preload()
-                    ->label('Roles'),
-                TextInput::make('password')
-                    ->password()
-                    ->dehydrated(fn ($state) => filled($state))
-                    ->dehydrateStateUsing(fn ($state) => Hash::make($state))
-                    ->required(fn (string $context): bool => $context === 'create')
-                    ->maxLength(255)
-                    ->label('Contraseña')
-                    ->placeholder(fn (string $context): string => $context === 'edit' ? 'Dejar en blanco para no cambiar' : ''),
+                Grid::make(2)
+                    ->schema([
+                        TextInput::make('name')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Nombre')
+                            ->columnSpan(1),
+                        TextInput::make('email')
+                            ->email()
+                            ->required()
+                            ->maxLength(255)
+                            ->unique(ignoreRecord: true)
+                            ->label('Correo Electrónico')
+                            ->columnSpan(1),
+                        Select::make('roles')
+                            ->relationship('roles', 'name')
+                            ->multiple()
+                            ->preload()
+                            ->label('Roles')
+                            ->columnSpan(1),
+                        Toggle::make('active')
+                            ->required()
+                            ->default(true)
+                            ->label('Activo')
+                            ->columnSpan(1),
+                        TextInput::make('password')
+                            ->password()
+                            ->dehydrated(fn ($state) => filled($state))
+                            ->dehydrateStateUsing(fn ($state) => Hash::make($state))
+                            ->required(fn (string $context): bool => $context === 'create')
+                            ->maxLength(255)
+                            ->label('Contraseña')
+                            ->placeholder(fn (string $context): string => $context === 'edit' ? 'Dejar en blanco para no cambiar' : '')
+                            ->columnSpan(2),
+                    ]),
             ]);
     }
 

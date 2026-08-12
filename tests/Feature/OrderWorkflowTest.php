@@ -63,6 +63,37 @@ class OrderWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_filament_resource_pages_redirect_to_index_and_disable_create_another(): void
+    {
+        $this->assertFalse($this->getProtectedProperty(\App\Filament\Resources\CustomerResource\Pages\CreateCustomer::class, 'canCreateAnother'));
+        $this->assertFalse($this->getProtectedProperty(\App\Filament\Resources\UserResource\Pages\CreateUser::class, 'canCreateAnother'));
+        $this->assertFalse($this->getProtectedProperty(\App\Filament\Resources\CategoryResource\Pages\CreateCategory::class, 'canCreateAnother'));
+        $this->assertFalse($this->getProtectedProperty(\App\Filament\Resources\ProductResource\Pages\CreateProduct::class, 'canCreateAnother'));
+
+        $createCustomerPage = new \App\Filament\Resources\CustomerResource\Pages\CreateCustomer();
+        $redirectUrl = $this->invokeProtectedMethod($createCustomerPage, 'getRedirectUrl');
+        $this->assertEquals(
+            \App\Filament\Resources\CustomerResource::getUrl('index'),
+            $redirectUrl
+        );
+    }
+
+    protected function getProtectedProperty(string $class, string $propertyName)
+    {
+        $reflection = new \ReflectionClass($class);
+        $property = $reflection->getProperty($propertyName);
+        $property->setAccessible(true);
+        return $property->getValue();
+    }
+
+    protected function invokeProtectedMethod($object, string $methodName, array $parameters = [])
+    {
+        $reflection = new \ReflectionClass(get_class($object));
+        $method = $reflection->getMethod($methodName);
+        $method->setAccessible(true);
+        return $method->invokeArgs($object, $parameters);
+    }
+
     /**
      * Test order creation increments the daily number correctly.
      */
@@ -325,5 +356,143 @@ class OrderWorkflowTest extends TestCase
         Event::assertDispatched(OrderChanged::class, function ($event) use ($order) {
             return $event->orderId === (string) $order->id && $event->status === OrderStatus::PREPARING->value;
         });
+    }
+
+    /**
+     * Test Livewire CreateOrder reset on success.
+     */
+    public function test_livewire_create_order_resets_form_upon_success(): void
+    {
+        $customer = Customer::factory()->create(['active' => true]);
+        
+        \Livewire\Livewire::actingAs($this->pedidosUser)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->set('selectedCustomerId', $customer->id)
+            ->set('selectedCustomerName', $customer->name)
+            ->set('cart', [
+                $this->activeProduct->id => [
+                    'id' => $this->activeProduct->id,
+                    'name' => $this->activeProduct->name,
+                    'price' => (string) $this->activeProduct->price,
+                    'quantity' => 2,
+                ]
+            ])
+            ->set('notes', 'Extra ketchup')
+            ->call('submitOrder')
+            ->assertSet('cart', [])
+            ->assertSet('selectedCustomerId', null)
+            ->assertSet('selectedCustomerName', '')
+            ->assertSet('notes', '');
+    }
+
+    /**
+     * Test submission token prevents duplicate order creations.
+     */
+    public function test_idempotent_submission_token_prevents_duplicates(): void
+    {
+        $token = \Illuminate\Support\Str::uuid()->toString();
+
+        $order1 = $this->orderService->createOrder([
+            'submission_token' => $token,
+            'items' => [['product_id' => $this->activeProduct->id, 'quantity' => 1]]
+        ], $this->pedidosUser);
+
+        $order2 = $this->orderService->createOrder([
+            'submission_token' => $token,
+            'items' => [['product_id' => $this->activeProduct->id, 'quantity' => 1]]
+        ], $this->pedidosUser);
+
+        $this->assertEquals($order1->id, $order2->id);
+        $this->assertEquals(1, Order::where('submission_token', $token)->count());
+    }
+
+    /**
+     * Test that order in PREPARING state cannot be edited.
+     */
+    public function test_order_preparing_cannot_be_edited(): void
+    {
+        $order = $this->orderService->createOrder([
+            'items' => [['product_id' => $this->activeProduct->id, 'quantity' => 1]]
+        ], $this->pedidosUser);
+
+        $this->orderService->startPreparing($order, $this->cocinaUser);
+
+        $this->expectException(\Exception::class);
+        $this->orderService->updateNewOrder($order, [
+            'items' => [['product_id' => $this->activeProduct->id, 'quantity' => 2]]
+        ], $this->pedidosUser);
+    }
+
+    /**
+     * Test rendering Kitchen view when there is a NEW order.
+     */
+    public function test_kitchen_renders_successfully_with_new_order(): void
+    {
+        $order = $this->orderService->createOrder([
+            'items' => [['product_id' => $this->activeProduct->id, 'quantity' => 1]]
+        ], $this->pedidosUser);
+
+        \Livewire\Livewire::actingAs($this->cocinaUser)
+            ->test(\App\Livewire\Kitchen::class)
+            ->assertSee($order->number);
+    }
+
+    /**
+     * Test rendering ListOrders and opening Detail Modal.
+     */
+    public function test_list_orders_modal_detail_renders(): void
+    {
+        $order = $this->orderService->createOrder([
+            'items' => [['product_id' => $this->activeProduct->id, 'quantity' => 1]]
+        ], $this->pedidosUser);
+
+        \Livewire\Livewire::actingAs($this->pedidosUser)
+            ->test(\App\Livewire\ListOrders::class)
+            ->call('viewOrder', $order->id)
+            ->assertSee($order->number);
+    }
+
+    /**
+     * Test cancellation records correct from_status history.
+     */
+    public function test_cancellation_saves_correct_from_status_history(): void
+    {
+        $order = $this->orderService->createOrder([
+            'items' => [['product_id' => $this->activeProduct->id, 'quantity' => 1]]
+        ], $this->pedidosUser);
+
+        $this->orderService->startPreparing($order, $this->cocinaUser);
+        $this->orderService->cancelOrder($order, $this->adminUser, 'Testing cancellation');
+
+        $history = $order->histories()->where('to_status', OrderStatus::CANCELLED)->first();
+        $this->assertNotNull($history);
+        $this->assertEquals(OrderStatus::PREPARING, $history->from_status);
+        $this->assertEquals(OrderStatus::CANCELLED, $history->to_status);
+    }
+
+    /**
+     * Test decimal arithmetic exact precision.
+     */
+    public function test_exact_decimal_arithmetic_with_bcmath(): void
+    {
+        $prod1 = Product::factory()->create([
+            'category_id' => $this->activeCategory->id,
+            'active' => true,
+            'price' => 0.10,
+        ]);
+        $prod2 = Product::factory()->create([
+            'category_id' => $this->activeCategory->id,
+            'active' => true,
+            'price' => 0.20,
+        ]);
+
+        $order = $this->orderService->createOrder([
+            'items' => [
+                ['product_id' => $prod1->id, 'quantity' => 3],
+                ['product_id' => $prod2->id, 'quantity' => 3],
+            ]
+        ], $this->pedidosUser);
+
+        $this->assertEquals('0.90', (string) $order->total);
     }
 }

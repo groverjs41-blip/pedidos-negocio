@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\Product;
 use App\Services\OrderService;
 use Livewire\Component;
+use Illuminate\Support\Str;
 
 class CreateOrder extends Component
 {
@@ -17,6 +18,7 @@ class CreateOrder extends Component
     public string $selectedCustomerAddress = '';
     
     public ?int $selectedCategoryId = null;
+    public string $productSearch = '';
     
     public array $cart = []; // Structure: [product_id => [id, name, price, quantity]]
     public string $notes = '';
@@ -24,13 +26,26 @@ class CreateOrder extends Component
     public ?string $successMessage = null;
     public ?string $errorMessage = null;
 
+    // Idempotency token
+    public string $submissionToken = '';
+
     public function mount(): void
     {
+        $this->generateSubmissionToken();
+
         // Select first active category by default if available
         $firstCategory = Category::where('active', true)->orderBy('sort_order')->orderBy('name')->first();
         if ($firstCategory) {
             $this->selectedCategoryId = $firstCategory->id;
         }
+    }
+
+    /**
+     * Generate a new submission UUID.
+     */
+    protected function generateSubmissionToken(): void
+    {
+        $this->submissionToken = Str::uuid()->toString();
     }
 
     /**
@@ -64,6 +79,8 @@ class CreateOrder extends Component
             $this->selectedCustomerAddress = $customer->address ?? '';
             $this->searchQuery = '';
             $this->errorMessage = null;
+            
+            $this->dispatch('focus-search-product');
         }
     }
 
@@ -78,6 +95,8 @@ class CreateOrder extends Component
         $this->selectedCustomerAddress = '';
         $this->searchQuery = '';
         $this->errorMessage = null;
+        
+        $this->dispatch('focus-search-product');
     }
 
     /**
@@ -89,6 +108,7 @@ class CreateOrder extends Component
         $this->selectedCustomerName = '';
         $this->selectedCustomerPhone = '';
         $this->selectedCustomerAddress = '';
+        $this->dispatch('focus-search-customer');
     }
 
     /**
@@ -97,6 +117,7 @@ class CreateOrder extends Component
     public function selectCategory(int $id): void
     {
         $this->selectedCategoryId = $id;
+        $this->productSearch = ''; // Clear search when switching categories
     }
 
     /**
@@ -121,7 +142,7 @@ class CreateOrder extends Component
             $this->cart[$productId] = [
                 'id' => $product->id,
                 'name' => $product->name,
-                'price' => (float) $product->price,
+                'price' => (string) $product->price,
                 'quantity' => 1,
             ];
         }
@@ -152,13 +173,14 @@ class CreateOrder extends Component
     }
 
     /**
-     * Get grand total of the cart.
+     * Get grand total of the cart using precise bcmath scaling.
      */
-    public function getCartTotalProperty(): float
+    public function getCartTotalProperty(): string
     {
-        $total = 0.0;
+        $total = '0.00';
         foreach ($this->cart as $item) {
-            $total += $item['price'] * $item['quantity'];
+            $line = bcmul((string) $item['quantity'], (string) $item['price'], 2);
+            $total = bcadd($total, $line, 2);
         }
         return $total;
     }
@@ -179,7 +201,6 @@ class CreateOrder extends Component
         }
 
         try {
-            // Reformat items array for service layer
             $items = [];
             foreach ($this->cart as $item) {
                 $items[] = [
@@ -189,6 +210,7 @@ class CreateOrder extends Component
             }
 
             $order = $orderService->createOrder([
+                'submission_token' => $this->submissionToken,
                 'customer_id' => $this->selectedCustomerId,
                 'notes' => $this->notes,
                 'items' => $items,
@@ -196,11 +218,22 @@ class CreateOrder extends Component
 
             $this->successMessage = "Pedido {$order->number} enviado a cocina.";
             
-            // Reset state
-            $this->clearCustomer();
+            // 1. Reset state completely
+            $this->selectedCustomerId = null;
+            $this->selectedCustomerName = '';
+            $this->selectedCustomerPhone = '';
+            $this->selectedCustomerAddress = '';
+            $this->searchQuery = '';
+            $this->productSearch = '';
             $this->cart = [];
             $this->notes = '';
             $this->errorMessage = null;
+
+            // 2. Generate a new token for subsequent order
+            $this->generateSubmissionToken();
+
+            // 3. Dispatch refocus browser event
+            $this->dispatch('focus-search-customer');
 
         } catch (\InvalidArgumentException $e) {
             $this->errorMessage = $e->getMessage();
@@ -211,11 +244,21 @@ class CreateOrder extends Component
 
     public function render()
     {
+        // Search globally if query provided, else filter by selected category
+        if (!empty($this->productSearch)) {
+            $products = Product::where('active', true)
+                ->where('name', 'like', '%' . $this->productSearch . '%')
+                ->orderBy('name')
+                ->get();
+        } else {
+            $products = $this->selectedCategoryId 
+                ? Product::where('category_id', $this->selectedCategoryId)->where('active', true)->orderBy('name')->get() 
+                : [];
+        }
+
         return view('livewire.create-order', [
             'activeCategories' => Category::where('active', true)->orderBy('sort_order')->orderBy('name')->get(),
-            'categoryProducts' => $this->selectedCategoryId 
-                ? Product::where('category_id', $this->selectedCategoryId)->where('active', true)->orderBy('name')->get() 
-                : [],
+            'categoryProducts' => $products,
         ])->title('Nuevo Pedido');
     }
 }

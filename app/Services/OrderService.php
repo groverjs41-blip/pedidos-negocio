@@ -16,9 +16,10 @@ use Illuminate\Support\Facades\DB;
 class OrderService
 {
     /**
-     * Create a new order.
+     * Create a new order with idempotency token check.
      *
      * @param  array  $data  Structure: [
+     *   'submission_token' => ?string,
      *   'customer_id' => ?int,
      *   'notes' => ?string,
      *   'items' => [
@@ -32,118 +33,143 @@ class OrderService
      */
     public function createOrder(array $data, User $creator): Order
     {
+        // 1. Idempotency check prior to database transaction
+        if (!empty($data['submission_token'])) {
+            $existing = Order::where('submission_token', $data['submission_token'])->first();
+            if ($existing) {
+                return $existing;
+            }
+        }
+
         if (empty($data['items'])) {
             throw new \InvalidArgumentException('El pedido debe tener al menos un producto.');
         }
 
-        $order = DB::transaction(function () use ($data, $creator) {
-            $customer = null;
-            if (!empty($data['customer_id'])) {
-                $customer = Customer::where('id', $data['customer_id'])->where('active', true)->first();
-                if (!$customer) {
-                    throw new \InvalidArgumentException('El cliente seleccionado está inactivo o no existe.');
+        try {
+            $order = DB::transaction(function () use ($data, $creator) {
+                // Secondary check with lock inside the transaction
+                if (!empty($data['submission_token'])) {
+                    $existing = Order::where('submission_token', $data['submission_token'])->lockForUpdate()->first();
+                    if ($existing) {
+                        return $existing;
+                    }
+                }
+
+                $customer = null;
+                if (!empty($data['customer_id'])) {
+                    $customer = Customer::where('id', $data['customer_id'])->where('active', true)->first();
+                    if (!$customer) {
+                        throw new \InvalidArgumentException('El cliente seleccionado está inactivo o no existe.');
+                    }
+                }
+
+                // 2. Generate Order Number atomically
+                $dateToday = now()->format('Y-m-d');
+                $nextNumber = $this->getNextDailyNumber($dateToday);
+                $numberString = now()->format('Ymd') . '-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+
+                // 3. Validate products and calculate totals using bcmath (no floats)
+                $subtotal = '0.00';
+                $itemsToCreate = [];
+
+                foreach ($data['items'] as $itemData) {
+                    $qty = (int) ($itemData['quantity'] ?? 0);
+                    if ($qty < 1) {
+                        throw new \InvalidArgumentException('La cantidad de cada producto debe ser al menos 1.');
+                    }
+
+                    $product = Product::where('id', $itemData['product_id'])
+                        ->where('active', true)
+                        ->first();
+
+                    if (!$product) {
+                        throw new \InvalidArgumentException('Uno de los productos seleccionados no existe o está inactivo.');
+                    }
+
+                    if (!$product->category->active) {
+                        throw new \InvalidArgumentException("La categoría '{$product->category->name}' está inactiva y no se puede vender.");
+                    }
+
+                    // Precise calculation with scale 2
+                    $lineTotal = bcmul((string) $qty, (string) $product->price, 2);
+                    $subtotal = bcadd($subtotal, $lineTotal, 2);
+
+                    $itemsToCreate[] = [
+                        'product_id' => $product->id,
+                        'product_name' => $product->name,
+                        'quantity' => $qty,
+                        'unit_price' => $product->price,
+                        'unit_cost_snapshot' => $product->estimated_cost,
+                        'line_total' => $lineTotal,
+                    ];
+                }
+
+                // 4. Create Order
+                $order = Order::create([
+                    'number' => $numberString,
+                    'submission_token' => $data['submission_token'] ?? null,
+                    'customer_id' => $customer?->id,
+                    'customer_name_snapshot' => $customer?->name,
+                    'customer_phone_snapshot' => $customer?->phone,
+                    'delivery_address_snapshot' => $customer?->address,
+                    'status' => OrderStatus::NEW,
+                    'subtotal' => $subtotal,
+                    'total' => $subtotal,
+                    'notes' => $data['notes'] ?? null,
+                    'created_by' => $creator->id,
+                    'ordered_at' => now(),
+                ]);
+
+                // 5. Create Items
+                foreach ($itemsToCreate as $itemFields) {
+                    $itemFields['order_id'] = $order->id;
+                    OrderItem::create($itemFields);
+                }
+
+                // 6. Log History
+                OrderStatusHistory::create([
+                    'order_id' => $order->id,
+                    'from_status' => null,
+                    'to_status' => OrderStatus::NEW,
+                    'user_id' => $creator->id,
+                    'notes' => 'Pedido creado.',
+                ]);
+
+                return $order;
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Catch concurrent duplicate key exception for submission_token
+            if ($e->getCode() == '23000' && !empty($data['submission_token'])) {
+                $existing = Order::where('submission_token', $data['submission_token'])->first();
+                if ($existing) {
+                    return $existing;
                 }
             }
+            throw $e;
+        }
 
-            // 1. Generate Order Number atomatically
-            $dateToday = now()->format('Y-m-d');
-            $nextNumber = $this->getNextDailyNumber($dateToday);
-            $numberString = now()->format('Ymd') . '-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
-
-            // 2. Fetch and Validate products, calculate totals
-            $subtotal = 0.00;
-            $itemsToCreate = [];
-
-            foreach ($data['items'] as $itemData) {
-                $qty = (int) ($itemData['quantity'] ?? 0);
-                if ($qty < 1) {
-                    throw new \InvalidArgumentException('La cantidad de cada producto debe ser al menos 1.');
-                }
-
-                $product = Product::where('id', $itemData['product_id'])
-                    ->where('active', true)
-                    ->first();
-
-                if (!$product) {
-                    throw new \InvalidArgumentException('Uno de los productos seleccionados no existe o está inactivo.');
-                }
-
-                if (!$product->category->active) {
-                    throw new \InvalidArgumentException("La categoría '{$product->category->name}' está inactiva y no se puede vender.");
-                }
-
-                $lineTotal = $qty * $product->price;
-                $subtotal += $lineTotal;
-
-                $itemsToCreate[] = [
-                    'product_id' => $product->id,
-                    'product_name' => $product->name,
-                    'quantity' => $qty,
-                    'unit_price' => $product->price,
-                    'unit_cost_snapshot' => $product->estimated_cost,
-                    'line_total' => $lineTotal,
-                ];
-            }
-
-            // 3. Create Order
-            $order = Order::create([
-                'number' => $numberString,
-                'customer_id' => $customer?->id,
-                'customer_name_snapshot' => $customer?->name,
-                'customer_phone_snapshot' => $customer?->phone,
-                'delivery_address_snapshot' => $customer?->address,
-                'status' => OrderStatus::NEW,
-                'subtotal' => $subtotal,
-                'total' => $subtotal, // Subtotal equals total for now
-                'notes' => $data['notes'] ?? null,
-                'created_by' => $creator->id,
-                'ordered_at' => now(),
-            ]);
-
-            // 4. Create Items
-            foreach ($itemsToCreate as $itemFields) {
-                $itemFields['order_id'] = $order->id;
-                OrderItem::create($itemFields);
-            }
-
-            // 5. Log History
-            OrderStatusHistory::create([
-                'order_id' => $order->id,
-                'from_status' => null,
-                'to_status' => OrderStatus::NEW,
-                'user_id' => $creator->id,
-                'notes' => 'Pedido creado.',
-            ]);
-
-            return $order;
-        });
-
-        // 6. Broadcast event outside transaction
-        broadcast(new OrderChanged($order, null))->toOthers();
+        // 7. Dispatch Event Safely after commit
+        $this->broadcastOrderChanged($order, null);
 
         return $order;
     }
 
     /**
      * Update an existing NEW order.
-     *
-     * @param  Order  $order
-     * @param  array  $data
-     * @param  User  $user
-     * @return void
-     * @throws \Exception
      */
     public function updateNewOrder(Order $order, array $data, User $user): void
     {
-        if ($order->status !== OrderStatus::NEW) {
-            throw new \Exception('Solo se pueden editar pedidos con estado "Nuevo".');
-        }
-
         if (empty($data['items'])) {
             throw new \InvalidArgumentException('El pedido debe tener al menos un producto.');
         }
 
         DB::transaction(function () use ($order, $data, $user) {
+            $lockedOrder = Order::where('id', $order->id)->lockForUpdate()->firstOrFail();
+
+            if ($lockedOrder->status !== OrderStatus::NEW) {
+                throw new \Exception('Solo se pueden editar pedidos con estado "Nuevo".');
+            }
+
             $customer = null;
             if (!empty($data['customer_id'])) {
                 $customer = Customer::where('id', $data['customer_id'])->where('active', true)->first();
@@ -152,7 +178,7 @@ class OrderService
                 }
             }
 
-            $subtotal = 0.00;
+            $subtotal = '0.00';
             $itemsToCreate = [];
 
             foreach ($data['items'] as $itemData) {
@@ -173,8 +199,8 @@ class OrderService
                     throw new \InvalidArgumentException("La categoría '{$product->category->name}' está inactiva.");
                 }
 
-                $lineTotal = $qty * $product->price;
-                $subtotal += $lineTotal;
+                $lineTotal = bcmul((string) $qty, (string) $product->price, 2);
+                $subtotal = bcadd($subtotal, $lineTotal, 2);
 
                 $itemsToCreate[] = [
                     'product_id' => $product->id,
@@ -187,16 +213,16 @@ class OrderService
             }
 
             // Remove old items
-            $order->items()->delete();
+            $lockedOrder->items()->delete();
 
             // Create new items
             foreach ($itemsToCreate as $itemFields) {
-                $itemFields['order_id'] = $order->id;
+                $itemFields['order_id'] = $lockedOrder->id;
                 OrderItem::create($itemFields);
             }
 
             // Update order totals and notes
-            $order->update([
+            $lockedOrder->update([
                 'customer_id' => $customer?->id,
                 'customer_name_snapshot' => $customer?->name,
                 'customer_phone_snapshot' => $customer?->phone,
@@ -207,7 +233,7 @@ class OrderService
             ]);
 
             OrderStatusHistory::create([
-                'order_id' => $order->id,
+                'order_id' => $lockedOrder->id,
                 'from_status' => OrderStatus::NEW,
                 'to_status' => OrderStatus::NEW,
                 'user_id' => $user->id,
@@ -215,7 +241,7 @@ class OrderService
             ]);
         });
 
-        broadcast(new OrderChanged($order, OrderStatus::NEW->value))->toOthers();
+        $this->broadcastOrderChanged($order, OrderStatus::NEW->value);
     }
 
     /**
@@ -247,7 +273,7 @@ class OrderService
         });
 
         $order->refresh();
-        broadcast(new OrderChanged($order, $previousStatus->value))->toOthers();
+        $this->broadcastOrderChanged($order, $previousStatus->value);
     }
 
     /**
@@ -279,7 +305,7 @@ class OrderService
         });
 
         $order->refresh();
-        broadcast(new OrderChanged($order, $previousStatus->value))->toOthers();
+        $this->broadcastOrderChanged($order, $previousStatus->value);
     }
 
     /**
@@ -312,7 +338,7 @@ class OrderService
         });
 
         $order->refresh();
-        broadcast(new OrderChanged($order, $previousStatus->value))->toOthers();
+        $this->broadcastOrderChanged($order, $previousStatus->value);
     }
 
     /**
@@ -348,7 +374,7 @@ class OrderService
         });
 
         $order->refresh();
-        broadcast(new OrderChanged($order, $previousStatus->value))->toOthers();
+        $this->broadcastOrderChanged($order, $previousStatus->value);
     }
 
     /**
@@ -369,6 +395,9 @@ class OrderService
                 throw new \Exception('Solo los administradores pueden cancelar un pedido que ya está en reparto.');
             }
 
+            // Save state before modification to avoid logging CANCELLED -> CANCELLED
+            $fromStatus = $lockedOrder->status;
+
             $lockedOrder->update([
                 'status' => OrderStatus::CANCELLED,
                 'cancelled_at' => now(),
@@ -376,7 +405,7 @@ class OrderService
 
             OrderStatusHistory::create([
                 'order_id' => $lockedOrder->id,
-                'from_status' => $lockedOrder->status,
+                'from_status' => $fromStatus,
                 'to_status' => OrderStatus::CANCELLED,
                 'user_id' => $user->id,
                 'notes' => $reason ?? 'Pedido cancelado.',
@@ -384,7 +413,19 @@ class OrderService
         });
 
         $order->refresh();
-        broadcast(new OrderChanged($order, $previousStatus->value))->toOthers();
+        $this->broadcastOrderChanged($order, $previousStatus->value);
+    }
+
+    /**
+     * Safe broadcast loop wrapped in a try/catch.
+     */
+    protected function broadcastOrderChanged(Order $order, ?string $previousStatus = null): void
+    {
+        try {
+            broadcast(new OrderChanged($order, $previousStatus))->toOthers();
+        } catch (\Throwable $e) {
+            logger()->warning("Broadcast of OrderChanged failed for order number: {$order->number}. Message: " . $e->getMessage());
+        }
     }
 
     /**

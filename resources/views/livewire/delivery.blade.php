@@ -1,30 +1,8 @@
-<div wire:poll.15s class="delivery-layout">
+<div wire:poll.15s class="delivery-layout" style="max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; width: 100%;">
     <style>
-        .delivery-layout {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-            max-width: 600px;
-            margin: 0 auto;
-            width: 100%;
-        }
-
-        .delivery-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 0.5rem;
-        }
-
-        .delivery-title {
-            font-size: 1.4rem;
-            font-weight: 700;
-        }
-
         .section-heading {
             font-size: 1.1rem;
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text-main);
             margin-bottom: 0.75rem;
             display: flex;
@@ -32,25 +10,8 @@
             align-items: center;
         }
 
-        .delivery-badge-count {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            border-radius: 99px;
-            padding: 2px 8px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .delivery-badge-count.active {
-            background: rgba(168, 85, 247, 0.15);
-            color: #d8b4fe;
-            border-color: rgba(168, 85, 247, 0.3);
-        }
-
-        /* Delivery Card */
         .delivery-card {
-            background: var(--panel-bg);
+            background: var(--bg-surface);
             border: 1px solid var(--border);
             border-radius: 20px;
             padding: 1.25rem;
@@ -59,9 +20,9 @@
             gap: 0.75rem;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
         }
-
         .delivery-card.my-delivery {
-            border-color: rgba(168, 85, 247, 0.25);
+            border-color: rgba(168, 85, 247, 0.3);
+            background: var(--bg-elevated);
         }
 
         .delivery-card-header {
@@ -71,52 +32,17 @@
             border-bottom: 1px solid var(--border);
             padding-bottom: 0.5rem;
         }
+        .delivery-order-number { font-size: 1.15rem; font-weight: 800; }
+        .delivery-time { font-size: 0.75rem; color: var(--text-muted); }
 
-        .delivery-order-number {
-            font-size: 1.1rem;
-            font-weight: 700;
-        }
+        .delivery-info-group { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.95rem; }
+        .info-row { display: flex; gap: 0.5rem; align-items: flex-start; }
+        .info-label { color: var(--text-muted); min-width: 20px; }
+        .info-value { color: var(--text-main); font-weight: 500; }
 
-        .delivery-time {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
+        .phone-link { color: var(--primary); text-decoration: none; font-weight: 700; }
+        .phone-link:hover { text-decoration: underline; }
 
-        /* Info rows */
-        .delivery-info-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.35rem;
-            font-size: 0.95rem;
-        }
-
-        .info-row {
-            display: flex;
-            gap: 0.5rem;
-            align-items: flex-start;
-        }
-
-        .info-label {
-            color: var(--text-muted);
-            min-width: 20px;
-        }
-
-        .info-value {
-            color: var(--text-main);
-            font-weight: 500;
-        }
-
-        .phone-link {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .phone-link:hover {
-            text-decoration: underline;
-        }
-
-        /* Items summary */
         .delivery-items-summary {
             font-size: 0.85rem;
             color: var(--text-muted);
@@ -125,11 +51,10 @@
             border-radius: 8px;
         }
 
-        /* Actions */
         .btn-delivery-action {
             width: 100%;
             border: none;
-            padding: 0.8rem;
+            padding: 0.85rem;
             border-radius: 12px;
             font-family: inherit;
             font-size: 0.95rem;
@@ -138,29 +63,16 @@
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
             transition: all 0.2s;
         }
-
-        .btn-claim {
-            background: var(--info);
-            color: #0f172a;
-        }
-
-        .btn-claim:hover {
-            background: #2563eb;
-        }
-
-        .btn-deliver {
-            background: var(--success);
-            color: #0f172a;
-        }
-
-        .btn-deliver:hover {
-            background: #059669;
-        }
+        .btn-claim { background: var(--info); color: #0b1220; }
+        .btn-claim:hover { background: #2563eb; }
+        .btn-deliver { background: var(--success); color: #0b1220; }
+        .btn-deliver:hover { background: #059669; }
+        .btn-delivery-action:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .no-delivery-orders {
             text-align: center;
             padding: 2rem;
-            background: var(--panel-bg);
+            background: var(--bg-surface);
             border-radius: 16px;
             border: 1px solid var(--border);
             color: var(--text-muted);
@@ -182,15 +94,15 @@
         </div>
     @endif
 
-    <div class="delivery-header">
-        <h1 class="delivery-title">🛵 Panel de Reparto</h1>
+    <div style="border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
+        <h1 style="font-size: 1.35rem; font-weight: 700;">🛵 Panel de Reparto</h1>
     </div>
 
     <!-- Section 1: Mis Entregas (Claimed by current user) -->
     <div>
         <h2 class="section-heading">
             <span>Mis Repartos Activos</span>
-            <span class="delivery-badge-count active">{{ count($myDeliveries) }}</span>
+            <span class="delivery-badge-count active" style="font-size: 0.85rem; padding: 2px 10px;">{{ count($myDeliveries) }}</span>
         </h2>
         
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
@@ -246,8 +158,12 @@
                     <div>
                         <button type="button" 
                                 wire:click="markOrderDelivered({{ $order->id }})" 
+                                wire:loading.attr="disabled"
+                                wire:target="markOrderDelivered({{ $order->id }})"
                                 class="btn-delivery-action btn-deliver">
-                            MARCAR COMO ENTREGADO
+                            <span wire:loading wire:target="markOrderDelivered({{ $order->id }})" class="spinner"></span>
+                            <span wire:loading.remove wire:target="markOrderDelivered({{ $order->id }})">MARCAR COMO ENTREGADO</span>
+                            <span wire:loading wire:target="markOrderDelivered({{ $order->id }})">Procesando...</span>
                         </button>
                     </div>
                 </div>
@@ -263,7 +179,7 @@
     <div>
         <h2 class="section-heading">
             <span>Pedidos Listos para Retirar</span>
-            <span class="delivery-badge-count">{{ count($readyOrders) }}</span>
+            <span class="delivery-badge-count" style="font-size: 0.85rem; padding: 2px 10px;">{{ count($readyOrders) }}</span>
         </h2>
         
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
@@ -297,8 +213,12 @@
                     <div>
                         <button type="button" 
                                 wire:click="claimOrder({{ $order->id }})" 
+                                wire:loading.attr="disabled"
+                                wire:target="claimOrder({{ $order->id }})"
                                 class="btn-delivery-action btn-claim">
-                            TOMAR PEDIDO (REPARTIR)
+                            <span wire:loading wire:target="claimOrder({{ $order->id }})" class="spinner"></span>
+                            <span wire:loading.remove wire:target="claimOrder({{ $order->id }})">TOMAR PEDIDO (REPARTIR)</span>
+                            <span wire:loading wire:target="claimOrder({{ $order->id }})">Procesando...</span>
                         </button>
                     </div>
                 </div>

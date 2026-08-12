@@ -20,6 +20,7 @@ class EditOrder extends Component
     public string $selectedCustomerAddress = '';
     
     public ?int $selectedCategoryId = null;
+    public string $productSearch = '';
     
     public array $cart = []; // Structure: [product_id => [id, name, price, quantity]]
     public string $notes = '';
@@ -46,7 +47,7 @@ class EditOrder extends Component
                 $this->cart[$item->product_id] = [
                     'id' => $item->product_id,
                     'name' => $item->product_name,
-                    'price' => (float) $item->unit_price,
+                    'price' => (string) $item->unit_price,
                     'quantity' => $item->quantity,
                 ];
             }
@@ -86,6 +87,8 @@ class EditOrder extends Component
             $this->selectedCustomerAddress = $customer->address ?? '';
             $this->searchQuery = '';
             $this->errorMessage = null;
+            
+            $this->dispatch('focus-search-product');
         }
     }
 
@@ -97,6 +100,8 @@ class EditOrder extends Component
         $this->selectedCustomerAddress = '';
         $this->searchQuery = '';
         $this->errorMessage = null;
+        
+        $this->dispatch('focus-search-product');
     }
 
     public function clearCustomer(): void
@@ -105,11 +110,13 @@ class EditOrder extends Component
         $this->selectedCustomerName = '';
         $this->selectedCustomerPhone = '';
         $this->selectedCustomerAddress = '';
+        $this->dispatch('focus-search-customer');
     }
 
     public function selectCategory(int $id): void
     {
         $this->selectedCategoryId = $id;
+        $this->productSearch = ''; // Clear search when switching categories
     }
 
     public function addToCart(int $productId): void
@@ -131,7 +138,7 @@ class EditOrder extends Component
             $this->cart[$productId] = [
                 'id' => $product->id,
                 'name' => $product->name,
-                'price' => (float) $product->price,
+                'price' => (string) $product->price,
                 'quantity' => 1,
             ];
         }
@@ -161,11 +168,15 @@ class EditOrder extends Component
         unset($this->cart[$productId]);
     }
 
-    public function getCartTotalProperty(): float
+    /**
+     * Calculate grand total of the cart using bcmath scaling.
+     */
+    public function getCartTotalProperty(): string
     {
-        $total = 0.0;
+        $total = '0.00';
         foreach ($this->cart as $item) {
-            $total += $item['price'] * $item['quantity'];
+            $line = bcmul((string) $item['quantity'], (string) $item['price'], 2);
+            $total = bcadd($total, $line, 2);
         }
         return $total;
     }
@@ -212,11 +223,21 @@ class EditOrder extends Component
 
     public function render()
     {
+        // Search globally if query provided, else filter by selected category
+        if (!empty($this->productSearch)) {
+            $products = Product::where('active', true)
+                ->where('name', 'like', '%' . $this->productSearch . '%')
+                ->orderBy('name')
+                ->get();
+        } else {
+            $products = $this->selectedCategoryId 
+                ? Product::where('category_id', $this->selectedCategoryId)->where('active', true)->orderBy('name')->get() 
+                : [];
+        }
+
         return view('livewire.edit-order', [
             'activeCategories' => Category::where('active', true)->orderBy('sort_order')->orderBy('name')->get(),
-            'categoryProducts' => $this->selectedCategoryId 
-                ? Product::where('category_id', $this->selectedCategoryId)->where('active', true)->orderBy('name')->get() 
-                : [],
+            'categoryProducts' => $products,
         ])->title('Editar Pedido');
     }
 }

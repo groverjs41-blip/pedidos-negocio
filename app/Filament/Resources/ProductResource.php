@@ -10,6 +10,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -26,6 +27,8 @@ class ProductResource extends Resource
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-shopping-bag';
 
+    protected static \UnitEnum|string|null $navigationGroup = 'Catálogo';
+
     protected static ?string $modelLabel = 'Producto';
     protected static ?string $pluralModelLabel = 'Productos';
 
@@ -33,37 +36,47 @@ class ProductResource extends Resource
     {
         return $schema
             ->components([
-                Select::make('category_id')
-                    ->relationship('category', 'name')
-                    ->required()
-                    ->label('Categoría'),
-                TextInput::make('name')
-                    ->required()
-                    ->maxLength(255)
-                    ->label('Nombre'),
-                TextInput::make('price')
-                    ->numeric()
-                    ->required()
-                    ->minValue(0)
-                    ->label('Precio de venta'),
-                TextInput::make('estimated_cost')
-                    ->numeric()
-                    ->minValue(0)
-                    ->label('Costo aproximado (Opcional)')
-                    ->placeholder('Opcional'),
-                Toggle::make('active')
-                    ->required()
-                    ->default(true)
-                    ->label('Activo'),
-                FileUpload::make('image')
-                    ->image()
-                    ->disk('public')
-                    ->directory('products')
-                    ->maxSize(2048)
-                    ->label('Imagen'),
-                Textarea::make('notes')
-                    ->maxLength(65535)
-                    ->label('Notas'),
+                Grid::make(2)
+                    ->schema([
+                        Select::make('category_id')
+                            ->relationship('category', 'name')
+                            ->required()
+                            ->label('Categoría')
+                            ->columnSpan(1),
+                        Toggle::make('active')
+                            ->required()
+                            ->default(true)
+                            ->label('Activo')
+                            ->columnSpan(1),
+                        TextInput::make('name')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Nombre')
+                            ->columnSpan(2),
+                        TextInput::make('price')
+                            ->numeric()
+                            ->required()
+                            ->minValue(0)
+                            ->label('Precio de venta')
+                            ->columnSpan(1),
+                        TextInput::make('estimated_cost')
+                            ->numeric()
+                            ->minValue(0)
+                            ->label('Costo aproximado (Opcional)')
+                            ->placeholder('Opcional')
+                            ->columnSpan(1),
+                        FileUpload::make('image')
+                            ->image()
+                            ->disk('public')
+                            ->directory('products')
+                            ->maxSize(2048)
+                            ->label('Imagen')
+                            ->columnSpan(2),
+                        Textarea::make('notes')
+                            ->maxLength(65535)
+                            ->label('Notas')
+                            ->columnSpan(2),
+                    ]),
             ]);
     }
 

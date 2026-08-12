@@ -7,6 +7,7 @@ use App\Models\Customer;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -22,6 +23,8 @@ class CustomerResource extends Resource
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-user-group';
 
+    protected static \UnitEnum|string|null $navigationGroup = 'Catálogo';
+
     protected static ?string $modelLabel = 'Cliente';
     protected static ?string $pluralModelLabel = 'Clientes';
 
@@ -29,27 +32,36 @@ class CustomerResource extends Resource
     {
         return $schema
             ->components([
-                TextInput::make('name')
-                    ->required()
-                    ->maxLength(255)
-                    ->label('Nombre'),
-                TextInput::make('phone')
-                    ->tel()
-                    ->maxLength(255)
-                    ->label('Teléfono'),
-                Textarea::make('address')
-                    ->maxLength(65535)
-                    ->label('Dirección'),
-                Textarea::make('location_notes')
-                    ->maxLength(65535)
-                    ->label('Notas de Ubicación'),
-                Textarea::make('notes')
-                    ->maxLength(65535)
-                    ->label('Notas'),
-                Toggle::make('active')
-                    ->required()
-                    ->default(true)
-                    ->label('Activo'),
+                Grid::make(2)
+                    ->schema([
+                        TextInput::make('name')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Nombre')
+                            ->columnSpan(2),
+                        TextInput::make('phone')
+                            ->tel()
+                            ->maxLength(255)
+                            ->label('Teléfono')
+                            ->columnSpan(1),
+                        Toggle::make('active')
+                            ->required()
+                            ->default(true)
+                            ->label('Activo')
+                            ->columnSpan(1),
+                        Textarea::make('address')
+                            ->maxLength(65535)
+                            ->label('Dirección')
+                            ->columnSpan(2),
+                        Textarea::make('location_notes')
+                            ->maxLength(65535)
+                            ->label('Referencia / ubicación')
+                            ->columnSpan(2),
+                        Textarea::make('notes')
+                            ->maxLength(65535)
+                            ->label('Notas')
+                            ->columnSpan(2),
+                    ]),
             ]);
     }
 
