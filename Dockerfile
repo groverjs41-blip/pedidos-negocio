@@ -1,7 +1,34 @@
 # ==========================================
+# Stage: Base PHP 8.3 environment
+# ==========================================
+FROM php:8.3-fpm-alpine AS php-base
+
+# Copy composer from official image
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Install system dependencies and mysql-client (provides mysqladmin for healthchecks)
+# Added icu-dev for intl PHP extension
+RUN apk add --no-cache \
+    bash \
+    curl \
+    libpng-dev \
+    libxml2-dev \
+    zip \
+    unzip \
+    git \
+    oniguruma-dev \
+    libzip-dev \
+    mysql-client \
+    icu-dev
+
+# Install PHP extensions required by Laravel, Filament, Reverb and Composer
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip opcache intl
+
+# ==========================================
 # Stage 1: Composer dependencies
 # ==========================================
-FROM composer:latest AS composer-stage
+FROM php-base AS composer-stage
+
 WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts --prefer-dist
@@ -20,23 +47,7 @@ RUN npm run build
 # ==========================================
 # Stage 3: PHP 8.3 FPM runtime environment
 # ==========================================
-FROM php:8.3-fpm-alpine AS runtime-stage
-
-# Install system dependencies and mysql-client (provides mysqladmin for healthchecks)
-RUN apk add --no-cache \
-    bash \
-    curl \
-    libpng-dev \
-    libxml2-dev \
-    zip \
-    unzip \
-    git \
-    oniguruma-dev \
-    libzip-dev \
-    mysql-client
-
-# Install PHP extensions required by Laravel, Filament and Reverb
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip opcache
+FROM php-base AS runtime-stage
 
 # Configure production PHP Opcache
 RUN { \
@@ -61,7 +72,8 @@ COPY --from=composer-stage /app/vendor /var/www/vendor
 COPY --from=node-stage /app/public/build /var/www/public/build
 
 # Run Laravel package discovery and Filament upgrades (re-publishes components)
-RUN php artisan package:discover --ansi \
+RUN rm -f bootstrap/cache/packages.php bootstrap/cache/services.php \
+    && php artisan package:discover --ansi \
     && php artisan filament:upgrade --ansi
 
 # Set permissions for storage and bootstrap cache directories
