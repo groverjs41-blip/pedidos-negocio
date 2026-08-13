@@ -1960,6 +1960,17 @@ html.sidebar-collapsed-init .btn-logout-sidebar {
     animation: staggerSlideIn 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes staggerSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
 /* Login Entrance Animations & Single Error Shake */
 .login-brand-panel {
     animation: loginLeftSlide 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
