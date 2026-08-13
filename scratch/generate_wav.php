@@ -45,20 +45,29 @@ function generateWavDataUri(array $frequencies, float $duration = 0.6): string {
     return 'data:audio/wav;base64,' . base64_encode($header . $samples);
 }
 
+// 1. Elegant Kitchen Brass Bell: A-Major Triad (A5 880Hz + C#6 1108.73Hz + E6 1318.51Hz)
 $kitchenBell = generateWavDataUri([
-    ['freq' => 880,  'start' => 0.0, 'decay' => 4.0, 'vol' => 0.6],
-    ['freq' => 1320, 'start' => 0.0, 'decay' => 5.0, 'vol' => 0.3],
-    ['freq' => 1760, 'start' => 0.0, 'decay' => 6.0, 'vol' => 0.15],
-], 0.7);
+    ['freq' => 880.00,  'start' => 0.0, 'decay' => 3.5, 'vol' => 0.55],
+    ['freq' => 1108.73, 'start' => 0.0, 'decay' => 4.2, 'vol' => 0.35],
+    ['freq' => 1318.51, 'start' => 0.0, 'decay' => 4.8, 'vol' => 0.25],
+], 0.8);
 
+// 2. Elegant Ascending Delivery Chime: (F5 698.46Hz -> C6 1046.50Hz)
 $deliveryChime = generateWavDataUri([
-    ['freq' => 523.25, 'start' => 0.0, 'decay' => 5.0, 'vol' => 0.5],
-    ['freq' => 659.25, 'start' => 0.18, 'decay' => 4.0, 'vol' => 0.6],
+    ['freq' => 698.46,  'start' => 0.0,  'decay' => 4.5, 'vol' => 0.5],
+    ['freq' => 1046.50, 'start' => 0.16, 'decay' => 3.8, 'vol' => 0.65],
 ], 0.85);
+
+// 3. Elegant Success Chime: (E5 659.25Hz -> A5 880.00Hz)
+$successChime = generateWavDataUri([
+    ['freq' => 659.25, 'start' => 0.0,  'decay' => 5.0, 'vol' => 0.45],
+    ['freq' => 880.00, 'start' => 0.14, 'decay' => 4.0, 'vol' => 0.55],
+], 0.75);
 
 $jsContent = "// Auto-generated Base64 PCM WAV Audio Chimes for 100% reliable cross-browser playback\n";
 $jsContent .= "export const KITCHEN_BELL_WAV = " . json_encode($kitchenBell) . ";\n";
 $jsContent .= "export const DELIVERY_CHIME_WAV = " . json_encode($deliveryChime) . ";\n";
+$jsContent .= "export const SUCCESS_CHIME_WAV = " . json_encode($successChime) . ";\n";
 
 file_put_contents('/var/www/resources/js/audio_sounds.js', $jsContent);
-echo "Audio sounds JS generated successfully!\n";
+echo "Elegant audio sounds JS generated successfully!\n";

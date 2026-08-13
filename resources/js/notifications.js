@@ -3,15 +3,18 @@
  * Uses Base64 PCM WAV HTML5 Audio with Web Audio API fallback for 100% reliable sound
  */
 
-import { KITCHEN_BELL_WAV, DELIVERY_CHIME_WAV } from './audio_sounds.js';
+import { KITCHEN_BELL_WAV, DELIVERY_CHIME_WAV, SUCCESS_CHIME_WAV } from './audio_sounds.js';
 
 class SoundEngine {
     constructor() {
         this.audioCtx = null;
         this.kitchenAudio = new Audio(KITCHEN_BELL_WAV);
         this.deliveryAudio = new Audio(DELIVERY_CHIME_WAV);
+        this.successAudio = new Audio(SUCCESS_CHIME_WAV);
+
         this.kitchenAudio.preload = 'auto';
         this.deliveryAudio.preload = 'auto';
+        this.successAudio.preload = 'auto';
 
         this.muted = localStorage.getItem('sound_muted') === 'true';
         this.processedEvents = new Set(
@@ -34,6 +37,7 @@ class SoundEngine {
         try {
             this.kitchenAudio.load();
             this.deliveryAudio.load();
+            this.successAudio.load();
         } catch (e) {}
 
         // Unlock Web Audio API context
@@ -65,7 +69,7 @@ class SoundEngine {
         sessionStorage.setItem('processed_notif_events', JSON.stringify(arr));
     }
 
-    // Play Kitchen Bell (New Order)
+    // Play Elegant Kitchen Brass Bell (A-Major Triad Chime for New Orders)
     playKitchenChime() {
         if (this.muted) return;
         this.unlockAudio();
@@ -84,7 +88,7 @@ class SoundEngine {
         }
     }
 
-    // Play Delivery Chime (Order Ready)
+    // Play Elegant Ascending Delivery Chime (For Ready Orders)
     playDeliveryChime() {
         if (this.muted) return;
         this.unlockAudio();
@@ -103,6 +107,25 @@ class SoundEngine {
         }
     }
 
+    // Play Elegant Soft Confirmation Chime
+    playSuccessChime() {
+        if (this.muted) return;
+        this.unlockAudio();
+
+        try {
+            this.successAudio.currentTime = 0;
+            const p = this.successAudio.play();
+            if (p !== undefined) {
+                p.catch(err => {
+                    console.warn('HTML5 audio play blocked, calling Web Audio fallback', err);
+                    this.playWebAudioKitchenChime();
+                });
+            }
+        } catch (e) {
+            this.playWebAudioKitchenChime();
+        }
+    }
+
     // Web Audio Synthesizer Fallbacks
     playWebAudioKitchenChime() {
         const ctx = this.getAudioContext();
@@ -112,15 +135,22 @@ class SoundEngine {
             const g = ctx.createGain();
             g.gain.setValueAtTime(0, now);
             g.gain.linearRampToValueAtTime(0.8, now + 0.02);
-            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.75);
             g.connect(ctx.destination);
 
-            const osc = ctx.createOscillator();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, now);
-            osc.connect(g);
-            osc.start(now);
-            osc.stop(now + 0.72);
+            const osc1 = ctx.createOscillator();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(880, now);
+            osc1.connect(g);
+            osc1.start(now);
+            osc1.stop(now + 0.78);
+
+            const osc2 = ctx.createOscillator();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(1108.73, now);
+            osc2.connect(g);
+            osc2.start(now);
+            osc2.stop(now + 0.72);
         };
         if (ctx.state === 'suspended') {
             ctx.resume().then(play).catch(console.error);
@@ -137,22 +167,22 @@ class SoundEngine {
             const g = ctx.createGain();
             g.gain.setValueAtTime(0, now);
             g.gain.linearRampToValueAtTime(0.8, now + 0.02);
-            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
             g.connect(ctx.destination);
 
             const osc1 = ctx.createOscillator();
             osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(523.25, now);
+            osc1.frequency.setValueAtTime(698.46, now);
             osc1.connect(g);
             osc1.start(now);
-            osc1.stop(now + 0.4);
+            osc1.stop(now + 0.45);
 
             const osc2 = ctx.createOscillator();
             osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(659.25, now + 0.18);
+            osc2.frequency.setValueAtTime(1046.50, now + 0.16);
             osc2.connect(g);
-            osc2.start(now + 0.18);
-            osc2.stop(now + 0.82);
+            osc2.start(now + 0.16);
+            osc2.stop(now + 0.88);
         };
         if (ctx.state === 'suspended') {
             ctx.resume().then(play).catch(console.error);
@@ -293,7 +323,11 @@ document.addEventListener('keydown', unlockHandler);
 document.addEventListener('livewire:init', () => {
     if (window.Livewire) {
         window.Livewire.on('notify-toast', (data) => {
-            window.showOperationalToast(Array.isArray(data) ? data[0] : data);
+            const toastData = Array.isArray(data) ? data[0] : data;
+            if (toastData.type === 'success') {
+                window.soundEngine.playSuccessChime();
+            }
+            window.showOperationalToast(toastData);
         });
     }
 });
@@ -312,7 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const path = window.location.pathname;
 
-                // RULE 1: NUEVO PEDIDO -> Always play Kitchen Sound & Show Toast in Kitchen + All Other Views
+                // RULE 1: NUEVO PEDIDO -> Always play Elegant Kitchen Bell & Show Toast on All Views
                 if (action === 'ORDER_CREATED') {
                     window.soundEngine.playKitchenChime();
                     window.showOperationalToast({
@@ -330,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     );
                 }
 
-                // RULE 2: PEDIDO PREPARADO (READY) -> Play Delivery Sound & Show Toast on all NON-KITCHEN views
+                // RULE 2: PEDIDO PREPARADO (READY) -> Play Elegant Delivery Chime & Show Toast on ALL NON-KITCHEN views
                 else if (action === 'READY') {
                     // Do NOT play ready sound/toast on kitchen screen itself to avoid redundant self-noise
                     if (!path.startsWith('/cocina')) {
@@ -343,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             type: 'delivery',
                             actionBtn: { text: 'VER REPARTO', url: '/reparto' }
                         });
-                        window.soundEngine.showBrowserNotification(
+                        window.showBrowserNotification(
                             'PEDIDO LISTO PARA ENTREGAR',
                             `Pedido #${orderNumber} (${customerName || 'Cliente'})`,
                             '/reparto'
