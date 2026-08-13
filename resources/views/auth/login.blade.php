@@ -140,8 +140,7 @@
             }
             submitBtn.classList.add('loading');
             submitBtn.disabled = true;
-            document.getElementById('email').disabled = true;
-            document.getElementById('password').disabled = true;
+            loginForm.style.pointerEvents = 'none';
             if (loginOverlay) {
                 loginOverlay.style.display = 'flex';
             }
