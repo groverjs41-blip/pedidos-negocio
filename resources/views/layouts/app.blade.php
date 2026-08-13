@@ -49,8 +49,8 @@
     <div id="globalLoadingBar" class="global-loading-bar"></div>
     @auth
         <div class="app-layout" :class="{ 'sidebar-collapsed': collapsed }">
-            {{-- DESKTOP SIDEBAR --}}
-            <aside class="sidebar hidden md:flex" :class="{ 'collapsed': collapsed }">
+            {{-- DESKTOP SIDEBAR (>=1024px) --}}
+            <aside class="sidebar hidden lg:flex" :class="{ 'collapsed': collapsed }">
                 <a href="{{ url('/inicio') }}" class="sidebar-brand">
                     <div class="brand-icon-wrap">
                         <x-ui.icon name="bag" class="w-5 h-5" />
@@ -190,10 +190,10 @@
                 {{-- TOPBAR STICKY INSIDE MAIN WRAPPER --}}
                 <header class="topbar-unified">
                     <div class="topbar-left">
-                        <button type="button" @click="collapsed = !collapsed" class="btn-toggle-sidebar hidden md:flex" title="Colapsar / Expandir Menú">
+                        <button type="button" @click="collapsed = !collapsed" class="btn-toggle-sidebar hidden lg:flex" title="Colapsar / Expandir Menú">
                             <x-ui.icon name="sidebar-left" class="w-5 h-5" />
                         </button>
-                        <a href="{{ url('/inicio') }}" wire:navigate class="mobile-logo-brand md:hidden">
+                        <a href="{{ url('/inicio') }}" wire:navigate class="mobile-logo-brand lg:hidden">
                             <div class="brand-icon-wrap" style="width: 32px; height: 32px;">
                                 <x-ui.icon name="bag" class="w-4 h-4" />
                             </div>
@@ -206,7 +206,7 @@
                         <livewire:operational-attention />
 
                         {{-- THEME TOGGLE BUTTON (Desktop only, mobile in /menu) --}}
-                        <button type="button" id="themeToggleBtn" onclick="toggleTheme()" class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all hidden md:flex items-center justify-center focus:outline-none" title="Alternar Modo Claro / Oscuro">
+                        <button type="button" id="themeToggleBtn" onclick="toggleTheme()" class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all hidden lg:flex items-center justify-center focus:outline-none" title="Alternar Modo Claro / Oscuro">
                             <span x-show="currentTheme === 'dark'" style="display: flex; align-items: center;">
                                 <x-ui.icon name="sun" class="w-5 h-5 text-amber-400" />
                             </span>
@@ -216,7 +216,7 @@
                         </button>
 
                         {{-- SOUND TOGGLE (Desktop only, mobile in /menu) --}}
-                        <button type="button" id="soundToggleBtn" onclick="window.soundEngine.toggleMute()" class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all hidden md:flex items-center justify-center focus:outline-none" title="Alternar Sonido">
+                        <button type="button" id="soundToggleBtn" onclick="window.soundEngine.toggleMute()" class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all hidden lg:flex items-center justify-center focus:outline-none" title="Alternar Sonido">
                             <x-ui.icon name="volume" class="w-5 h-5" />
                         </button>
 
@@ -224,7 +224,7 @@
                         <livewire:notification-center />
 
                         <div class="connection-status-inline" id="connectionStatusIndicator">
-                            <span class="dot online"></span> <span class="status-text hidden sm:inline">En línea</span>
+                            <span class="dot online" title="Realtime conectado"></span> <span class="status-text hidden sm:inline">En línea</span>
                         </div>
 
                         <div class="user-profile-inline">
@@ -242,7 +242,7 @@
             </div>
         </div>
 
-        {{-- MOBILE BOTTOM NAVIGATION (<=768px) --}}
+        {{-- MOBILE & TABLET BOTTOM NAVIGATION (<=1023px) --}}
         <nav class="mobile-bottom-nav">
             <a href="{{ url('/inicio') }}" wire:navigate.hover class="mobile-nav-item {{ request()->is('inicio') ? 'active' : '' }}">
                 <x-ui.icon name="home" class="w-5 h-5" />

@@ -1,6 +1,6 @@
 /**
  * Operational Notification & Dual-Engine Sound System for Pedidos Negocio
- * Uses Base64 PCM WAV HTML5 Audio with Web Audio API fallback for 100% reliable sound
+ * Uses Web Audio API with HTML5 Audio fallback for 100% reliable sound
  */
 
 import { KITCHEN_BELL_WAV, DELIVERY_CHIME_WAV } from './audio_sounds.js';
@@ -8,6 +8,9 @@ import { KITCHEN_BELL_WAV, DELIVERY_CHIME_WAV } from './audio_sounds.js';
 class SoundEngine {
     constructor() {
         this.audioCtx = null;
+        this.unlocked = false;
+        this.pendingOperationalSound = null;
+
         this.kitchenAudio = new Audio(KITCHEN_BELL_WAV);
         this.deliveryAudio = new Audio(DELIVERY_CHIME_WAV);
 
@@ -22,9 +25,9 @@ class SoundEngine {
 
     getAudioContext() {
         if (!this.audioCtx) {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (AudioContext) {
-                this.audioCtx = new AudioContext();
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) {
+                this.audioCtx = new AudioContextClass();
             }
         }
         return this.audioCtx;
@@ -44,8 +47,32 @@ class SoundEngine {
         } catch (e) {}
 
         const ctx = this.getAudioContext();
-        if (ctx && ctx.state === 'suspended') {
-            ctx.resume().catch(console.error);
+        if (ctx) {
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(console.error);
+            }
+            try {
+                const buffer = ctx.createBuffer(1, 1, 22050);
+                const source = ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(ctx.destination);
+                source.start(0);
+                this.unlocked = true;
+            } catch (e) {}
+        }
+
+        // If there was a pending sound blocked before user interaction, play it once now
+        if (this.pendingOperationalSound) {
+            const sound = this.pendingOperationalSound;
+            this.pendingOperationalSound = null;
+            const promptToast = document.getElementById('pending-sound-unlock-toast');
+            if (promptToast) promptToast.remove();
+
+            if (sound.type === 'kitchen') {
+                this.playKitchenChime();
+            } else if (sound.type === 'delivery') {
+                this.playDeliveryChime();
+            }
         }
     }
 
@@ -71,7 +98,28 @@ class SoundEngine {
         sessionStorage.setItem('processed_notif_events', JSON.stringify(arr));
     }
 
-    // Play Kitchen Bell (Only for NEW ORDER operational events)
+    showAudioBlockedPrompt(soundType) {
+        this.pendingOperationalSound = { type: soundType, time: Date.now() };
+
+        if (document.getElementById('pending-sound-unlock-toast')) return;
+
+        window.showOperationalToast({
+            id: 'pending-sound-unlock-toast',
+            title: 'NUEVO PEDIDO RECIBIDO',
+            message: 'Hay un pedido nuevo. Toca para activar los sonidos.',
+            type: 'warning',
+            actionBtn: {
+                text: 'ACTIVAR SONIDO',
+                url: '#',
+                onClick: (e) => {
+                    if (e) e.preventDefault();
+                    this.unlockAudio();
+                }
+            }
+        });
+    }
+
+    // Play Kitchen Bell (For NEW ORDER operational events)
     playKitchenChime() {
         if (this.muted) return;
         const settings = window.PedidosSoundSettings || {};
@@ -80,24 +128,16 @@ class SoundEngine {
         const vol = this.getEffectiveVolume();
         if (vol <= 0) return;
 
-        this.unlockAudio();
-
-        try {
-            this.kitchenAudio.volume = vol;
-            this.kitchenAudio.currentTime = 0;
-            const p = this.kitchenAudio.play();
-            if (p !== undefined) {
-                p.catch(err => {
-                    console.warn('HTML5 audio play blocked, calling Web Audio fallback', err);
-                    this.playWebAudioKitchenChime(vol);
-                });
-            }
-        } catch (e) {
-            this.playWebAudioKitchenChime(vol);
+        const ctx = this.getAudioContext();
+        if (ctx && ctx.state === 'suspended' && !this.unlocked) {
+            this.showAudioBlockedPrompt('kitchen');
+            return;
         }
+
+        this.playWebAudioKitchenChime(vol);
     }
 
-    // Play Delivery Chime (Only for READY operational events)
+    // Play Delivery Chime (For READY operational events)
     playDeliveryChime() {
         if (this.muted) return;
         const settings = window.PedidosSoundSettings || {};
@@ -106,51 +146,53 @@ class SoundEngine {
         const vol = this.getEffectiveVolume();
         if (vol <= 0) return;
 
-        this.unlockAudio();
-
-        try {
-            this.deliveryAudio.volume = vol;
-            this.deliveryAudio.currentTime = 0;
-            const p = this.deliveryAudio.play();
-            if (p !== undefined) {
-                p.catch(err => {
-                    console.warn('HTML5 audio play blocked, calling Web Audio fallback', err);
-                    this.playWebAudioDeliveryChime(vol);
-                });
-            }
-        } catch (e) {
-            this.playWebAudioDeliveryChime(vol);
+        const ctx = this.getAudioContext();
+        if (ctx && ctx.state === 'suspended' && !this.unlocked) {
+            this.showAudioBlockedPrompt('delivery');
+            return;
         }
+
+        this.playWebAudioDeliveryChime(vol);
     }
 
-    // Web Audio Synthesizer Fallbacks with Gain Volume
+    // Web Audio Synthesizer Engine
     playWebAudioKitchenChime(vol = 1.0) {
         const ctx = this.getAudioContext();
         if (!ctx) return;
         const play = () => {
-            const now = ctx.currentTime;
-            const g = ctx.createGain();
-            g.gain.setValueAtTime(0, now);
-            g.gain.linearRampToValueAtTime(0.7 * vol, now + 0.02);
-            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.75);
-            g.connect(ctx.destination);
+            try {
+                const now = ctx.currentTime;
+                const g = ctx.createGain();
+                g.gain.setValueAtTime(0, now);
+                g.gain.linearRampToValueAtTime(0.75 * vol, now + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.0001, now + 0.75);
+                g.connect(ctx.destination);
 
-            const osc1 = ctx.createOscillator();
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(880, now);
-            osc1.connect(g);
-            osc1.start(now);
-            osc1.stop(now + 0.78);
+                const osc1 = ctx.createOscillator();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(880, now);
+                osc1.connect(g);
+                osc1.start(now);
+                osc1.stop(now + 0.78);
 
-            const osc2 = ctx.createOscillator();
-            osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(1108.73, now);
-            osc2.connect(g);
-            osc2.start(now);
-            osc2.stop(now + 0.72);
+                const osc2 = ctx.createOscillator();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(1108.73, now);
+                osc2.connect(g);
+                osc2.start(now);
+                osc2.stop(now + 0.72);
+            } catch (err) {
+                // Fallback to HTML5 audio if Web Audio throws
+                try {
+                    this.kitchenAudio.volume = vol;
+                    this.kitchenAudio.currentTime = 0;
+                    this.kitchenAudio.play().catch(console.warn);
+                } catch (e) {}
+            }
         };
+
         if (ctx.state === 'suspended') {
-            ctx.resume().then(play).catch(console.error);
+            ctx.resume().then(play).catch(() => this.showAudioBlockedPrompt('kitchen'));
         } else {
             play();
         }
@@ -160,29 +202,38 @@ class SoundEngine {
         const ctx = this.getAudioContext();
         if (!ctx) return;
         const play = () => {
-            const now = ctx.currentTime;
-            const g = ctx.createGain();
-            g.gain.setValueAtTime(0, now);
-            g.gain.linearRampToValueAtTime(0.7 * vol, now + 0.02);
-            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
-            g.connect(ctx.destination);
+            try {
+                const now = ctx.currentTime;
+                const g = ctx.createGain();
+                g.gain.setValueAtTime(0, now);
+                g.gain.linearRampToValueAtTime(0.75 * vol, now + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+                g.connect(ctx.destination);
 
-            const osc1 = ctx.createOscillator();
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(698.46, now);
-            osc1.connect(g);
-            osc1.start(now);
-            osc1.stop(now + 0.45);
+                const osc1 = ctx.createOscillator();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(698.46, now);
+                osc1.connect(g);
+                osc1.start(now);
+                osc1.stop(now + 0.45);
 
-            const osc2 = ctx.createOscillator();
-            osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(1046.50, now + 0.16);
-            osc2.connect(g);
-            osc2.start(now + 0.16);
-            osc2.stop(now + 0.88);
+                const osc2 = ctx.createOscillator();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(1046.50, now + 0.16);
+                osc2.connect(g);
+                osc2.start(now + 0.16);
+                osc2.stop(now + 0.88);
+            } catch (err) {
+                try {
+                    this.deliveryAudio.volume = vol;
+                    this.deliveryAudio.currentTime = 0;
+                    this.deliveryAudio.play().catch(console.warn);
+                } catch (e) {}
+            }
         };
+
         if (ctx.state === 'suspended') {
-            ctx.resume().then(play).catch(console.error);
+            ctx.resume().then(play).catch(() => this.showAudioBlockedPrompt('delivery'));
         } else {
             play();
         }
@@ -190,23 +241,109 @@ class SoundEngine {
 
     showBrowserNotification(title, body, url = '/') {
         if (('Notification' in window) && Notification.permission === 'granted') {
-            const notif = new Notification(title, {
-                body: body,
-                icon: '/favicon.ico',
-                tag: title
-            });
+            try {
+                const notif = new Notification(title, {
+                    body: body,
+                    icon: '/favicon.ico',
+                    tag: title
+                });
 
-            notif.onclick = () => {
-                window.focus();
-                if (url) window.location.href = url;
-            };
+                notif.onclick = () => {
+                    window.focus();
+                    if (url) window.location.href = url;
+                };
+            } catch (e) {}
         }
     }
+
+    /**
+     * UNIFIED OPERATIONAL EVENT HANDLER (Reverb & Polling Fallback)
+     * Enforces strict processing order:
+     * 1. Receive event
+     * 2. Verify structure
+     * 3. Check role authorization (if not target role -> return, do NOT mark processed!)
+     * 4. Check deduplication key (orderId:action)
+     * 5. Execute toast / sound / browser notification
+     * 6. Mark event as processed
+     */
+    handleOperationalEvent(event, source = 'reverb') {
+        if (!event || !event.orderId || !event.action) return;
+
+        const { orderId, orderNumber, action, soundType, customerName, itemsSummary, targetRoles } = event;
+
+        // 3. Verify User Roles Intersect Target Roles BEFORE checking or marking as processed!
+        const userRoles = (window.PedidosUser && Array.isArray(window.PedidosUser.roles)) ? window.PedidosUser.roles : [];
+        const isTargetUser = (targetRoles || []).some(role => userRoles.includes(role));
+
+        if (!isTargetUser) {
+            return; // User does not have target role -> exit without marking as processed!
+        }
+
+        // 4. Check deduplication key
+        if (this.isEventProcessed(orderId, action)) {
+            return;
+        }
+
+        // 5. Execute toast and sound
+        const path = window.location.pathname;
+        const cleanNumber = ltrim(String(orderNumber), '#');
+
+        if (action === 'ORDER_CREATED') {
+            this.playKitchenChime();
+            window.showOperationalToast({
+                id: `order-${orderId}-created`,
+                title: 'NUEVO PEDIDO EN COCINA',
+                message: `Pedido #${cleanNumber} • ${customerName || 'Venta Mostrador'}${itemsSummary ? ' (' + itemsSummary + ')' : ''}`,
+                url: '/cocina',
+                type: 'kitchen',
+                actionBtn: { text: 'VER COCINA', url: '/cocina' }
+            });
+            this.showBrowserNotification(
+                'NUEVO PEDIDO EN COCINA',
+                `Pedido #${cleanNumber} (${customerName || 'Cliente'})`,
+                '/cocina'
+            );
+        } else if (action === 'READY') {
+            if (!path.startsWith('/cocina')) {
+                this.playDeliveryChime();
+                window.showOperationalToast({
+                    id: `order-${orderId}-ready`,
+                    title: 'PEDIDO LISTO PARA ENTREGAR',
+                    message: `Pedido #${cleanNumber} • ${customerName || 'Cliente'} está preparado`,
+                    url: '/reparto',
+                    type: 'delivery',
+                    actionBtn: { text: 'VER REPARTO', url: '/reparto' }
+                });
+                this.showBrowserNotification(
+                    'PEDIDO LISTO PARA ENTREGAR',
+                    `Pedido #${cleanNumber} (${customerName || 'Cliente'})`,
+                    '/reparto'
+                );
+            }
+        } else if (action === 'DELIVERING') {
+            const readyToast = document.getElementById(`order-${orderId}-ready`);
+            if (readyToast) readyToast.remove();
+        }
+
+        if (window.Livewire) {
+            window.Livewire.dispatch('order-changed-realtime', { orderId, action });
+        }
+
+        // 6. Mark event as processed for this target user
+        this.markEventProcessed(orderId, action);
+    }
+}
+
+function ltrim(str, charlist) {
+    if (!str) return '';
+    charlist = !charlist ? ' \\s\u00A0' : charlist.replace(/([\[\]\(\)\.\?\/\*\{\}\+\$\^\:])/g, '\\$1');
+    const re = new RegExp('^[' + charlist + ']+', 'g');
+    return String(str).replace(re, '');
 }
 
 window.soundEngine = new SoundEngine();
 
-// Toast configuration mapping
+// Toast configuration mapping with duration specs (kitchen: 6s, delivery: 8s)
 const TOAST_CONFIG = {
     success: { duration: 3500, icon: '✓', title: 'Éxito' },
     info: { duration: 4500, icon: 'ℹ', title: 'Información' },
@@ -278,11 +415,23 @@ window.showOperationalToast = function ({ id, title, message, url, type = 'info'
 
     const btnTarget = actionBtn || (url ? { text: 'VER', url: url } : null);
     if (btnTarget) {
-        const linkBtn = document.createElement('a');
-        linkBtn.href = btnTarget.url;
-        linkBtn.className = 'toast-action-btn';
-        linkBtn.textContent = btnTarget.text;
-        toastContent.appendChild(linkBtn);
+        if (btnTarget.onClick) {
+            const actBtn = document.createElement('button');
+            actBtn.type = 'button';
+            actBtn.className = 'toast-action-btn';
+            actBtn.textContent = btnTarget.text;
+            actBtn.onclick = (e) => {
+                btnTarget.onClick(e);
+                toast.remove();
+            };
+            toastContent.appendChild(actBtn);
+        } else {
+            const linkBtn = document.createElement('a');
+            linkBtn.href = btnTarget.url;
+            linkBtn.className = 'toast-action-btn';
+            linkBtn.textContent = btnTarget.text;
+            toastContent.appendChild(linkBtn);
+        }
     }
 
     const progressTrack = document.createElement('div');
@@ -306,96 +455,66 @@ window.showOperationalToast = function ({ id, title, message, url, type = 'info'
     }, toastDuration);
 };
 
-// Continuous Interaction Listener
+// Continuous Interaction Listener for Audio Context Unlock
 const unlockHandler = () => {
     if (window.soundEngine) {
         window.soundEngine.unlockAudio();
     }
 };
-document.addEventListener('pointerdown', unlockHandler);
-document.addEventListener('click', unlockHandler);
-document.addEventListener('keydown', unlockHandler);
+document.addEventListener('pointerdown', unlockHandler, { passive: true });
+document.addEventListener('touchstart', unlockHandler, { passive: true });
+document.addEventListener('keydown', unlockHandler, { passive: true });
 
-// Listen for Livewire Toast Events (CRUD actions ONLY show visual toast, NO sound)
+// Listen for Livewire Toast Events & Polling Fallback Events
 document.addEventListener('livewire:init', () => {
     if (window.Livewire) {
         window.Livewire.on('notify-toast', (data) => {
             const toastData = Array.isArray(data) ? data[0] : data;
             window.showOperationalToast(toastData);
         });
+
+        window.Livewire.on('operational-fallback-event', (data) => {
+            const eventData = Array.isArray(data) ? data[0] : data;
+            if (window.soundEngine) {
+                window.soundEngine.handleOperationalEvent(eventData, 'poll');
+            }
+        });
     }
 });
 
-// Real-Time Echo Broadcast Listener (Single Subscription Guard)
+// Real-Time Echo Broadcast Listener & Reverb Connection Status Indicator
 function initEchoListener() {
     if (window._echoSubscribed || !window.Echo) return;
     window._echoSubscribed = true;
 
+    // Listen to Reverb connection states
+    if (window.Echo.connector && window.Echo.connector.pusher) {
+        const pusher = window.Echo.connector.pusher;
+        pusher.connection.bind('state_change', (states) => {
+            const dot = document.querySelector('#connectionStatusIndicator .dot');
+            const text = document.querySelector('#connectionStatusIndicator .status-text');
+            if (!dot) return;
+            if (states.current === 'connected') {
+                dot.className = 'dot online';
+                if (text) text.textContent = 'En línea';
+                dot.title = 'Realtime conectado';
+            } else if (states.current === 'connecting') {
+                dot.className = 'dot connecting';
+                if (text) text.textContent = 'Reconectando';
+                dot.title = 'Realtime reconectando';
+            } else {
+                dot.className = 'dot offline';
+                if (text) text.textContent = 'Desconectado';
+                dot.title = 'Realtime desconectado';
+            }
+        });
+    }
+
+    // Subscribe to operations channel
     window.Echo.private('orders.operations')
         .listen('OrderChanged', (event) => {
-            const { orderId, orderNumber, status, action, soundType, customerName, itemsSummary, targetRoles } = event;
-
-            if (window.soundEngine.isEventProcessed(orderId, action)) {
-                return;
-            }
-            window.soundEngine.markEventProcessed(orderId, action);
-
-            // Verify User Roles Intersect Target Roles BEFORE playing sound or showing notification!
-            const userRoles = (window.PedidosUser && Array.isArray(window.PedidosUser.roles)) ? window.PedidosUser.roles : [];
-            const isTargetUser = (targetRoles || []).some(role => userRoles.includes(role));
-
-            if (!isTargetUser) {
-                return;
-            }
-
-            const path = window.location.pathname;
-
-            // RULE 1: NUEVO PEDIDO -> Play Kitchen Bell & Show Toast for target roles (admin, cocina)
-            if (action === 'ORDER_CREATED') {
-                window.soundEngine.playKitchenChime();
-                window.showOperationalToast({
-                    id: `order-${orderId}-created`,
-                    title: 'NUEVO PEDIDO EN COCINA',
-                    message: `Pedido #${orderNumber} • ${customerName || 'Venta Mostrador'} (${itemsSummary || ''})`,
-                    url: '/cocina',
-                    type: 'kitchen',
-                    actionBtn: { text: 'VER COCINA', url: '/cocina' }
-                });
-                window.soundEngine.showBrowserNotification(
-                    'NUEVO PEDIDO EN COCINA',
-                    `Pedido #${orderNumber} (${customerName || 'Cliente'})`,
-                    '/cocina'
-                );
-            }
-
-            // RULE 2: PEDIDO PREPARADO (READY) -> Play Delivery Chime & Show Toast for target roles (admin, reparto)
-            else if (action === 'READY') {
-                // Do NOT play ready sound/toast on kitchen screen itself to avoid redundant self-noise
-                if (!path.startsWith('/cocina')) {
-                    window.soundEngine.playDeliveryChime();
-                    window.showOperationalToast({
-                        id: `order-${orderId}-ready`,
-                        title: 'PEDIDO LISTO PARA ENTREGAR',
-                        message: `Pedido #${orderNumber} • ${customerName || 'Cliente'} está preparado`,
-                        url: '/reparto',
-                        type: 'delivery',
-                        actionBtn: { text: 'VER REPARTO', url: '/reparto' }
-                    });
-                    window.showBrowserNotification(
-                        'PEDIDO LISTO PARA ENTREGAR',
-                        `Pedido #${orderNumber} (${customerName || 'Cliente'})`,
-                        '/reparto'
-                    );
-                }
-            }
-
-            else if (action === 'DELIVERING') {
-                const readyToast = document.getElementById(`order-${orderId}-ready`);
-                if (readyToast) readyToast.remove();
-            }
-
-            if (window.Livewire) {
-                window.Livewire.dispatch('order-changed-realtime', { orderId, action, status });
+            if (window.soundEngine) {
+                window.soundEngine.handleOperationalEvent(event, 'reverb');
             }
         });
 }

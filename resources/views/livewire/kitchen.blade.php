@@ -1,4 +1,4 @@
-<div wire:poll.15s class="kitchen-layout" style="max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
+<div wire:poll.15s="refreshOperationalOrders" class="kitchen-layout" style="max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
 
     <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
         <div>
@@ -12,7 +12,7 @@
             <div class="page-header-subtitle">Comandas de preparación en tiempo real</div>
         </div>
 
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <div class="kds-header-actions" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
             <button type="button" onclick="toggleKdsFullscreen()" class="chip-btn" style="padding: 0.5rem 0.85rem; font-size: 0.8rem;">
                 🖥️ PANTALLA COMPLETA
             </button>
@@ -61,19 +61,22 @@
     </script>
 
     {{-- Active orders --}}
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+    <div class="kds-orders-grid">
         @forelse($orders as $order)
             @php
-                $elapsedMinutes = now()->diffInMinutes($order->ordered_at);
+                $elapsedSeconds = max(0, (int) floor($order->ordered_at->diffInSeconds(now(), false)));
+                $elapsedMinutes = intdiv($elapsedSeconds, 60);
+                $timeDisplay = $elapsedMinutes === 0 ? '< 1 min' : "{$elapsedMinutes} min";
                 $isWarning = $elapsedMinutes >= 10 && $elapsedMinutes < 15;
                 $isDelayed = $elapsedMinutes >= 15;
             @endphp
             <div class="kds-card {{ $order->status === \App\Enums\OrderStatus::PREPARING ? 'status-preparing' : 'status-new' }}">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 0.85rem;">
                     <div>
-                        <div class="kds-order-num">#{{ $order->number }}</div>
-                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.15rem;">
-                            👤 {{ $order->customer_name_snapshot ?? 'Venta Mostrador' }}
+                        <div class="kds-order-num">#{{ ltrim($order->number, '#') }}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.15rem; display: flex; align-items: center; gap: 0.35rem;">
+                            <x-ui.icon name="user" class="w-3.5 h-3.5 text-muted inline" />
+                            <span>{{ $order->customer_name_snapshot ?? 'Venta Mostrador' }}</span>
                         </div>
                     </div>
 
@@ -90,7 +93,7 @@
 
                         <span class="status-badge {{ $isDelayed ? 'timer-delayed' : ($isWarning ? 'timer-warning' : '') }}" style="font-size: 0.75rem;">
                             <x-ui.icon name="clock" class="w-3.5 h-3.5" />
-                            {{ $isDelayed ? 'DEMORADO' : '' }} {{ $elapsedMinutes }} min
+                            {{ $isDelayed ? 'DEMORADO ' : '' }}{{ $timeDisplay }}
                         </span>
                     </div>
                 </div>

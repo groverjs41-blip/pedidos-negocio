@@ -18,6 +18,15 @@ class Delivery extends Component
     public array $outQuantities = []; // [type_id => qty]
     public string $batchToken = '';
 
+    public array $knownReadyOrderIds = [];
+
+    public function mount(): void
+    {
+        $this->knownReadyOrderIds = Order::where('status', OrderStatus::READY)
+            ->pluck('id')
+            ->toArray();
+    }
+
     public function getListeners(): array
     {
         return [
@@ -42,6 +51,37 @@ class Delivery extends Component
             ->get();
     }
 
+    /**
+     * Polling fallback method to detect new ready orders and dispatch delivery sound events.
+     */
+    public function refreshOperationalOrders(): void
+    {
+        $readyOrders = Order::where('status', OrderStatus::READY)
+            ->with(['items'])
+            ->orderBy('ready_at', 'asc')
+            ->get();
+
+        $currentIds = $readyOrders->pluck('id')->toArray();
+        $newIds = array_diff($currentIds, $this->knownReadyOrderIds);
+
+        if (!empty($newIds)) {
+            foreach ($readyOrders as $order) {
+                if (in_array($order->id, $newIds)) {
+                    $this->dispatch('operational-fallback-event', [
+                        'orderId' => $order->id,
+                        'orderNumber' => ltrim($order->number, '#'),
+                        'action' => 'READY',
+                        'soundType' => 'delivery',
+                        'targetRoles' => ['admin', 'reparto'],
+                        'customerName' => $order->customer_name_snapshot ?? 'Cliente',
+                    ]);
+                }
+            }
+        }
+
+        $this->knownReadyOrderIds = $currentIds;
+    }
+
     public function claimOrder(int $orderId, OrderService $orderService): void
     {
         $order = Order::find($orderId);
@@ -52,7 +92,7 @@ class Delivery extends Component
 
         try {
             $orderService->claimForDelivery($order, auth()->user());
-            $this->dispatch('notify-toast', type: 'info', title: 'Pedido Tomado', message: "Pedido #{$order->number} asignado a tus entregas.");
+            $this->dispatch('notify-toast', type: 'info', title: 'Pedido Tomado', message: "Pedido #" . ltrim($order->number, '#') . " asignado a tus entregas.");
         } catch (\Exception $e) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error de asignación', message: 'El pedido ya fue tomado o no se pudo asignar.');
         }
@@ -68,7 +108,7 @@ class Delivery extends Component
 
         try {
             $orderService->markDelivered($order, auth()->user());
-            $this->dispatch('notify-toast', type: 'success', title: 'Entregado', message: "Pedido #{$order->number} marcado como entregado.");
+            $this->dispatch('notify-toast', type: 'success', title: 'Entregado', message: "Pedido #" . ltrim($order->number, '#') . " marcado como entregado.");
 
             // Prompt if order has a customer
             if ($order->customer_id) {

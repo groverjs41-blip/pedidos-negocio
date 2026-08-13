@@ -9,6 +9,15 @@ use Livewire\Component;
 
 class Kitchen extends Component
 {
+    public array $knownOrderIds = [];
+
+    public function mount(): void
+    {
+        $this->knownOrderIds = Order::whereIn('status', [OrderStatus::NEW, OrderStatus::PREPARING])
+            ->pluck('id')
+            ->toArray();
+    }
+
     /**
      * Listen to Echo OrderChanged broadcasts.
      */
@@ -31,6 +40,39 @@ class Kitchen extends Component
     }
 
     /**
+     * Polling fallback method to detect new orders and dispatch operational sound events.
+     */
+    public function refreshOperationalOrders(): void
+    {
+        $currentOrders = Order::whereIn('status', [OrderStatus::NEW, OrderStatus::PREPARING])
+            ->with(['items'])
+            ->orderBy('ordered_at', 'asc')
+            ->get();
+
+        $currentIds = $currentOrders->pluck('id')->toArray();
+        $newIds = array_diff($currentIds, $this->knownOrderIds);
+
+        if (!empty($newIds)) {
+            foreach ($currentOrders as $order) {
+                if (in_array($order->id, $newIds) && $order->status === OrderStatus::NEW) {
+                    $itemsSummary = $order->items->map(fn($i) => "{$i->quantity}x {$i->product_name}")->implode(', ');
+                    $this->dispatch('operational-fallback-event', [
+                        'orderId' => $order->id,
+                        'orderNumber' => ltrim($order->number, '#'),
+                        'action' => 'ORDER_CREATED',
+                        'soundType' => 'kitchen',
+                        'targetRoles' => ['admin', 'cocina'],
+                        'customerName' => $order->customer_name_snapshot ?? 'Venta Mostrador',
+                        'itemsSummary' => $itemsSummary,
+                    ]);
+                }
+            }
+        }
+
+        $this->knownOrderIds = $currentIds;
+    }
+
+    /**
      * Transition NEW -> PREPARING.
      */
     public function startPreparingOrder(int $orderId, OrderService $orderService): void
@@ -43,7 +85,7 @@ class Kitchen extends Component
 
         try {
             $orderService->startPreparing($order, auth()->user());
-            $this->dispatch('notify-toast', type: 'info', title: 'En Preparación', message: "Pedido #{$order->number} en preparación.");
+            $this->dispatch('notify-toast', type: 'info', title: 'En Preparación', message: "Pedido #" . ltrim($order->number, '#') . " en preparación.");
         } catch (\Exception $e) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error operativo', message: 'No se pudo iniciar preparación del pedido.');
         }
@@ -62,7 +104,7 @@ class Kitchen extends Component
 
         try {
             $orderService->markReady($order, auth()->user());
-            $this->dispatch('notify-toast', type: 'success', title: 'Pedido Listo', message: "Pedido #{$order->number} listo para entrega.");
+            $this->dispatch('notify-toast', type: 'success', title: 'Pedido Listo', message: "Pedido #" . ltrim($order->number, '#') . " listo para entrega.");
         } catch (\Exception $e) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error operativo', message: 'No se pudo marcar el pedido como listo.');
         }

@@ -1,4 +1,4 @@
-<div wire:poll.15s class="delivery-layout" style="max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.75rem; width: 100%;">
+<div wire:poll.15s="refreshOperationalOrders" class="delivery-layout" style="max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.75rem; width: 100%;">
 
     <div class="page-header" style="margin-bottom: 0;">
         <div>
