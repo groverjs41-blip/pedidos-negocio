@@ -40,6 +40,14 @@ class Customer extends Model
     }
 
     /**
+     * Get the returnable movements for the customer.
+     */
+    public function returnableMovements(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ReturnableMovement::class);
+    }
+
+    /**
      * Calculate the total customer debt derived from DELIVERED orders using BCMath.
      */
     public function outstandingBalance(): string

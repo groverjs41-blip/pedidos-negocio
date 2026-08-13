@@ -65,6 +65,18 @@
                                 @if($selectedCustomerPhone) 📞 {{ $selectedCustomerPhone }} @endif
                                 @if($selectedCustomerAddress) • 📍 {{ $selectedCustomerAddress }} @endif
                             </div>
+                            @if($selectedCustomerId)
+                                @inject('returnableService', 'App\Services\ReturnableService')
+                                @php
+                                    $customerObj = \App\Models\Customer::find($selectedCustomerId);
+                                    $pendingCount = $customerObj ? $returnableService->getCustomerTotalOutstanding($customerObj) : 0;
+                                @endphp
+                                @if($pendingCount > 0)
+                                    <div style="font-size: 0.75rem; color: var(--warning-text); font-weight: 700; margin-top: 2px;">
+                                        📦 Envases por recoger: {{ $pendingCount }}
+                                    </div>
+                                @endif
+                            @endif
                         </div>
                     </div>
                     <button type="button" wire:click="clearCustomer" style="background: transparent; border: none; color: var(--danger-text); font-size: 0.8rem; font-weight: 600; cursor: pointer;">

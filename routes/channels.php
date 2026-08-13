@@ -14,3 +14,8 @@ Broadcast::channel('payments.operations', function ($user) {
     return $user && $user->isActive() && $user->hasAnyRole(['admin', 'caja', 'pedidos']);
 });
 
+Broadcast::channel('returnables.operations', function ($user) {
+    return $user && $user->isActive() && $user->hasAnyRole(['admin', 'caja', 'reparto', 'pedidos']);
+});
+
+

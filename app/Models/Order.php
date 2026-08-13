@@ -102,6 +102,14 @@ class Order extends Model
     }
 
     /**
+     * Get the returnable movements for the order.
+     */
+    public function returnableMovements(): HasMany
+    {
+        return $this->hasMany(ReturnableMovement::class);
+    }
+
+    /**
      * Get the total paid amount for valid (non-voided) payments using BCMath.
      */
     public function paidAmount(): string

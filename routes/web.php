@@ -39,4 +39,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/caja/pedidos/{order}', \App\Livewire\PayOrder::class)->middleware('role:caja')->name('caja.pedido');
     Route::get('/caja/pagos', \App\Livewire\ListPayments::class)->middleware('role:caja')->name('caja.pagos');
 
+    // Returnable container routes (role:caja,reparto or admin)
+    Route::get('/tazas', \App\Livewire\ReturnableDashboard::class)->middleware('role:caja,reparto')->name('tazas.dashboard');
+    Route::get('/tazas/por-recoger', \App\Livewire\ReturnablePending::class)->middleware('role:caja,reparto')->name('tazas.por-recoger');
+    Route::get('/tazas/clientes/{customer}', \App\Livewire\CustomerReturnables::class)->middleware('role:caja,reparto')->name('tazas.cliente');
 });

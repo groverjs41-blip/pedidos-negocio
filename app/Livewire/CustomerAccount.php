@@ -5,7 +5,9 @@ namespace App\Livewire;
 use App\Enums\PaymentMethod;
 use App\Models\Customer;
 use App\Models\Order;
+use App\Services\CollectionVisitService;
 use App\Services\PaymentService;
+use App\Services\ReturnableService;
 use Illuminate\Support\Str;
 use Livewire\Component;
 
@@ -21,6 +23,14 @@ class CustomerAccount extends Component
     public string $reference = '';
     public string $notes = '';
     public string $submissionToken = '';
+
+    // Combined Visit Modal State
+    public bool $showVisitModal = false;
+    public string $visitPaymentAmount = '';
+    public string $visitPaymentMethod = 'CASH';
+    public string $visitReference = '';
+    public array $visitReturnQuantities = []; // [type_id => qty]
+    public string $visitNotes = '';
 
     public ?string $successMessage = null;
     public ?string $errorMessage = null;
@@ -60,6 +70,32 @@ class CustomerAccount extends Component
         $this->errorMessage = null;
     }
 
+    public function openVisitModal(ReturnableService $returnableService)
+    {
+        $this->visitPaymentAmount = '';
+        $this->visitPaymentMethod = 'CASH';
+        $this->visitReference = '';
+        $this->visitNotes = '';
+        $this->visitReturnQuantities = [];
+        $this->submissionToken = (string) Str::uuid();
+        $this->errorMessage = null;
+
+        $balances = $returnableService->getCustomerBalances($this->customer);
+        foreach ($balances as $b) {
+            if ($b['outstanding'] > 0) {
+                $this->visitReturnQuantities[$b['type']->id] = 0;
+            }
+        }
+
+        $this->showVisitModal = true;
+    }
+
+    public function closeVisitModal()
+    {
+        $this->showVisitModal = false;
+        $this->errorMessage = null;
+    }
+
     public function processPayment(PaymentService $paymentService)
     {
         $this->errorMessage = null;
@@ -94,7 +130,52 @@ class CustomerAccount extends Component
         }
     }
 
-    public function render()
+    public function processVisit(CollectionVisitService $visitService)
+    {
+        $this->errorMessage = null;
+        $this->successMessage = null;
+
+        $paymentData = null;
+        if (!empty($this->visitPaymentAmount) && bccomp($this->visitPaymentAmount, '0.00', 2) > 0) {
+            $paymentData = [
+                'amount' => $this->visitPaymentAmount,
+                'method' => PaymentMethod::from($this->visitPaymentMethod),
+                'reference' => $this->visitReference,
+                'notes' => $this->visitNotes,
+            ];
+        }
+
+        $returnItems = [];
+        foreach ($this->visitReturnQuantities as $typeId => $qty) {
+            $q = (int) $qty;
+            if ($q > 0) {
+                $returnItems[] = [
+                    'returnable_type_id' => (int) $typeId,
+                    'quantity' => $q,
+                ];
+            }
+        }
+
+        $returnData = !empty($returnItems) ? ['items' => $returnItems, 'notes' => $this->visitNotes] : null;
+
+        try {
+            $visitService->recordVisit(
+                $this->customer,
+                $paymentData,
+                $returnData,
+                auth()->user(),
+                $this->submissionToken
+            );
+
+            $this->submissionToken = (string) Str::uuid();
+            $this->showVisitModal = false;
+            $this->successMessage = 'Visita (cobro y/o devolución de envases) registrada exitosamente.';
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage();
+        }
+    }
+
+    public function render(ReturnableService $returnableService)
     {
         $deliveredOrders = $this->customer->orders()
             ->where('status', \App\Enums\OrderStatus::DELIVERED)
@@ -105,10 +186,15 @@ class CustomerAccount extends Component
             ->orderBy('paid_at', 'desc')
             ->get();
 
+        $containerBalances = $returnableService->getCustomerBalances($this->customer);
+        $totalOutstandingContainers = $returnableService->getCustomerTotalOutstanding($this->customer);
+
         return view('livewire.customer-account', [
             'deliveredOrders' => $deliveredOrders,
             'paymentsHistory' => $paymentsHistory,
             'outstandingBalance' => $this->customer->outstandingBalance(),
+            'containerBalances' => $containerBalances,
+            'totalOutstandingContainers' => $totalOutstandingContainers,
         ])->layout('layouts.app', ['title' => 'Estado de Cuenta - ' . $this->customer->name]);
     }
 }

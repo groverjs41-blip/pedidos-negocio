@@ -7,7 +7,7 @@
         </div>
     @endif
 
-    @if($errorMessage && !$showPaymentModal)
+    @if($errorMessage && !$showPaymentModal && !$showVisitModal)
         <div class="alert alert-danger">
             <span>{{ $errorMessage }}</span>
             <button wire:click="$set('errorMessage', null)" class="close-alert">&times;</button>
@@ -46,20 +46,48 @@
             </div>
         </div>
 
-        @if(bccomp($outstandingBalance, '0.00', 2) > 0)
-            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button type="button" wire:click="openVisitModal" class="chip-btn" style="padding: 0.65rem 1.25rem; font-size: 0.875rem; background: rgba(39, 230, 164, 0.12); border-color: var(--primary); color: var(--primary);">
+                🚚 REGISTRAR VISITA (PAGO + ENVASES)
+            </button>
+            @if(bccomp($outstandingBalance, '0.00', 2) > 0)
                 <button type="button" wire:click="openPaymentModal('PARTIAL')" class="chip-btn" style="padding: 0.65rem 1.25rem; font-size: 0.875rem;">
-                    💵 REGISTRAR ABONO
+                    💵 ABONO MONETARIO
                 </button>
                 <button type="button" wire:click="openPaymentModal('FULL')" class="btn-primary" style="height: 44px; padding: 0 1.25rem; font-size: 0.9rem;">
                     ✓ COBRAR TODO (${{ number_format((float)$outstandingBalance, 2) }})
                 </button>
+            @endif
+        </div>
+    </div>
+
+    {{-- Envases por Recoger Section --}}
+    <div class="card" style="padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+            <div style="font-weight: 800; font-size: 1rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+                📦 Envases por Recoger
+                <span style="font-size: 0.8rem; padding: 2px 8px; border-radius: 12px; background: rgba(255, 183, 77, 0.15); color: var(--warning-text); font-weight: 800;">
+                    {{ $totalOutstandingContainers }} unidades
+                </span>
             </div>
-        @else
-            <div style="color: var(--primary); font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 0.4rem;">
-                <x-ui.icon name="check" class="w-5 h-5" /> Al día (Sin deuda pendiente)
+            <div style="display: flex; gap: 0.75rem; margin-top: 0.4rem; flex-wrap: wrap;">
+                @forelse($containerBalances as $cb)
+                    @if($cb['outstanding'] > 0)
+                        <span style="font-size: 0.825rem; color: var(--text-muted);">
+                            {{ $cb['type']->name }}: <strong style="color: var(--text-main);">{{ $cb['outstanding'] }}</strong>
+                        </span>
+                    @endif
+                @empty
+                    <span style="font-size: 0.825rem; color: var(--text-muted);">Sin envases pendientes</span>
+                @endforelse
             </div>
-        @endif
+        </div>
+
+        <div>
+            <a href="{{ route('tazas.cliente', $customer->id) }}" class="chip-btn" style="text-decoration: none; padding: 0.5rem 1rem; font-size: 0.825rem;">
+                Ver Gestión de Envases →
+            </a>
+        </div>
     </div>
 
     {{-- Delivered Orders List --}}
@@ -178,9 +206,6 @@
                             @if($paymentType === 'FULL') readonly @endif
                             required
                         >
-                        <span style="font-size: 0.75rem; color: var(--text-muted);">
-                            Saldo total del cliente: ${{ number_format((float)$outstandingBalance, 2) }}. Los abonos se distribuyen automáticamente a los pedidos más antiguos.
-                        </span>
                     </div>
 
                     <div style="display: flex; flex-direction: column; gap: 0.35rem;">
@@ -194,12 +219,12 @@
 
                     <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                         <label class="form-label">Referencia / Comprobante (Opcional)</label>
-                        <input type="text" wire:model="reference" class="form-input" placeholder="N° de transferencia, recibo...">
+                        <input type="text" wire:model="reference" class="form-input" placeholder="N° de transferencia...">
                     </div>
 
                     <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                         <label class="form-label">Notas (Opcional)</label>
-                        <textarea wire:model="notes" rows="2" class="form-input" placeholder="Observaciones sobre el cobro..." style="resize: none; height: 55px;"></textarea>
+                        <textarea wire:model="notes" rows="2" class="form-input" placeholder="Observaciones..." style="resize: none; height: 55px;"></textarea>
                     </div>
 
                     <button
@@ -212,6 +237,85 @@
                         <span wire:loading wire:target="processPayment" class="spinner"></span>
                         <span wire:loading.remove wire:target="processPayment">CONFIRMAR REGISTRO DE PAGO</span>
                         <span wire:loading wire:target="processPayment">PROCESANDO PAGO...</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    @endif
+
+    {{-- Combined Visit Modal (Payment + Container Return) --}}
+    @if($showVisitModal)
+        <div class="modal-overlay" wire:click.self="closeVisitModal">
+            <div class="modal-content" style="max-width: 520px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
+                    <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--text-main);">Registrar Visita al Cliente</h3>
+                    <button type="button" wire:click="closeVisitModal" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+
+                @if($errorMessage)
+                    <div class="alert alert-danger">
+                        <span>{{ $errorMessage }}</span>
+                    </div>
+                @endif
+
+                <form wire:submit.prevent="processVisit" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                    {{-- 1. Payment Part --}}
+                    <div style="background: var(--bg-surface); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-main);">💵 1. Pago Monetario (Opcional)</div>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.65rem;">
+                            <div>
+                                <label class="form-label" style="font-size: 0.775rem;">Monto ($)</label>
+                                <input type="number" step="0.01" wire:model="visitPaymentAmount" class="form-input" placeholder="0.00">
+                            </div>
+                            <div>
+                                <label class="form-label" style="font-size: 0.775rem;">Método</label>
+                                <select wire:model="visitPaymentMethod" class="form-input">
+                                    @foreach(\App\Enums\PaymentMethod::cases() as $m)
+                                        <option value="{{ $m->value }}">{{ $m->label() }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <input type="text" wire:model="visitReference" class="form-input" placeholder="Referencia / Voucher (opcional)">
+                    </div>
+
+                    {{-- 2. Container Return Part --}}
+                    <div style="background: var(--bg-surface); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-main);">📦 2. Devolución de Envases (Opcional)</div>
+                        @forelse($containerBalances as $cb)
+                            @if($cb['outstanding'] > 0)
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;">
+                                    <span>{{ $cb['type']->name }} (debe {{ $cb['outstanding'] }}):</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="{{ $cb['outstanding'] }}"
+                                        wire:model="visitReturnQuantities.{{ $cb['type']->id }}"
+                                        class="form-input"
+                                        style="width: 75px; text-align: center; font-weight: 800;"
+                                    >
+                                </div>
+                            @endif
+                        @empty
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Sin envases pendientes para devolver.</div>
+                        @endforelse
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <label class="form-label">Notas de Visita (Opcional)</label>
+                        <textarea wire:model="visitNotes" rows="2" class="form-input" placeholder="Observaciones..." style="resize: none; height: 50px;"></textarea>
+                    </div>
+
+                    <button
+                        type="submit"
+                        wire:loading.attr="disabled"
+                        wire:target="processVisit"
+                        class="btn-primary"
+                        style="height: 50px; font-size: 1rem; width: 100%;"
+                    >
+                        <span wire:loading wire:target="processVisit" class="spinner"></span>
+                        <span wire:loading.remove wire:target="processVisit">CONFIRMAR REGISTRO DE VISITA</span>
+                        <span wire:loading wire:target="processVisit">PROCESANDO VISITA...</span>
                     </button>
                 </form>
             </div>

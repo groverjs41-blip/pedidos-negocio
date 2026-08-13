@@ -165,4 +165,55 @@
             @endforelse
         </div>
     </div>
+
+    {{-- Returnable Prompt Modal --}}
+    @if($showReturnablePrompt && $promptOrder)
+        <div class="modal-overlay" wire:click.self="closePrompt">
+            <div class="modal-content" style="max-width: 440px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
+                    <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--text-main);">¿Dejaste envases con el cliente?</h3>
+                    <button type="button" wire:click="closePrompt" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                    Cliente: <strong>{{ $promptOrder->customer_name_snapshot }}</strong> (Pedido {{ $promptOrder->number }})
+                </div>
+
+                <form wire:submit.prevent="registerLeftContainers" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                        @foreach($activeReturnableTypes as $t)
+                            <div style="background: var(--bg-surface); padding: 0.75rem 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">{{ $t->name }}</span>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="50"
+                                        wire:model="outQuantities.{{ $t->id }}"
+                                        class="form-input"
+                                        style="width: 70px; text-align: center; font-weight: 800;"
+                                    >
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
+                        <button type="button" wire:click="closePrompt" class="chip-btn" style="flex: 1; height: 44px; text-align: center;">No dejé envases</button>
+                        <button
+                            type="submit"
+                            wire:loading.attr="disabled"
+                            wire:target="registerLeftContainers"
+                            class="btn-primary"
+                            style="flex: 1; height: 44px; font-size: 0.85rem;"
+                        >
+                            <span wire:loading wire:target="registerLeftContainers" class="spinner"></span>
+                            <span wire:loading.remove wire:target="registerLeftContainers">REGISTRAR ENVASES</span>
+                            <span wire:loading wire:target="registerLeftContainers">PROCESANDO...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
 </div>
