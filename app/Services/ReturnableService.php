@@ -67,6 +67,28 @@ class ReturnableService
     }
 
     /**
+     * Get summary of non-zero container balances for a customer.
+     *
+     * @return array<int, array{returnable_type: ReturnableType, balance: int}>
+     */
+    public function getCustomerSummary(Customer $customer): array
+    {
+        $balances = $this->getCustomerBalances($customer);
+        $result = [];
+
+        foreach ($balances as $b) {
+            if ($b['outstanding'] > 0) {
+                $result[] = [
+                    'returnable_type' => $b['type'],
+                    'balance' => $b['outstanding'],
+                ];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Calculate total outstanding container units across all types for a customer.
      */
     public function getCustomerTotalOutstanding(Customer $customer): int
