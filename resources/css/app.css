@@ -1866,4 +1866,109 @@ html.sidebar-collapsed-init .btn-logout-sidebar {
     to { transform: rotate(360deg); }
 }
 
+/* ========================================================
+   PREMIUM MOTION DESIGN & MICRO-INTERACTION SYSTEM
+   ======================================================== */
+
+/* 1. Page View Fade-In-Up Transition */
+.page-fade-in {
+    animation: pageFadeInUp 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pageFadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 2. Interactive Button & Card Tactile Feedback */
+.btn-primary, .btn-secondary, .btn-submit-order, .btn-kds-action, .btn-action, .nav-item, .category-pill, .card-interactive {
+    transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms ease, background-color 150ms ease, border-color 150ms ease !important;
+}
+
+.btn-primary:active, .btn-secondary:active, .btn-submit-order:active, .btn-kds-action:active, .btn-action:active, .category-pill:active {
+    transform: scale(0.97) !important;
+}
+
+/* 3. Card Hover Elevation */
+.card-hover-effect {
+    transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms ease, border-color 200ms ease;
+}
+.card-hover-effect:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.25), 0 4px 12px -2px rgba(0, 0, 0, 0.15);
+    border-color: rgba(39, 230, 164, 0.3);
+}
+
+/* 4. Ambient Pulsing Badges */
+.status-badge.NEW, .dot.online, .status-badge.PREPARING {
+    position: relative;
+}
+.status-badge.NEW::after, .dot.online::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: currentColor;
+    opacity: 0.4;
+    animation: badgePulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    pointer-events: none;
+}
+
+@keyframes badgePulse {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50% { transform: scale(1.4); opacity: 0; }
+}
+
+/* 5. Glassmorphism & Backdrop Blur for Toast & Modals */
+.toast-card {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.35), 0 0 1px 1px rgba(255, 255, 255, 0.1);
+    animation: toastSlideIn 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes toastSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(40px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+.toast-fade-out {
+    animation: toastFadeOut 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes toastFadeOut {
+    to {
+        opacity: 0;
+        transform: translateX(30px) scale(0.92);
+    }
+}
+
+/* 6. Staggered Entrance Animation for Grid Cards */
+.stagger-item {
+    animation: staggerSlideIn 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes staggerSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
 
