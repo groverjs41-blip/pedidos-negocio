@@ -37,6 +37,36 @@ class CatalogTest extends TestCase
     }
 
     /**
+     * Test creating a customer with only name via Livewire CreateCustomer component.
+     */
+    public function test_create_customer_with_only_name_via_livewire(): void
+    {
+        $adminRole = Role::firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
+        $admin = User::factory()->create(['active' => true]);
+        $admin->roles()->attach($adminRole);
+
+        \Livewire\Livewire::actingAs($admin)
+            ->test(\App\Livewire\CreateCustomer::class)
+            ->set('name', 'Cliente Solo Nombre')
+            ->set('phone', '')
+            ->set('address', '')
+            ->set('addressReference', '')
+            ->set('notes', '')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect('/gestion/clientes');
+
+        $this->assertDatabaseHas('customers', [
+            'name' => 'Cliente Solo Nombre',
+            'phone' => null,
+            'address' => null,
+            'location_notes' => null,
+            'notes' => null,
+            'active' => true,
+        ]);
+    }
+
+    /**
      * Test a customer can be disabled (active set to false).
      */
     public function test_customer_can_be_disabled(): void

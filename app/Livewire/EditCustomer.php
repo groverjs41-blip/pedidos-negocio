@@ -28,7 +28,7 @@ class EditCustomer extends Component
         $this->name = $customer->name;
         $this->phone = $customer->phone ?? '';
         $this->address = $customer->address ?? '';
-        $this->addressReference = $customer->address_reference ?? '';
+        $this->addressReference = $customer->location_notes ?? '';
         $this->notes = $customer->notes ?? '';
         $this->active = (bool)$customer->active;
     }
@@ -50,7 +50,7 @@ class EditCustomer extends Component
                 'name' => trim($this->name),
                 'phone' => trim($this->phone) ?: null,
                 'address' => trim($this->address) ?: null,
-                'address_reference' => trim($this->addressReference) ?: null,
+                'location_notes' => trim($this->addressReference) ?: null,
                 'notes' => trim($this->notes) ?: null,
                 'active' => $this->active,
             ]);
