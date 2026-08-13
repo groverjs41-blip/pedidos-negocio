@@ -44,16 +44,16 @@
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; text-align: center;">
             <div style="background: var(--bg-surface); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border);">
                 <div style="font-size: 0.75rem; color: var(--text-muted);">Total Pedido</div>
-                <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-main);">${{ number_format((float)$order->total, 2) }}</div>
+                <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-main);">@money($order->total)</div>
             </div>
             <div style="background: var(--bg-surface); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border);">
                 <div style="font-size: 0.75rem; color: var(--text-muted);">Monto Pagado</div>
-                <div style="font-size: 1.15rem; font-weight: 800; color: var(--primary);">${{ number_format((float)$paidAmount, 2) }}</div>
+                <div style="font-size: 1.15rem; font-weight: 800; color: var(--primary);">@money($paidAmount)</div>
             </div>
             <div style="background: var(--bg-surface); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border);">
                 <div style="font-size: 0.75rem; color: var(--text-muted);">Saldo Pendiente</div>
                 <div style="font-size: 1.15rem; font-weight: 800; color: {{ bccomp($outstandingBalance, '0.00', 2) > 0 ? 'var(--warning-text)' : 'var(--primary)' }};">
-                    ${{ number_format((float)$outstandingBalance, 2) }}
+                    @money($outstandingBalance)
                 </div>
             </div>
         </div>
@@ -62,7 +62,7 @@
         <div style="font-size: 0.85rem; color: var(--text-muted); background: var(--bg-surface); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border);">
             <div style="font-weight: 700; color: var(--text-main); margin-bottom: 4px;">Detalle de Productos:</div>
             @foreach($order->items as $item)
-                <div>{{ $item->quantity }}x {{ $item->product_name }} — ${{ number_format((float)$item->line_total, 2) }}</div>
+                <div>{{ $item->quantity }}x {{ $item->product_name }} — @money($item->line_total)</div>
             @endforeach
         </div>
     </div>
@@ -76,7 +76,7 @@
 
             <form wire:submit.prevent="processPayment" style="display: flex; flex-direction: column; gap: 1.15rem;">
                 <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                    <label class="form-label">Monto a Cobrar ($)</label>
+                    <label class="form-label">Monto a Cobrar</label>
                     <input
                         type="number"
                         step="0.01"
@@ -87,7 +87,7 @@
                         required
                     >
                     <span style="font-size: 0.75rem; color: var(--text-muted);">
-                        Monto máximo permitido: ${{ number_format((float)$outstandingBalance, 2) }}
+                        Monto máximo permitido: @money($outstandingBalance)
                     </span>
                 </div>
 

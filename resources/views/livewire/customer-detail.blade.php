@@ -44,7 +44,7 @@
     <div class="metrics-grid">
         <div class="metric-card">
             <span class="metric-val" style="color: {{ bccomp($debt, '0.00', 2) > 0 ? 'var(--warning-text)' : 'var(--primary)' }};">
-                ${{ number_format((float)$debt, 2) }}
+                @money($debt)
             </span>
             <span class="metric-label">Deuda Pendiente</span>
         </div>
@@ -127,7 +127,7 @@
                         </div>
                         <div style="text-align: right;">
                             <div style="font-weight: 800; font-size: 0.95rem; color: var(--primary);">
-                                ${{ number_format((float)$ord->total, 2) }}
+                                @money($ord->total)
                             </div>
                             <a href="{{ url('/caja/pedidos/' . $ord->id) }}" style="font-size: 0.75rem; color: var(--info-text); text-decoration: none;">
                                 Ver Cobro &rarr;
@@ -157,7 +157,7 @@
                             </div>
                         </div>
                         <div style="font-weight: 800; font-size: 0.95rem; color: var(--info-text);">
-                            +${{ number_format((float)$pay->amount, 2) }}
+                            +@money($pay->amount)
                         </div>
                     </div>
                 @empty

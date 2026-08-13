@@ -95,11 +95,11 @@ class ProductResource extends Resource
                     ->sortable()
                     ->label('Categoría'),
                 Tables\Columns\TextColumn::make('price')
-                    ->prefix('$')
+                    ->formatStateUsing(fn ($state) => \App\Support\MoneyFormatter::format($state))
                     ->sortable()
                     ->label('Precio'),
                 Tables\Columns\TextColumn::make('estimated_cost')
-                    ->prefix('$')
+                    ->formatStateUsing(fn ($state) => $state !== null ? \App\Support\MoneyFormatter::format($state) : '-')
                     ->placeholder('-')
                     ->sortable()
                     ->label('Costo aproximado'),
@@ -109,8 +109,8 @@ class ProductResource extends Resource
                         if ($record->estimated_cost === null) {
                             return '-';
                         }
-                        $margin = $record->price - $record->estimated_cost;
-                        return '$' . number_format($margin, 2);
+                        $margin = bcsub((string)$record->price, (string)$record->estimated_cost, 2);
+                        return \App\Support\MoneyFormatter::format($margin);
                     }),
                 Tables\Columns\IconColumn::make('active')
                     ->boolean()

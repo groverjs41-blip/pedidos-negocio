@@ -49,12 +49,12 @@
     {{-- Live Summary Metrics --}}
     <div class="metrics-grid">
         <div class="metric-card">
-            <span class="metric-val" style="color: var(--primary);">${{ number_format((float)$summary['gross_sales'], 2) }}</span>
+            <span class="metric-val" style="color: var(--primary);">@money($summary['gross_sales'])</span>
             <span class="metric-label">Ventas Brutas (Entregadas)</span>
         </div>
 
         <div class="metric-card">
-            <span class="metric-val" style="color: var(--info-text);">${{ number_format((float)$summary['total_collected'], 2) }}</span>
+            <span class="metric-val" style="color: var(--info-text);">@money($summary['total_collected'])</span>
             <span class="metric-label">Total Cobrado (Hoy)</span>
         </div>
 
@@ -81,19 +81,19 @@
             <div style="display: flex; flex-direction: column; gap: 0.65rem;">
                 <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
                     <span style="color: var(--text-muted);">💵 Efectivo:</span>
-                    <strong style="color: var(--text-main);">${{ number_format((float)$summary['collected_by_method'][\App\Enums\PaymentMethod::CASH->value], 2) }}</strong>
+                    <strong style="color: var(--text-main);">@money($summary['collected_by_method'][\App\Enums\PaymentMethod::CASH->value])</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
                     <span style="color: var(--text-muted);">💳 Tarjeta:</span>
-                    <strong style="color: var(--text-main);">${{ number_format((float)$summary['collected_by_method'][\App\Enums\PaymentMethod::CARD->value], 2) }}</strong>
+                    <strong style="color: var(--text-main);">@money($summary['collected_by_method'][\App\Enums\PaymentMethod::CARD->value])</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
                     <span style="color: var(--text-muted);">🏦 Transferencia:</span>
-                    <strong style="color: var(--text-main);">${{ number_format((float)$summary['collected_by_method'][\App\Enums\PaymentMethod::TRANSFER->value], 2) }}</strong>
+                    <strong style="color: var(--text-main);">@money($summary['collected_by_method'][\App\Enums\PaymentMethod::TRANSFER->value])</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
                     <span style="color: var(--text-muted);">🔄 Otros:</span>
-                    <strong style="color: var(--text-main);">${{ number_format((float)$summary['collected_by_method'][\App\Enums\PaymentMethod::OTHER->value], 2) }}</strong>
+                    <strong style="color: var(--text-main);">@money($summary['collected_by_method'][\App\Enums\PaymentMethod::OTHER->value])</strong>
                 </div>
             </div>
         </div>
@@ -110,7 +110,7 @@
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-muted);">Deuda Pendiente Clientes:</span>
-                    <strong style="color: var(--warning-text);">${{ number_format((float)$summary['pending_debt_at_closure'], 2) }}</strong>
+                    <strong style="color: var(--warning-text);">@money($summary['pending_debt_at_closure'])</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-muted);">Comandas Canceladas:</span>
@@ -260,21 +260,21 @@
 
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
                         <div class="metric-card" style="padding: 0.75rem;">
-                            <span class="metric-val" style="font-size: 1.25rem; color: var(--primary);">${{ number_format((float)($snap['gross_sales'] ?? 0), 2) }}</span>
+                            <span class="metric-val" style="font-size: 1.25rem; color: var(--primary);">@money($snap['gross_sales'] ?? 0)</span>
                             <span class="metric-label">Ventas Brutas</span>
                         </div>
                         <div class="metric-card" style="padding: 0.75rem;">
-                            <span class="metric-val" style="font-size: 1.25rem; color: var(--info-text);">${{ number_format((float)($snap['total_collected'] ?? 0), 2) }}</span>
+                            <span class="metric-val" style="font-size: 1.25rem; color: var(--info-text);">@money($snap['total_collected'] ?? 0)</span>
                             <span class="metric-label">Total Cobrado</span>
                         </div>
                     </div>
 
                     <div style="background: var(--bg-surface); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.4rem;">
                         <div style="font-weight: 800; color: var(--text-main);">Cobro por Método</div>
-                        <div>Efectivo: ${{ number_format((float)($byMethod[\App\Enums\PaymentMethod::CASH->value] ?? 0), 2) }}</div>
-                        <div>Tarjeta: ${{ number_format((float)($byMethod[\App\Enums\PaymentMethod::CARD->value] ?? 0), 2) }}</div>
-                        <div>Transferencia: ${{ number_format((float)($byMethod[\App\Enums\PaymentMethod::TRANSFER->value] ?? 0), 2) }}</div>
-                        <div>Otros: ${{ number_format((float)($byMethod[\App\Enums\PaymentMethod::OTHER->value] ?? 0), 2) }}</div>
+                        <div>Efectivo: @money($byMethod[\App\Enums\PaymentMethod::CASH->value] ?? 0)</div>
+                        <div>Tarjeta: @money($byMethod[\App\Enums\PaymentMethod::CARD->value] ?? 0)</div>
+                        <div>Transferencia: @money($byMethod[\App\Enums\PaymentMethod::TRANSFER->value] ?? 0)</div>
+                        <div>Otros: @money($byMethod[\App\Enums\PaymentMethod::OTHER->value] ?? 0)</div>
                     </div>
 
                     <div style="display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.8rem;">

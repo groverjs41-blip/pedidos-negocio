@@ -18,18 +18,40 @@ class OrderChanged implements ShouldBroadcastNow
     public string $orderNumber;
     public string $status;
     public ?string $previousStatus;
+    public string $action;
+    public ?string $soundType;
+    public array $targetRoles;
+    public string $customerName;
+    public string $itemsSummary;
     public string $occurredAt;
 
     /**
      * Create a new event instance.
      */
-    public function __construct(Order $order, ?string $previousStatus = null)
-    {
+    public function __construct(
+        Order $order,
+        ?string $previousStatus = null,
+        string $action = 'STATUS_CHANGED',
+        ?string $soundType = null,
+        array $targetRoles = []
+    ) {
         $this->order = $order;
         $this->orderId = (string) $order->id;
         $this->orderNumber = $order->number;
         $this->status = $order->status->value;
         $this->previousStatus = $previousStatus;
+        $this->action = $action;
+        $this->soundType = $soundType;
+        $this->targetRoles = $targetRoles;
+        $this->customerName = $order->customer_name_snapshot ?? 'Venta Mostrador';
+        
+        $summaryParts = [];
+        if ($order->relationLoaded('items') || $order->items()->exists()) {
+            foreach ($order->items as $item) {
+                $summaryParts[] = "{$item->quantity} × {$item->product_name}";
+            }
+        }
+        $this->itemsSummary = implode(', ', $summaryParts);
         $this->occurredAt = now()->toIso8601String();
     }
 
@@ -57,6 +79,11 @@ class OrderChanged implements ShouldBroadcastNow
             'orderNumber' => $this->orderNumber,
             'status' => $this->status,
             'previousStatus' => $this->previousStatus,
+            'action' => $this->action,
+            'soundType' => $this->soundType,
+            'targetRoles' => $this->targetRoles,
+            'customerName' => $this->customerName,
+            'itemsSummary' => $this->itemsSummary,
             'occurredAt' => $this->occurredAt,
         ];
     }

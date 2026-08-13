@@ -7,6 +7,7 @@
  */
 
 import './echo';
+import './notifications';
 
 // Register Service Worker for PWA
 if ('serviceWorker' in navigator) {

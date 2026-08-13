@@ -42,7 +42,7 @@
                 Saldo Pendiente Total
             </div>
             <div style="font-size: 2.25rem; font-weight: 800; color: {{ bccomp($outstandingBalance, '0.00', 2) > 0 ? 'var(--warning-text)' : 'var(--primary)' }}; margin-top: 2px;">
-                ${{ number_format((float)$outstandingBalance, 2) }}
+                @money($outstandingBalance)
             </div>
         </div>
 
@@ -55,7 +55,7 @@
                     💵 ABONO MONETARIO
                 </button>
                 <button type="button" wire:click="openPaymentModal('FULL')" class="btn-primary" style="height: 44px; padding: 0 1.25rem; font-size: 0.9rem;">
-                    ✓ COBRAR TODO (${{ number_format((float)$outstandingBalance, 2) }})
+                    ✓ COBRAR TODO (@money($outstandingBalance))
                 </button>
             @endif
         </div>
@@ -120,9 +120,9 @@
 
                     <div style="display: flex; align-items: center; gap: 1.25rem;">
                         <div style="text-align: right;">
-                            <div style="font-size: 0.8rem; color: var(--text-muted);">Total: ${{ number_format((float)$order->total, 2) }} | Pagado: ${{ number_format((float)$paid, 2) }}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Total: @money($order->total) | Pagado: @money($paid)</div>
                             <div style="font-size: 1.05rem; font-weight: 800; color: {{ bccomp($bal, '0.00', 2) > 0 ? 'var(--warning-text)' : 'var(--primary)' }};">
-                                Saldo: ${{ number_format((float)$bal, 2) }}
+                                Saldo: @money($bal)
                             </div>
                         </div>
 
@@ -154,7 +154,7 @@
                 <div class="card" style="padding: 0.85rem 1.15rem; display: flex; justify-content: space-between; align-items: center; opacity: {{ $pay->isVoided() ? '0.5' : '1' }};">
                     <div>
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">${{ number_format((float)$pay->amount, 2) }}</span>
+                            <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">@money($pay->amount)</span>
                             <span class="chip-btn" style="padding: 2px 8px; font-size: 0.725rem;">{{ $pay->method->label() }}</span>
                             @if($pay->isVoided())
                                 <span style="font-size: 0.725rem; font-weight: 800; color: var(--danger-text); background: var(--danger-light); padding: 2px 8px; border-radius: 4px;">ANULADO</span>

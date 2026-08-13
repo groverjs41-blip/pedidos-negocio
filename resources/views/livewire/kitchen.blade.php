@@ -14,7 +14,7 @@
         </div>
     @endif
 
-    <div class="page-header">
+    <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
         <div>
             <h1 class="page-header-title">
                 <div class="header-icon-wrap warning">
@@ -25,7 +25,54 @@
             </h1>
             <div class="page-header-subtitle">Comandas de preparación en tiempo real</div>
         </div>
+
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button type="button" onclick="toggleKdsFullscreen()" class="chip-btn" style="padding: 0.5rem 0.85rem; font-size: 0.8rem;">
+                🖥️ PANTALLA COMPLETA
+            </button>
+            <button type="button" id="wakeLockBtn" onclick="toggleKdsWakeLock()" class="chip-btn" style="padding: 0.5rem 0.85rem; font-size: 0.8rem;">
+                💡 MANTENER PANTALLA ENCENDIDA
+            </button>
+        </div>
     </div>
+
+    <script>
+        function toggleKdsFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => console.error(err));
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+        }
+
+        let wakeLockObj = null;
+        async function toggleKdsWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    if (!wakeLockObj) {
+                        wakeLockObj = await navigator.wakeLock.request('screen');
+                        const btn = document.getElementById('wakeLockBtn');
+                        if (btn) {
+                            btn.style.background = 'rgba(39, 230, 164, 0.2)';
+                            btn.style.color = 'var(--primary)';
+                        }
+                    } else {
+                        await wakeLockObj.release();
+                        wakeLockObj = null;
+                        const btn = document.getElementById('wakeLockBtn');
+                        if (btn) {
+                            btn.style.background = '';
+                            btn.style.color = '';
+                        }
+                    }
+                } catch (err) {
+                    console.error('WakeLock error:', err);
+                }
+            } else {
+                alert('Screen Wake Lock API no es soportada en este navegador.');
+            }
+        }
+    </script>
 
     {{-- Active orders --}}
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">

@@ -87,10 +87,10 @@
                             {{ $p->category?->name }}
                         </td>
                         <td style="padding: 0.85rem 1rem; font-weight: 700; color: var(--primary);">
-                            ${{ number_format((float)$p->price, 2) }}
+                            @money($p->price)
                         </td>
                         <td style="padding: 0.85rem 1rem; color: var(--text-muted);">
-                            ${{ number_format((float)$p->estimated_cost, 2) }}
+                            @money($p->estimated_cost)
                         </td>
                         <td style="padding: 0.85rem 1rem;">
                             @if($p->returnableRequirements->count() > 0)

@@ -108,6 +108,20 @@
                 <h3 style="font-weight: 800; font-size: 1.1rem; color: var(--text-main); margin-bottom: 0.25rem;">Auditoría Avanzada</h3>
                 <p style="font-size: 0.85rem; color: var(--text-muted);">Panel técnico de logs, pagos y auditoría Filament.</p>
             </div>
+        {{-- Configuración --}}
+        <a href="{{ url('/gestion/configuracion') }}" class="card" style="padding: 1.5rem; text-decoration: none; display: flex; flex-direction: column; gap: 0.85rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div class="header-icon-wrap violet" style="width: 48px; height: 48px; border-radius: 14px;">
+                    <x-ui.icon name="gear" class="w-6 h-6" />
+                </div>
+                <span class="badge" style="background: rgba(183, 148, 244, 0.15); color: var(--violet-text);">
+                    SISTEMA
+                </span>
+            </div>
+            <div>
+                <h3 style="font-weight: 800; font-size: 1.1rem; color: var(--text-main); margin-bottom: 0.25rem;">Configuración General</h3>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">Moneda, sonidos, nombre del negocio y zona horaria.</p>
+            </div>
         </a>
     </div>
 </div>

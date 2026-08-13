@@ -75,7 +75,7 @@
                             {{ Str::limit($c->address ?? '—', 25) }}
                         </td>
                         <td style="padding: 0.85rem 1rem; font-weight: 700; color: {{ bccomp($bal, '0.00', 2) > 0 ? 'var(--warning-text)' : 'var(--primary)' }};">
-                            ${{ number_format((float)$bal, 2) }}
+                            @money($bal)
                         </td>
                         <td style="padding: 0.85rem 1rem;">
                             @if(count($contList) > 0)

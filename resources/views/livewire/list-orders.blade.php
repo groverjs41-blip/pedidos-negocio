@@ -71,7 +71,7 @@
                             Tienda / Sin asignar
                         @endif
                     </span>
-                    <span class="order-card-total">${{ number_format($order->total, 2) }}</span>
+                    <span class="order-card-total">@money($order->total)</span>
                 </div>
             </div>
         @empty
@@ -129,7 +129,7 @@
                                     <tr style="border-bottom: 1px solid var(--border);">
                                         <td style="padding: 0.5rem 0; color: var(--text-main);">{{ $item->product_name }}</td>
                                         <td style="text-align: center; color: var(--text-main);">{{ $item->quantity }}</td>
-                                        <td style="text-align: right; color: var(--text-main); font-weight: 600;">${{ number_format($item->line_total, 2) }}</td>
+                                        <td style="text-align: right; color: var(--text-main); font-weight: 600;">@money($item->line_total)</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -137,11 +137,11 @@
 
                         <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 800; margin-top: 0.5rem; font-size: 1.1rem; border-top: 2px solid var(--border); padding-top: 0.5rem;">
                             <span>TOTAL:</span>
-                            <span style="color: var(--primary);">${{ number_format((float)$selectedOrder->total, 2) }}</span>
+                            <span style="color: var(--primary);">@money($selectedOrder->total)</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-top: 0.35rem; color: var(--text-muted);">
                             <span>Estado de pago: <x-ui.status-badge :status="$selectedOrder->paymentStatus()" /></span>
-                            <span>Pagado: ${{ number_format((float)$selectedOrder->paidAmount(), 2) }} | Saldo: ${{ number_format((float)$selectedOrder->outstandingBalance(), 2) }}</span>
+                            <span>Pagado: @money($selectedOrder->paidAmount()) | Saldo: @money($selectedOrder->outstandingBalance())</span>
                         </div>
                     </div>
 

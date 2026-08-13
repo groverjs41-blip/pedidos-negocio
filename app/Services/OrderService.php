@@ -148,8 +148,8 @@ class OrderService
             throw $e;
         }
 
-        // 7. Dispatch Event Safely after commit
-        $this->broadcastOrderChanged($order, null);
+        // 7. Dispatch Operational Notifications & Event
+        $this->notifyAndBroadcast($order, 'ORDER_CREATED', null);
 
         return $order;
     }
@@ -273,7 +273,7 @@ class OrderService
         });
 
         $order->refresh();
-        $this->broadcastOrderChanged($order, $previousStatus->value);
+        $this->notifyAndBroadcast($order, 'PREPARING', $previousStatus->value);
     }
 
     /**
@@ -305,7 +305,7 @@ class OrderService
         });
 
         $order->refresh();
-        $this->broadcastOrderChanged($order, $previousStatus->value);
+        $this->notifyAndBroadcast($order, 'READY', $previousStatus->value);
     }
 
     /**
@@ -338,7 +338,7 @@ class OrderService
         });
 
         $order->refresh();
-        $this->broadcastOrderChanged($order, $previousStatus->value);
+        $this->notifyAndBroadcast($order, 'DELIVERING', $previousStatus->value);
     }
 
     /**
@@ -374,7 +374,7 @@ class OrderService
         });
 
         $order->refresh();
-        $this->broadcastOrderChanged($order, $previousStatus->value);
+        $this->notifyAndBroadcast($order, 'DELIVERED', $previousStatus->value);
     }
 
     /**
@@ -423,18 +423,18 @@ class OrderService
         });
 
         $order->refresh();
-        $this->broadcastOrderChanged($order, $previousStatus->value);
+        $this->notifyAndBroadcast($order, 'CANCELLED', $previousStatus->value);
     }
 
     /**
-     * Safe broadcast loop wrapped in a try/catch.
+     * Dispatch operational notifications and broadcast event safely.
      */
-    protected function broadcastOrderChanged(Order $order, ?string $previousStatus = null): void
+    protected function notifyAndBroadcast(Order $order, string $action, ?string $previousStatus = null): void
     {
         try {
-            broadcast(new OrderChanged($order, $previousStatus))->toOthers();
+            app(OperationalNotificationService::class)->notifyOrderStatusChange($order, $action, $previousStatus);
         } catch (\Throwable $e) {
-            logger()->warning("Broadcast of OrderChanged failed for order number: {$order->number}. Message: " . $e->getMessage());
+            logger()->warning("Failed dispatching operational notification for order {$order->number}. Message: " . $e->getMessage());
         }
     }
 

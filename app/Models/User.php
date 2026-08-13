@@ -103,6 +103,14 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * Get the user's preference record.
+     */
+    public function preference()
+    {
+        return $this->hasOne(UserPreference::class);
+    }
+
+    /**
      * Determine if the user can access the Filament panel.
      */
     public function canAccessPanel(Panel $panel): bool

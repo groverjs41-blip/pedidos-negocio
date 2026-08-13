@@ -1431,3 +1431,110 @@ body {
 }
 .metric-val { font-size: 1.75rem; font-weight: 800; color: var(--text-main); }
 .metric-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+
+/* Operational Toast & Audio Unlock Container */
+.toast-container {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 380px;
+    width: calc(100vw - 3rem);
+    pointer-events: none;
+}
+.toast-card {
+    pointer-events: auto;
+    background: #0F172A;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+    color: #F8FAFC;
+    transition: all 0.3s ease;
+}
+.toast-kitchen {
+    border-left: 4px solid #10B981;
+}
+.toast-delivery {
+    border-left: 4px solid #3B82F6;
+}
+.toast-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+.toast-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.toast-title {
+    font-weight: 800;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+    color: #F8FAFC;
+}
+.toast-close-btn {
+    background: transparent;
+    border: none;
+    color: #94A3B8;
+    font-size: 1.25rem;
+    cursor: pointer;
+    line-height: 1;
+}
+.toast-message {
+    font-size: 0.825rem;
+    color: #CBD5E1;
+    line-height: 1.4;
+}
+.toast-action-btn {
+    display: inline-block;
+    margin-top: 0.4rem;
+    padding: 0.4rem 0.85rem;
+    background: #3B82F6;
+    color: #FFFFFF;
+    border-radius: var(--radius-md);
+    font-size: 0.775rem;
+    font-weight: 700;
+    text-decoration: none;
+    text-align: center;
+    transition: background 0.2s;
+}
+.toast-action-btn:hover {
+    background: #2563EB;
+}
+.toast-fade-out {
+    opacity: 0;
+    transform: translateY(10px);
+}
+.audio-unlock-banner {
+    position: fixed;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    background: #1E293B;
+    border: 1px solid #334155;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-full);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #F8FAFC;
+    font-size: 0.825rem;
+}
+.btn-unlock-sound {
+    background: #10B981;
+    color: #FFFFFF;
+    border: none;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+

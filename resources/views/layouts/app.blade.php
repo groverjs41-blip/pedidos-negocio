@@ -46,16 +46,32 @@
                     @endif
 
                     @if(auth()->user()->hasRole('cocina') || auth()->user()->hasRole('admin'))
-                        <a href="{{ url('/cocina') }}" class="nav-item {{ request()->is('cocina') ? 'active' : '' }}">
-                            <x-ui.icon name="chef" />
-                            Cocina
+                        @php
+                            $kitchenCount = \App\Models\Order::whereIn('status', [\App\Enums\OrderStatus::NEW, \App\Enums\OrderStatus::PREPARING])->count();
+                        @endphp
+                        <a href="{{ url('/cocina') }}" class="nav-item {{ request()->is('cocina') ? 'active' : '' }}" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <x-ui.icon name="chef" />
+                                Cocina
+                            </div>
+                            @if($kitchenCount > 0)
+                                <span class="badge" style="background: rgba(245, 185, 66, 0.2); color: var(--warning-text); font-size: 0.725rem; padding: 2px 7px; border-radius: 10px;">{{ $kitchenCount }}</span>
+                            @endif
                         </a>
                     @endif
 
                     @if(auth()->user()->hasRole('reparto') || auth()->user()->hasRole('admin'))
-                        <a href="{{ url('/reparto') }}" class="nav-item {{ request()->is('reparto') ? 'active' : '' }}">
-                            <x-ui.icon name="truck" />
-                            Reparto
+                        @php
+                            $deliveryCount = \App\Models\Order::where('status', \App\Enums\OrderStatus::READY)->count();
+                        @endphp
+                        <a href="{{ url('/reparto') }}" class="nav-item {{ request()->is('reparto') ? 'active' : '' }}" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <x-ui.icon name="truck" />
+                                Reparto
+                            </div>
+                            @if($deliveryCount > 0)
+                                <span class="badge" style="background: rgba(39, 230, 164, 0.2); color: var(--primary); font-size: 0.725rem; padding: 2px 7px; border-radius: 10px;">{{ $deliveryCount }} LISTOS</span>
+                            @endif
                         </a>
                     @endif
 
@@ -84,6 +100,10 @@
                         <a href="{{ url('/gestion/envases') }}" class="nav-item {{ request()->is('gestion/envases*') ? 'active' : '' }}">
                             <x-ui.icon name="check" />
                             Envases
+                        </a>
+                        <a href="{{ url('/gestion/configuracion') }}" class="nav-item {{ request()->is('gestion/configuracion*') ? 'active' : '' }}">
+                            <x-ui.icon name="gear" />
+                            Configuración
                         </a>
                     @endif
 
@@ -145,7 +165,11 @@
                         </div>
                         <span class="brand-title" style="font-size: 0.95rem;">PEDIDOS <span>NEGOCIO</span></span>
                     </div>
-                    <div class="topbar-actions">
+                    <div class="topbar-actions" style="display: flex; align-items: center; gap: 0.75rem;">
+                        <button type="button" id="soundToggleBtn" onclick="window.soundEngine.toggleMute()" class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all flex items-center justify-center focus:outline-none" title="Alternar Sonido">
+                            <x-ui.icon name="volume" class="w-5 h-5" />
+                        </button>
+                        <livewire:notification-center />
                         <div class="connection-status-inline">
                             <span class="dot online"></span> <span class="status-text">En línea</span>
                         </div>
@@ -194,6 +218,13 @@
     @else
         {{ $slot }}
     @endauth
+
+    {{-- Toast Container & Audio Unlock Banner --}}
+    <div id="toastNotificationContainer" class="toast-container"></div>
+    <div id="audioUnlockBanner" class="audio-unlock-banner" style="display: none;">
+        <span>🔔 Activar sonidos operativos</span>
+        <button type="button" onclick="window.soundEngine.unlockAudio()" class="btn-unlock-sound">ACTIVAR SONIDOS</button>
+    </div>
 
     @livewireScripts
     <script>

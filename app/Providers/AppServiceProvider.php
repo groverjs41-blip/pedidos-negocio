@@ -21,5 +21,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Blade::component('layouts.app', 'layouts.app');
+
+        Blade::directive('money', function ($expression) {
+            return "<?php echo \App\Support\MoneyFormatter::format($expression); ?>";
+        });
     }
 }

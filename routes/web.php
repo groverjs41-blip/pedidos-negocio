@@ -74,5 +74,8 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         // Returnable Types
         Route::get('/gestion/envases', \App\Livewire\ManageReturnableTypes::class)->name('gestion.envases');
+
+        // Business Settings
+        Route::get('/gestion/configuracion', \App\Livewire\BusinessSettingsForm::class)->name('gestion.configuracion');
     });
 });

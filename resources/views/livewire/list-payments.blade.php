@@ -48,7 +48,7 @@
             <div wire:click="viewPayment({{ $pay->id }})" class="card stagger-item" style="padding: 1.15rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; opacity: {{ $pay->isVoided() ? '0.6' : '1' }}; border-left: 4px solid {{ $pay->isVoided() ? 'var(--danger-text)' : 'var(--primary)' }};">
                 <div>
                     <div style="display: flex; align-items: center; gap: 0.65rem;">
-                        <span style="font-size: 1.1rem; font-weight: 800; color: var(--text-main);">${{ number_format((float)$pay->amount, 2) }}</span>
+                        <span style="font-size: 1.1rem; font-weight: 800; color: var(--text-main);">@money($pay->amount)</span>
                         <span class="chip-btn" style="padding: 2px 8px; font-size: 0.725rem;">{{ $pay->method->label() }}</span>
                         @if($pay->isVoided())
                             <span style="font-size: 0.725rem; font-weight: 800; color: var(--danger-text); background: var(--danger-light); padding: 2px 8px; border-radius: 4px;">ANULADO</span>
@@ -102,7 +102,7 @@
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.85rem; font-size: 0.875rem;">
                         <div>
                             <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Monto Cobrado</div>
-                            <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary);">${{ number_format((float)$selectedPayment->amount, 2) }}</div>
+                            <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary);">@money($selectedPayment->amount)</div>
                         </div>
                         <div>
                             <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Método de Pago</div>
@@ -142,7 +142,7 @@
                                         <span style="font-weight: 700; color: var(--text-main);">Pedido {{ $alloc->order->number }}</span>
                                         <span style="font-size: 0.775rem; color: var(--text-muted); margin-left: 0.35rem;">({{ $alloc->order->ordered_at->format('d/m/Y') }})</span>
                                     </div>
-                                    <span style="font-weight: 800; color: var(--primary);">${{ number_format((float)$alloc->amount, 2) }}</span>
+                                    <span style="font-weight: 800; color: var(--primary);">@money($alloc->amount)</span>
                                 </div>
                             @endforeach
                         </div>
@@ -171,7 +171,7 @@
                 </div>
 
                 <div style="font-size: 0.85rem; color: var(--text-muted);">
-                    ¿Está seguro de que desea anular este pago de <strong>${{ number_format((float)$selectedPayment->amount, 2) }}</strong>? Las asignaciones se revertirán y los saldos pendientes reaparecerán.
+                    ¿Está seguro de que desea anular este pago de <strong>@money($selectedPayment->amount)</strong>? Las asignaciones se revertirán y los saldos pendientes reaparecerán.
                 </div>
 
                 @if($errorMessage)

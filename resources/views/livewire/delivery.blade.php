@@ -71,7 +71,7 @@
                         <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.2rem;">
                             <x-ui.icon name="dollar" class="w-4 h-4 text-muted" />
                             <span style="color: var(--primary); font-weight: 800; font-size: 1.05rem;">
-                                A COBRAR: ${{ number_format($order->total, 2) }}
+                                A COBRAR: @money($order->total)
                             </span>
                         </div>
                     </div>

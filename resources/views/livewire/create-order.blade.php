@@ -153,7 +153,7 @@
                                 <span class="product-desc">{{ $prod->description }}</span>
                             @endif
                             <div class="product-card-footer">
-                                <span class="product-price">${{ number_format($prod->price, 2) }}</span>
+                                <span class="product-price">@money($prod->price)</span>
                                 <button type="button" class="btn-add-product" title="Agregar al pedido">
                                     +
                                 </button>
@@ -187,7 +187,7 @@
                         <div class="cart-item-row">
                             <div class="cart-item-info">
                                 <span class="cart-item-title">{{ $item['name'] }}</span>
-                                <span class="cart-item-price">${{ number_format($item['price'], 2) }} c/u</span>
+                                <span class="cart-item-price">@money($item['price']) c/u</span>
                             </div>
                             <div class="cart-item-controls">
                                 <button type="button" wire:click="decrementQty({{ $item['id'] }})" class="qty-control-btn">-</button>
@@ -225,7 +225,7 @@
                 <div class="cart-footer">
                     <div class="cart-total-row">
                         <span class="cart-total-label">TOTAL</span>
-                        <span class="cart-total-value">${{ number_format($this->cartTotal, 2) }}</span>
+                        <span class="cart-total-value">@money($this->cartTotal)</span>
                     </div>
 
                     <button
@@ -251,7 +251,7 @@
         <div class="mobile-cart-float-bar">
             <div>
                 <div class="mobile-cart-float-qty">{{ count($cart) }} {{ count($cart) === 1 ? 'producto' : 'productos' }}</div>
-                <div class="mobile-cart-float-total">${{ number_format($this->cartTotal, 2) }}</div>
+                <div class="mobile-cart-float-total">@money($this->cartTotal)</div>
             </div>
             <button type="button" @click="mobileCartOpen = true" class="btn-view-order-sheet">
                 VER PEDIDO →
@@ -276,7 +276,7 @@
                     <div class="cart-item-row">
                         <div class="cart-item-info">
                             <span class="cart-item-title">{{ $item['name'] }}</span>
-                            <span class="cart-item-price">${{ number_format($item['price'], 2) }} c/u</span>
+                            <span class="cart-item-price">@money($item['price']) c/u</span>
                         </div>
                         <div class="cart-item-controls">
                             <button type="button" wire:click="decrementQty({{ $item['id'] }})" class="qty-control-btn">-</button>
@@ -304,7 +304,7 @@
             <div style="border-top: 1px solid var(--border); padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
                 <div class="cart-total-row">
                     <span class="cart-total-label">TOTAL</span>
-                    <span class="cart-total-value">${{ number_format($this->cartTotal, 2) }}</span>
+                    <span class="cart-total-value">@money($this->cartTotal)</span>
                 </div>
 
                 <button
