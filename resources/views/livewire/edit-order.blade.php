@@ -126,8 +126,8 @@
                         @endif
 
                         <div class="product-image-container">
-                            @if($prod->image_path)
-                                <img src="{{ asset('storage/' . $prod->image_path) }}" alt="{{ $prod->name }}" class="product-image" loading="lazy">
+                            @if($prod->image)
+                                <img src="{{ asset('storage/' . $prod->image) }}" alt="{{ $prod->name }}" class="product-image" loading="lazy">
                             @else
                                 <div class="product-placeholder">
                                     <x-ui.icon name="bag" class="w-10 h-10" />
@@ -137,8 +137,8 @@
 
                         <div class="product-card-body">
                             <span class="product-title">{{ $prod->name }}</span>
-                            @if($prod->description)
-                                <span class="product-desc">{{ $prod->description }}</span>
+                            @if($prod->notes)
+                                <span class="product-desc">{{ $prod->notes }}</span>
                             @endif
                             <div class="product-card-footer">
                                 <span class="product-price">@money($prod->price)</span>

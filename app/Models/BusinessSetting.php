@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Services\BusinessSettingsService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class BusinessSetting extends Model
 {
@@ -32,4 +34,14 @@ class BusinessSetting extends Model
         'kitchen_sound_enabled' => 'boolean',
         'delivery_sound_enabled' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(function () {
+            Cache::forget(BusinessSettingsService::CACHE_KEY);
+        });
+        static::deleted(function () {
+            Cache::forget(BusinessSettingsService::CACHE_KEY);
+        });
+    }
 }

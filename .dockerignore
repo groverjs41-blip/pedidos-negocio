@@ -9,7 +9,6 @@ storage/framework/cache/data/*
 storage/framework/sessions/*
 storage/framework/views/*
 storage/logs/*
-tests/
 docker-compose.yml
 .dockerignore
 .gitignore

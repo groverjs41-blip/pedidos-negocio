@@ -37,23 +37,28 @@
             {{-- 1. Compact Customer Selector Bar --}}
             <div class="customer-bar">
                 @if(!$selectedCustomerName)
-                    <div style="position: relative; flex-grow: 1; margin-right: 0.75rem;">
-                        <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
-                            <x-ui.icon name="search" class="w-4 h-4" />
-                        </span>
-                        <input
-                            type="text"
-                            wire:model.live.debounce.300ms="searchQuery"
-                            id="customerSearchInput"
-                            class="form-input"
-                            style="padding-left: 2.5rem; height: 42px;"
-                            placeholder="🔍 Buscar cliente por nombre o teléfono..."
-                            autocomplete="off"
-                        >
+                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-grow: 1;">
+                        <div style="position: relative; flex-grow: 1;">
+                            <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
+                                <x-ui.icon name="search" class="w-4 h-4" />
+                            </span>
+                            <input
+                                type="text"
+                                wire:model.live.debounce.300ms="searchQuery"
+                                id="customerSearchInput"
+                                class="form-input"
+                                style="padding-left: 2.5rem; height: 42px;"
+                                placeholder="🔍 Buscar cliente por nombre o teléfono..."
+                                autocomplete="off"
+                            >
+                        </div>
+                        <button type="button" x-on:click="$dispatch('open-modal', 'quick-customer-modal')" class="chip-btn" style="height: 42px; padding: 0 0.85rem; font-weight: 700; white-space: nowrap;">
+                            + Cliente
+                        </button>
+                        <button type="button" wire:click="selectCounterSale" class="btn-counter-sale" style="height: 42px; white-space: nowrap;">
+                            Venta Mostrador
+                        </button>
                     </div>
-                    <button type="button" wire:click="selectCounterSale" class="btn-counter-sale">
-                        Venta Mostrador
-                    </button>
                 @else
                     <div class="customer-bar-left">
                         <div class="customer-avatar">
@@ -102,17 +107,22 @@
 
             {{-- 2. Product Search & Category Chips --}}
             <div style="display: flex; flex-direction: column; gap: 0.85rem;">
-                <div style="position: relative;">
-                    <span style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
-                        <x-ui.icon name="search" class="w-5 h-5" />
-                    </span>
-                    <input
-                        type="text"
-                        wire:model.live.debounce.300ms="productSearch"
-                        id="productSearchInput"
-                        class="form-input pos-search-input"
-                        placeholder="Buscar sándwiches, bebidas, combos..."
-                    >
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <div style="position: relative; flex-grow: 1;">
+                        <span style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
+                            <x-ui.icon name="search" class="w-5 h-5" />
+                        </span>
+                        <input
+                            type="text"
+                            wire:model.live.debounce.300ms="productSearch"
+                            id="productSearchInput"
+                            class="form-input pos-search-input"
+                            placeholder="Buscar sándwiches, bebidas, combos..."
+                        >
+                    </div>
+                    <button type="button" x-on:click="$dispatch('open-modal', 'quick-product-modal')" class="chip-btn" style="height: 44px; padding: 0 1rem; font-weight: 700; white-space: nowrap;">
+                        + Producto
+                    </button>
                 </div>
 
                 {{-- Horizontal Categories Chips --}}
@@ -138,8 +148,8 @@
                         @endif
 
                         <div class="product-image-container">
-                            @if($prod->image_path)
-                                <img src="{{ asset('storage/' . $prod->image_path) }}" alt="{{ $prod->name }}" class="product-image" loading="lazy">
+                            @if($prod->image)
+                                <img src="{{ asset('storage/' . $prod->image) }}" alt="{{ $prod->name }}" class="product-image" loading="lazy">
                             @else
                                 <div class="product-placeholder">
                                     <x-ui.icon name="bag" class="w-10 h-10" />
@@ -149,8 +159,8 @@
 
                         <div class="product-card-body">
                             <span class="product-title">{{ $prod->name }}</span>
-                            @if($prod->description)
-                                <span class="product-desc">{{ $prod->description }}</span>
+                            @if($prod->notes)
+                                <span class="product-desc">{{ $prod->notes }}</span>
                             @endif
                             <div class="product-card-footer">
                                 <span class="product-price">@money($prod->price)</span>
@@ -164,7 +174,7 @@
                     <div style="grid-column: 1 / -1;">
                         <x-ui.empty-state
                             title="No hay productos disponibles"
-                            description="No se encontraron productos en esta categoría."
+                            description="Selecciona otra categoría o agrega un nuevo producto."
                             icon="bag"
                         />
                     </div>
@@ -323,6 +333,102 @@
             </div>
         </div>
     </div>
+
+    {{-- MODAL CLIENTE RÁPIDO --}}
+    <x-ui.modal name="quick-customer-modal" title="Nuevo Cliente Rápido" maxWidth="md">
+        <form wire:submit.prevent="createQuickCustomer" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <label class="form-label">Nombre del Cliente *</label>
+                <input type="text" wire:model="quickCustomerName" class="form-input" placeholder="Ej. Carlos Pérez" required>
+                @error('quickCustomerName') <span style="color: var(--danger-text); font-size: 0.775rem;">{{ $message }}</span> @enderror
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <label class="form-label">Teléfono</label>
+                <input type="text" wire:model="quickCustomerPhone" class="form-input" placeholder="Ej. 70012345">
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <label class="form-label">Dirección</label>
+                <input type="text" wire:model="quickCustomerAddress" class="form-input" placeholder="Ej. Av. Principal #123">
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <label class="form-label">Referencia de Ubicación</label>
+                <input type="text" wire:model="quickCustomerRef" class="form-input" placeholder="Ej. Casa portón verde junto a la plaza">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
+                <button type="button" x-on:click="$dispatch('close-modal', 'quick-customer-modal')" class="chip-btn" style="padding: 0.5rem 1rem;">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary" style="height: 38px; padding: 0 1.25rem;">
+                    Guardar y Seleccionar
+                </button>
+            </div>
+        </form>
+    </x-ui.modal>
+
+    {{-- MODAL PRODUCTO RÁPIDO --}}
+    <x-ui.modal name="quick-product-modal" title="Nuevo Producto Rápido" maxWidth="md">
+        <form wire:submit.prevent="createQuickProduct" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <label class="form-label">Nombre del Producto *</label>
+                <input type="text" wire:model="quickProductName" class="form-input" placeholder="Ej. Sándwich de Pollo Especial" required>
+                @error('quickProductName') <span style="color: var(--danger-text); font-size: 0.775rem;">{{ $message }}</span> @enderror
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label class="form-label">Categoría *</label>
+                    <button type="button" x-on:click="$dispatch('open-modal', 'quick-prod-cat-modal')" class="chip-btn" style="padding: 2px 8px; font-size: 0.75rem;">
+                        + Nueva Categoría
+                    </button>
+                </div>
+                <select wire:model="quickProductCategoryId" class="form-input" required>
+                    @foreach($activeCategories as $cat)
+                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                    @endforeach
+                </select>
+                @error('quickProductCategoryId') <span style="color: var(--danger-text); font-size: 0.775rem;">{{ $message }}</span> @enderror
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <label class="form-label">Precio *</label>
+                <input type="number" step="0.01" wire:model="quickProductPrice" class="form-input" placeholder="0.00" required>
+                @error('quickProductPrice') <span style="color: var(--danger-text); font-size: 0.775rem;">{{ $message }}</span> @enderror
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
+                <button type="button" x-on:click="$dispatch('close-modal', 'quick-product-modal')" class="chip-btn" style="padding: 0.5rem 1rem;">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary" style="height: 38px; padding: 0 1.25rem;">
+                    Guardar y Agregar
+                </button>
+            </div>
+        </form>
+    </x-ui.modal>
+
+    {{-- MODAL CATEGORÍA RÁPIDA (DENTRO DE PRODUCTO RÁPIDO) --}}
+    <x-ui.modal name="quick-prod-cat-modal" title="Nueva Categoría" maxWidth="sm">
+        <form wire:submit.prevent="createQuickProductCat" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <label class="form-label">Nombre de Categoría *</label>
+                <input type="text" wire:model="quickProductCatName" class="form-input" placeholder="Ej. Sándwiches" required>
+                @error('quickProductCatName') <span style="color: var(--danger-text); font-size: 0.775rem;">{{ $message }}</span> @enderror
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
+                <button type="button" x-on:click="$dispatch('close-modal', 'quick-prod-cat-modal')" class="chip-btn" style="padding: 0.5rem 1rem;">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary" style="height: 38px; padding: 0 1.25rem;">
+                    Guardar
+                </button>
+            </div>
+        </form>
+    </x-ui.modal>
 
     <script>
         document.addEventListener('livewire:init', () => {

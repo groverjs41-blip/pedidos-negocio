@@ -24,6 +24,14 @@ class EditProduct extends Component
     public $image = null;
 
     public array $requirements = [];
+
+    // Quick Category Modal State
+    public string $quickCategoryName = '';
+    public string $quickCategorySortOrder = '0';
+
+    // Quick Returnable Type Modal State
+    public string $quickReturnableName = '';
+
     public ?string $errorMessage = null;
 
     public function mount(Product $product)
@@ -65,6 +73,49 @@ class EditProduct extends Component
         $this->requirements = array_values($this->requirements);
     }
 
+    public function createQuickCategory()
+    {
+        $this->validate([
+            'quickCategoryName' => ['required', 'string', 'max:255', 'unique:categories,name'],
+            'quickCategorySortOrder' => ['nullable', 'integer'],
+        ]);
+
+        $cat = Category::create([
+            'name' => trim($this->quickCategoryName),
+            'sort_order' => (int) $this->quickCategorySortOrder,
+            'active' => true,
+        ]);
+
+        $this->categoryId = (string) $cat->id;
+        $this->quickCategoryName = '';
+        $this->quickCategorySortOrder = '0';
+
+        $this->dispatch('close-modal', 'quick-category-modal');
+        $this->dispatch('notify-toast', type: 'success', title: 'Categoría Creada', message: "Categoría '{$cat->name}' creada y seleccionada.");
+    }
+
+    public function createQuickReturnableType()
+    {
+        $this->validate([
+            'quickReturnableName' => ['required', 'string', 'max:255', 'unique:returnable_types,name'],
+        ]);
+
+        $type = ReturnableType::create([
+            'name' => trim($this->quickReturnableName),
+            'active' => true,
+        ]);
+
+        $this->requirements[] = [
+            'returnable_type_id' => $type->id,
+            'quantity' => 1,
+        ];
+
+        $this->quickReturnableName = '';
+
+        $this->dispatch('close-modal', 'quick-returnable-modal');
+        $this->dispatch('notify-toast', type: 'success', title: 'Envase Creado', message: "Tipo de envase '{$type->name}' creado y agregado.");
+    }
+
     public function save()
     {
         $this->errorMessage = null;
@@ -82,14 +133,14 @@ class EditProduct extends Component
             $data = [
                 'category_id' => $this->categoryId,
                 'name' => trim($this->name),
-                'price' => number_format((float)$this->price, 2, '.', ''),
-                'estimated_cost' => number_format((float)$this->estimatedCost, 2, '.', ''),
+                'price' => bcadd((string)$this->price, '0', 2),
+                'estimated_cost' => bcadd((string)$this->estimatedCost, '0', 2),
                 'active' => $this->active,
                 'notes' => trim($this->notes) ?: null,
             ];
 
             if ($this->image) {
-                $data['image_url'] = $this->image->store('products', 'public');
+                $data['image'] = $this->image->store('products', 'public');
             }
 
             $this->product->update($data);
@@ -106,7 +157,7 @@ class EditProduct extends Component
                 }
             }
         } catch (\Exception $e) {
-            $this->errorMessage = $e->getMessage();
+            $this->errorMessage = 'No se pudo actualizar el producto. Verifique los datos ingresados.';
             return;
         }
 

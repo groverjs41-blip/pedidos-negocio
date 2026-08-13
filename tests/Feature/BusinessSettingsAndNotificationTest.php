@@ -51,7 +51,7 @@ class BusinessSettingsAndNotificationTest extends TestCase
             'thousands_separator' => ',',
         ]);
 
-        $this->assertEquals('1250.50 $', MoneyFormatter::format('1250.50'));
+        $this->assertEquals('1,250.50 $', MoneyFormatter::format('1250.50'));
     }
 
     public function test_admin_can_access_settings_and_update(): void

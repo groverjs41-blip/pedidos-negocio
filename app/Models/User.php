@@ -47,7 +47,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function hasRole(string $slug): bool
     {
-        return $this->roles->contains('slug', $slug);
+        return $this->roles()->where('slug', $slug)->exists();
     }
 
     /**
@@ -55,7 +55,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function hasAnyRole(array $roles): bool
     {
-        return $this->roles->pluck('slug')->intersect($roles)->isNotEmpty();
+        return $this->roles()->whereIn('slug', $roles)->exists();
     }
 
     /**

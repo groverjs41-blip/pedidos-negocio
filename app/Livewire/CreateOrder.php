@@ -16,15 +16,30 @@ class CreateOrder extends Component
     public string $selectedCustomerName = '';
     public string $selectedCustomerPhone = '';
     public string $selectedCustomerAddress = '';
-    
+
     public ?int $selectedCategoryId = null;
     public string $productSearch = '';
-    
+
     public array $cart = []; // Structure: [product_id => [id, name, price, quantity]]
     public string $notes = '';
-    
+
     public ?string $successMessage = null;
     public ?string $errorMessage = null;
+
+    // Quick Customer Modal State
+    public string $quickCustomerName = '';
+    public string $quickCustomerPhone = '';
+    public string $quickCustomerAddress = '';
+    public string $quickCustomerRef = '';
+
+    // Quick Product Modal State
+    public string $quickProductName = '';
+    public string $quickProductCategoryId = '';
+    public string $quickProductPrice = '';
+    public bool $quickProductActive = true;
+
+    // Inner Quick Category State (inside Quick Product modal)
+    public string $quickProductCatName = '';
 
     // Idempotency token
     public string $submissionToken = '';
@@ -37,6 +52,7 @@ class CreateOrder extends Component
         $firstCategory = Category::where('active', true)->orderBy('sort_order')->orderBy('name')->first();
         if ($firstCategory) {
             $this->selectedCategoryId = $firstCategory->id;
+            $this->quickProductCategoryId = (string) $firstCategory->id;
         }
 
         $customerParam = request()->query('customer');
@@ -87,7 +103,7 @@ class CreateOrder extends Component
             $this->selectedCustomerAddress = $customer->address ?? '';
             $this->searchQuery = '';
             $this->errorMessage = null;
-            
+
             $this->dispatch('focus-search-product');
         }
     }
@@ -103,7 +119,7 @@ class CreateOrder extends Component
         $this->selectedCustomerAddress = '';
         $this->searchQuery = '';
         $this->errorMessage = null;
-        
+
         $this->dispatch('focus-search-product');
     }
 
@@ -120,12 +136,96 @@ class CreateOrder extends Component
     }
 
     /**
+     * Create Quick Customer from modal without resetting order form or cart.
+     */
+    public function createQuickCustomer()
+    {
+        $this->validate([
+            'quickCustomerName' => ['required', 'string', 'max:255'],
+            'quickCustomerPhone' => ['nullable', 'string', 'max:50'],
+            'quickCustomerAddress' => ['nullable', 'string'],
+            'quickCustomerRef' => ['nullable', 'string'],
+        ]);
+
+        $customer = Customer::create([
+            'name' => trim($this->quickCustomerName),
+            'phone' => trim($this->quickCustomerPhone) ?: null,
+            'address' => trim($this->quickCustomerAddress) ?: null,
+            'location_notes' => trim($this->quickCustomerRef) ?: null,
+            'active' => true,
+        ]);
+
+        $this->selectedCustomerId = $customer->id;
+        $this->selectedCustomerName = $customer->name;
+        $this->selectedCustomerPhone = $customer->phone ?? '';
+        $this->selectedCustomerAddress = $customer->address ?? '';
+
+        $this->quickCustomerName = '';
+        $this->quickCustomerPhone = '';
+        $this->quickCustomerAddress = '';
+        $this->quickCustomerRef = '';
+
+        $this->dispatch('close-modal', 'quick-customer-modal');
+        $this->dispatch('notify-toast', type: 'success', title: 'Cliente Creado', message: "Cliente '{$customer->name}' asignado al pedido.");
+    }
+
+    /**
+     * Create Quick Category from within Quick Product modal.
+     */
+    public function createQuickProductCat()
+    {
+        $this->validate([
+            'quickProductCatName' => ['required', 'string', 'max:255', 'unique:categories,name'],
+        ]);
+
+        $cat = Category::create([
+            'name' => trim($this->quickProductCatName),
+            'active' => true,
+        ]);
+
+        $this->quickProductCategoryId = (string) $cat->id;
+        $this->selectedCategoryId = $cat->id;
+        $this->quickProductCatName = '';
+
+        $this->dispatch('close-modal', 'quick-prod-cat-modal');
+        $this->dispatch('notify-toast', type: 'success', title: 'Categoría Creada', message: "Categoría '{$cat->name}' seleccionada.");
+    }
+
+    /**
+     * Create Quick Product and automatically add it to the cart.
+     */
+    public function createQuickProduct()
+    {
+        $this->validate([
+            'quickProductName' => ['required', 'string', 'max:255'],
+            'quickProductCategoryId' => ['required', 'exists:categories,id'],
+            'quickProductPrice' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $product = Product::create([
+            'category_id' => $this->quickProductCategoryId,
+            'name' => trim($this->quickProductName),
+            'price' => bcadd((string)$this->quickProductPrice, '0', 2),
+            'active' => $this->quickProductActive,
+        ]);
+
+        $this->selectedCategoryId = (int) $this->quickProductCategoryId;
+        $this->addToCart($product->id);
+
+        $this->quickProductName = '';
+        $this->quickProductPrice = '';
+
+        $this->dispatch('close-modal', 'quick-product-modal');
+        $this->dispatch('notify-toast', type: 'success', title: 'Producto Creado', message: "Producto '{$product->name}' agregado al pedido.");
+    }
+
+    /**
      * Select active category.
      */
     public function selectCategory(int $id): void
     {
         $this->selectedCategoryId = $id;
-        $this->productSearch = ''; // Clear search when switching categories
+        $this->productSearch = '';
     }
 
     /**
@@ -225,8 +325,8 @@ class CreateOrder extends Component
             ], auth()->user());
 
             $this->successMessage = "Pedido {$order->number} enviado a cocina.";
-            
-            // 1. Reset state completely
+
+            // Reset state completely
             $this->selectedCustomerId = null;
             $this->selectedCustomerName = '';
             $this->selectedCustomerPhone = '';
@@ -237,30 +337,26 @@ class CreateOrder extends Component
             $this->notes = '';
             $this->errorMessage = null;
 
-            // 2. Generate a new token for subsequent order
             $this->generateSubmissionToken();
-
-            // 3. Dispatch refocus browser event
             $this->dispatch('focus-search-customer');
 
         } catch (\InvalidArgumentException $e) {
             $this->errorMessage = $e->getMessage();
         } catch (\Exception $e) {
-            $this->errorMessage = 'Error inesperado al crear el pedido: ' . $e->getMessage();
+            $this->errorMessage = 'Error al crear el pedido. Verifique los datos ingresados.';
         }
     }
 
     public function render()
     {
-        // Search globally if query provided, else filter by selected category
         if (!empty($this->productSearch)) {
             $products = Product::where('active', true)
                 ->where('name', 'like', '%' . $this->productSearch . '%')
                 ->orderBy('name')
                 ->get();
         } else {
-            $products = $this->selectedCategoryId 
-                ? Product::where('category_id', $this->selectedCategoryId)->where('active', true)->orderBy('name')->get() 
+            $products = $this->selectedCategoryId
+                ? Product::where('category_id', $this->selectedCategoryId)->where('active', true)->orderBy('name')->get()
                 : [];
         }
 

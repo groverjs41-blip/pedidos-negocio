@@ -48,7 +48,7 @@ class SoundEngine {
     toggleMute() {
         this.muted = !this.muted;
         localStorage.setItem('sound_muted', this.muted ? 'true' : 'false');
-        
+
         const btn = document.getElementById('soundToggleBtn');
         if (btn) {
             btn.setAttribute('data-muted', this.muted ? 'true' : 'false');
@@ -63,7 +63,6 @@ class SoundEngine {
     markEventProcessed(orderId, action) {
         const key = `${orderId}:${action}`;
         this.processedEvents.add(key);
-        // Keep last 100 events in session storage
         const arr = Array.from(this.processedEvents).slice(-100);
         sessionStorage.setItem('processed_notif_events', JSON.stringify(arr));
     }
@@ -162,111 +161,170 @@ class SoundEngine {
 
 window.soundEngine = new SoundEngine();
 
-// Floating Toast Notification Dispatcher
-window.showOperationalToast = function ({ id, title, message, url, type = 'info', persistent = false, actionBtn = null }) {
+// Toast configuration mapping
+const TOAST_CONFIG = {
+    success: { duration: 3500, icon: '✓', title: 'Éxito' },
+    info: { duration: 4500, icon: 'ℹ', title: 'Información' },
+    warning: { duration: 6000, icon: '⚠️', title: 'Advertencia' },
+    error: { duration: 8000, icon: '✕', title: 'Error' },
+    kitchen: { duration: 6000, icon: '👨‍🍳', title: 'Cocina' },
+    delivery: { duration: 8000, icon: '🛵', title: 'Reparto' }
+};
+
+// Global Floating Toast Dispatcher (Max 3, safe DOM creation)
+window.showOperationalToast = function ({ id, title, message, url, type = 'info', actionBtn = null }) {
     const container = document.getElementById('toastNotificationContainer');
     if (!container) return;
 
-    const toastId = id || 'toast-' + Math.random().toString(36).substring(2, 9);
+    const config = TOAST_CONFIG[type] || TOAST_CONFIG.info;
+    const toastDuration = config.duration;
+    const toastTitle = title || config.title;
 
-    // Remove existing toast with same ID if any
+    // Enforce Max 3 toasts
+    const currentToasts = container.querySelectorAll('.toast-card');
+    if (currentToasts.length >= 3) {
+        currentToasts[0].remove();
+    }
+
+    const toastId = id || 'toast-' + Math.random().toString(36).substring(2, 9);
     const existing = document.getElementById(toastId);
     if (existing) existing.remove();
 
     const toast = document.createElement('div');
     toast.id = toastId;
-    toast.className = `toast-card toast-${type} page-fade-in`;
-    
-    let actionBtnHtml = '';
-    if (actionBtn) {
-        actionBtnHtml = `<a href="${actionBtn.url}" class="toast-action-btn">${actionBtn.text}</a>`;
-    } else if (url) {
-        actionBtnHtml = `<a href="${url}" class="toast-action-btn">VER</a>`;
+    toast.className = `toast-card toast-${type}`;
+
+    const toastContent = document.createElement('div');
+    toastContent.className = 'toast-content';
+
+    const header = document.createElement('div');
+    header.className = 'toast-header';
+
+    const titleWrap = document.createElement('div');
+    titleWrap.style.display = 'flex';
+    titleWrap.style.alignItems = 'center';
+    titleWrap.style.gap = '0.5rem';
+
+    const iconSpan = document.createElement('span');
+    iconSpan.textContent = config.icon;
+    iconSpan.style.fontSize = '1.1rem';
+
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'toast-title';
+    titleSpan.textContent = toastTitle;
+
+    titleWrap.appendChild(iconSpan);
+    titleWrap.appendChild(titleSpan);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'toast-close-btn';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.onclick = () => toast.remove();
+
+    header.appendChild(titleWrap);
+    header.appendChild(closeBtn);
+
+    const msgPara = document.createElement('p');
+    msgPara.className = 'toast-message';
+    msgPara.textContent = message || '';
+
+    toastContent.appendChild(header);
+    toastContent.appendChild(msgPara);
+
+    const btnTarget = actionBtn || (url ? { text: 'VER', url: url } : null);
+    if (btnTarget) {
+        const linkBtn = document.createElement('a');
+        linkBtn.href = btnTarget.url;
+        linkBtn.className = 'toast-action-btn';
+        linkBtn.textContent = btnTarget.text;
+        toastContent.appendChild(linkBtn);
     }
 
-    toast.innerHTML = `
-        <div class="toast-content">
-            <div class="toast-header">
-                <span class="toast-title">${title}</span>
-                <button type="button" onclick="this.closest('.toast-card').remove()" class="toast-close-btn">&times;</button>
-            </div>
-            <p class="toast-message">${message}</p>
-            ${actionBtnHtml}
-        </div>
-    `;
+    // Progress bar element
+    const progressTrack = document.createElement('div');
+    progressTrack.className = 'toast-progress-track';
+
+    const progressBar = document.createElement('div');
+    progressBar.className = 'toast-progress-bar';
+    progressBar.style.animationDuration = `${toastDuration}ms`;
+    progressTrack.appendChild(progressBar);
+
+    toast.appendChild(toastContent);
+    toast.appendChild(progressTrack);
 
     container.appendChild(toast);
 
-    if (!persistent) {
-        setTimeout(() => {
-            if (document.getElementById(toastId)) {
-                toast.classList.add('toast-fade-out');
-                setTimeout(() => toast.remove(), 300);
-            }
-        }, 5000);
-    }
+    setTimeout(() => {
+        if (document.getElementById(toastId)) {
+            toast.classList.add('toast-fade-out');
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, toastDuration);
 };
 
 // Global User Interaction Listener to Unlock Audio Context
 document.addEventListener('click', () => window.soundEngine.unlockAudio(), { once: true });
 document.addEventListener('keydown', () => window.soundEngine.unlockAudio(), { once: true });
 
+// Listen for Livewire Toast Events
+document.addEventListener('livewire:init', () => {
+    if (window.Livewire) {
+        window.Livewire.on('notify-toast', (data) => {
+            window.showOperationalToast(Array.isArray(data) ? data[0] : data);
+        });
+    }
+});
+
 // Listen for Echo Reverb Broadcast Events
 document.addEventListener('DOMContentLoaded', () => {
     if (window.Echo) {
         window.Echo.private('orders.operations')
             .listen('OrderChanged', (event) => {
-                console.log('OrderChanged realtime broadcast event received:', event);
+                console.log('OrderChanged broadcast received:', event);
 
                 const { orderId, orderNumber, status, action, soundType, customerName, itemsSummary } = event;
 
-                // Check deduplication
                 if (window.soundEngine.isEventProcessed(orderId, action)) {
                     return;
                 }
                 window.soundEngine.markEventProcessed(orderId, action);
 
-                // Play Audio based on event soundType
                 if (soundType === 'kitchen') {
                     window.soundEngine.playKitchenChime();
                 } else if (soundType === 'delivery') {
                     window.soundEngine.playDeliveryChime();
                 }
 
-                // Show Floating Toast
                 if (action === 'ORDER_CREATED') {
                     window.showOperationalToast({
                         id: `order-${orderId}-created`,
                         title: 'NUEVO PEDIDO',
-                        message: `Pedido #${orderNumber} • ${customerName}<br><small>${itemsSummary}</small>`,
+                        message: `Pedido #${orderNumber} • ${customerName || 'Venta Mostrador'} (${itemsSummary || ''})`,
                         url: '/cocina',
                         type: 'kitchen',
-                        persistent: false
+                        actionBtn: { text: 'VER COCINA', url: '/cocina' }
                     });
                 } else if (action === 'READY') {
                     window.showOperationalToast({
                         id: `order-${orderId}-ready`,
                         title: 'PEDIDO LISTO PARA RECOGER',
-                        message: `Pedido #${orderNumber} • ${customerName}`,
+                        message: `Pedido #${orderNumber} • ${customerName || 'Cliente'}`,
                         url: '/reparto',
                         type: 'delivery',
-                        persistent: true,
                         actionBtn: { text: 'VER REPARTO', url: '/reparto' }
                     });
                 } else if (action === 'DELIVERING') {
-                    // Remove persistent READY toast for this order if taken
                     const readyToast = document.getElementById(`order-${orderId}-ready`);
                     if (readyToast) readyToast.remove();
                 }
 
-                // Show Browser Notification if enabled
                 window.soundEngine.showBrowserNotification(
                     action === 'ORDER_CREATED' ? 'NUEVO PEDIDO' : (action === 'READY' ? 'PEDIDO LISTO' : 'Actualización de Pedido'),
-                    `Pedido #${orderNumber} (${customerName})`,
+                    `Pedido #${orderNumber} (${customerName || ''})`,
                     action === 'ORDER_CREATED' ? '/cocina' : '/reparto'
                 );
 
-                // Dispatch Livewire event to refresh KDS or Delivery components
                 if (window.Livewire) {
                     window.Livewire.dispatch('order-changed-realtime', { orderId, action, status });
                 }

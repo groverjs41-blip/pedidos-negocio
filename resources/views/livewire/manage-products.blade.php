@@ -68,8 +68,8 @@
                     <tr style="border-bottom: 1px solid var(--border); opacity: {{ $p->active ? '1' : '0.6' }};">
                         <td style="padding: 0.85rem 1rem;">
                             <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                @if($p->image_url)
-                                    <img src="{{ asset('storage/' . $p->image_url) }}" alt="{{ $p->name }}" style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover;">
+                                @if($p->image)
+                                    <img src="{{ asset('storage/' . $p->image) }}" alt="{{ $p->name }}" style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover;">
                                 @else
                                     <div style="width: 40px; height: 40px; border-radius: 8px; background: var(--bg-surface); display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
                                         ☕

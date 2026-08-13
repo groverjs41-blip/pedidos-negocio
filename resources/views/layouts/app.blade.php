@@ -145,7 +145,7 @@
                         </div>
                         <div class="user-details">
                             <div class="profile-name">{{ auth()->user()->name }}</div>
-                            <div class="profile-role">{{ auth()->user()->roles->first()?->name }}</div>
+                            <div class="profile-role">{{ auth()->user()->roles()->first()?->name }}</div>
                         </div>
                     </div>
                     <form action="{{ route('logout') }}" method="POST" style="margin: 0;">

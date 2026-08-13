@@ -10,34 +10,33 @@ class BusinessSettingsService
     public const CACHE_KEY = 'business_settings';
 
     /**
-     * Get the central business settings instance (cached).
+     * Get the central business settings instance.
      */
     public function getSettings(): BusinessSetting
     {
-        return Cache::rememberForever(self::CACHE_KEY, function () {
-            return BusinessSetting::firstOrCreate(
-                ['id' => 1],
-                [
-                    'business_name' => 'Pedidos Negocio',
-                    'currency_name' => 'Bolivianos',
-                    'currency_code' => 'BOB',
-                    'currency_symbol' => 'Bs',
-                    'currency_symbol_position' => 'BEFORE',
-                    'currency_decimals' => 2,
-                    'decimal_separator' => ',',
-                    'thousands_separator' => '.',
-                    'timezone' => 'America/La_Paz',
-                    'notification_sound_enabled' => true,
-                    'notification_volume' => 80,
-                    'kitchen_sound_enabled' => true,
-                    'delivery_sound_enabled' => true,
-                ]
-            );
-        });
+        $setting = BusinessSetting::first();
+        if (!$setting) {
+            $setting = BusinessSetting::create([
+                'business_name' => 'Pedidos Negocio',
+                'currency_name' => 'Bolivianos',
+                'currency_code' => 'BOB',
+                'currency_symbol' => 'Bs',
+                'currency_symbol_position' => 'BEFORE',
+                'currency_decimals' => 2,
+                'decimal_separator' => ',',
+                'thousands_separator' => '.',
+                'timezone' => 'America/La_Paz',
+                'notification_sound_enabled' => true,
+                'notification_volume' => 80,
+                'kitchen_sound_enabled' => true,
+                'delivery_sound_enabled' => true,
+            ]);
+        }
+        return $setting;
     }
 
     /**
-     * Update business settings and invalidate cache.
+     * Update business settings.
      */
     public function updateSettings(array $data): BusinessSetting
     {
@@ -45,7 +44,7 @@ class BusinessSettingsService
         $settings->update($data);
         $this->clearCache();
 
-        return $this->getSettings();
+        return $settings->fresh();
     }
 
     /**

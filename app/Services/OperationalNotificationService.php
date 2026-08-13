@@ -72,7 +72,7 @@ class OperationalNotificationService
     private function getNotificationConfig(Order $order, string $action): ?array
     {
         $customer = $order->customer_name_snapshot ?? 'Venta Mostrador';
-        
+
         $items = [];
         foreach ($order->items as $item) {
             $items[] = "{$item->quantity} × {$item->product_name}";
@@ -86,6 +86,13 @@ class OperationalNotificationService
                 'message' => "Pedido {$order->number} • {$customer} ({$summary})",
                 'url' => '/cocina',
                 'sound_type' => 'kitchen',
+            ],
+            'PREPARING' => [
+                'target_roles' => ['admin', 'cocina', 'pedidos'],
+                'title' => 'Pedido en preparación',
+                'message' => "Pedido {$order->number} está siendo preparado",
+                'url' => '/cocina',
+                'sound_type' => null,
             ],
             'READY' => [
                 'target_roles' => ['admin', 'reparto'],
