@@ -42,7 +42,7 @@ class OperationalAttention extends Component
 
         $cashierOrders = $canCashier
             ? Order::where('status', OrderStatus::DELIVERED)
-                ->with(['customer', 'payments'])
+                ->with(['customer', 'paymentAllocations.payment'])
                 ->orderBy('updated_at')
                 ->take(10)
                 ->get()
