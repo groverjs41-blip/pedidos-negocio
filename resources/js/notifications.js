@@ -71,79 +71,95 @@ class SoundEngine {
     playKitchenChime(volume = 0.8) {
         if (this.muted) return;
         const ctx = this.getAudioContext();
-        if (!ctx || ctx.state !== 'running') return;
+        if (!ctx) return;
 
-        const now = ctx.currentTime;
-        const masterGain = ctx.createGain();
-        masterGain.gain.setValueAtTime(0, now);
-        masterGain.gain.linearRampToValueAtTime(volume, now + 0.02);
-        masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
-        masterGain.connect(ctx.destination);
+        const play = () => {
+            const now = ctx.currentTime;
+            const masterGain = ctx.createGain();
+            masterGain.gain.setValueAtTime(0, now);
+            masterGain.gain.linearRampToValueAtTime(volume, now + 0.02);
+            masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+            masterGain.connect(ctx.destination);
 
-        // Fundamental A5 (880Hz)
-        const osc1 = ctx.createOscillator();
-        osc1.type = 'sine';
-        osc1.frequency.setValueAtTime(880, now);
-        osc1.connect(masterGain);
-        osc1.start(now);
-        osc1.stop(now + 0.82);
+            // Fundamental A5 (880Hz)
+            const osc1 = ctx.createOscillator();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(880, now);
+            osc1.connect(masterGain);
+            osc1.start(now);
+            osc1.stop(now + 0.82);
 
-        // 2nd Harmonic E6 (1320Hz)
-        const osc2 = ctx.createOscillator();
-        osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(1320, now);
-        const g2 = ctx.createGain();
-        g2.gain.value = 0.4;
-        osc2.connect(g2);
-        g2.connect(masterGain);
-        osc2.start(now);
-        osc2.stop(now + 0.75);
+            // 2nd Harmonic E6 (1320Hz)
+            const osc2 = ctx.createOscillator();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(1320, now);
+            const g2 = ctx.createGain();
+            g2.gain.value = 0.4;
+            osc2.connect(g2);
+            g2.connect(masterGain);
+            osc2.start(now);
+            osc2.stop(now + 0.75);
 
-        // 3rd Harmonic A6 (1760Hz)
-        const osc3 = ctx.createOscillator();
-        osc3.type = 'triangle';
-        osc3.frequency.setValueAtTime(1760, now);
-        const g3 = ctx.createGain();
-        g3.gain.value = 0.2;
-        osc3.connect(g3);
-        g3.connect(masterGain);
-        osc3.start(now);
-        osc3.stop(now + 0.6);
+            // 3rd Harmonic A6 (1760Hz)
+            const osc3 = ctx.createOscillator();
+            osc3.type = 'triangle';
+            osc3.frequency.setValueAtTime(1760, now);
+            const g3 = ctx.createGain();
+            g3.gain.value = 0.2;
+            osc3.connect(g3);
+            g3.connect(masterGain);
+            osc3.start(now);
+            osc3.stop(now + 0.6);
+        };
+
+        if (ctx.state === 'suspended') {
+            ctx.resume().then(play).catch(console.error);
+        } else {
+            play();
+        }
     }
 
     // Soft Ascending Delivery Chime (Two warm notes: C5 523.25Hz -> E5 659.25Hz)
     playDeliveryChime(volume = 0.8) {
         if (this.muted) return;
         const ctx = this.getAudioContext();
-        if (!ctx || ctx.state !== 'running') return;
+        if (!ctx) return;
 
-        const now = ctx.currentTime;
+        const play = () => {
+            const now = ctx.currentTime;
 
-        // First Note (C5)
-        const osc1 = ctx.createOscillator();
-        const gain1 = ctx.createGain();
-        osc1.type = 'sine';
-        osc1.frequency.setValueAtTime(523.25, now);
-        gain1.gain.setValueAtTime(0, now);
-        gain1.gain.linearRampToValueAtTime(volume * 0.9, now + 0.03);
-        gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
-        osc1.connect(gain1);
-        gain1.connect(ctx.destination);
-        osc1.start(now);
-        osc1.stop(now + 0.48);
+            // First Note (C5)
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(523.25, now);
+            gain1.gain.setValueAtTime(0, now);
+            gain1.gain.linearRampToValueAtTime(volume * 0.9, now + 0.03);
+            gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start(now);
+            osc1.stop(now + 0.48);
 
-        // Second Note (E5) after 0.2s
-        const osc2 = ctx.createOscillator();
-        const gain2 = ctx.createGain();
-        osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(659.25, now + 0.2);
-        gain2.gain.setValueAtTime(0, now + 0.2);
-        gain2.gain.linearRampToValueAtTime(volume, now + 0.23);
-        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
-        osc2.connect(gain2);
-        gain2.connect(ctx.destination);
-        osc2.start(now + 0.2);
-        osc2.stop(now + 0.9);
+            // Second Note (E5) after 0.2s
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(659.25, now + 0.2);
+            gain2.gain.setValueAtTime(0, now + 0.2);
+            gain2.gain.linearRampToValueAtTime(volume, now + 0.23);
+            gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.start(now + 0.2);
+            osc2.stop(now + 0.9);
+        };
+
+        if (ctx.state === 'suspended') {
+            ctx.resume().then(play).catch(console.error);
+        } else {
+            play();
+        }
     }
 
     requestBrowserNotificationPermission() {
@@ -282,9 +298,15 @@ window.showOperationalToast = function ({ id, title, message, url, type = 'info'
     }, toastDuration);
 };
 
-// Global User Interaction Listener to Unlock Audio Context
-document.addEventListener('click', () => window.soundEngine.unlockAudio(), { once: true });
-document.addEventListener('keydown', () => window.soundEngine.unlockAudio(), { once: true });
+// Continuous User Interaction Listener to Unlock Audio Context
+const unlockHandler = () => {
+    if (window.soundEngine) {
+        window.soundEngine.unlockAudio();
+    }
+};
+document.addEventListener('pointerdown', unlockHandler);
+document.addEventListener('click', unlockHandler);
+document.addEventListener('keydown', unlockHandler);
 
 // Listen for Livewire Toast Events
 document.addEventListener('livewire:init', () => {
@@ -307,40 +329,86 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 window.soundEngine.markEventProcessed(orderId, action);
 
-                if (soundType === 'kitchen') {
-                    window.soundEngine.playKitchenChime();
-                } else if (soundType === 'delivery') {
-                    window.soundEngine.playDeliveryChime();
+                // Role and Route based filtering:
+                const path = window.location.pathname;
+                const roles = window.currentUser?.roles || [];
+                const isAdmin = roles.includes('admin');
+                const isCocina = roles.includes('cocina');
+                const isReparto = roles.includes('reparto');
+
+                let shouldNotify = true;
+                let shouldPlaySound = true;
+
+                if (path.startsWith('/cocina')) {
+                    // On kitchen screen: ONLY notify & play sound for NEW orders
+                    if (action !== 'ORDER_CREATED') {
+                        shouldNotify = false;
+                        shouldPlaySound = false;
+                    }
+                } else if (path.startsWith('/reparto')) {
+                    // On delivery screen: ONLY notify & play sound for READY orders
+                    if (action !== 'READY') {
+                        shouldNotify = false;
+                        shouldPlaySound = false;
+                    }
+                } else if (path.startsWith('/caja')) {
+                    // On cashier screen: ONLY notify for DELIVERED / Payment events
+                    if (action !== 'DELIVERED') {
+                        shouldNotify = false;
+                        shouldPlaySound = false;
+                    }
+                } else {
+                    // On general screens (e.g. /inicio, /gestion), filter by user role:
+                    if (action === 'ORDER_CREATED' && !isAdmin && !isCocina && !roles.includes('pedidos')) {
+                        shouldNotify = false;
+                        shouldPlaySound = false;
+                    }
+                    if (action === 'READY' && !isAdmin && !isReparto) {
+                        shouldNotify = false;
+                        shouldPlaySound = false;
+                    }
                 }
 
-                if (action === 'ORDER_CREATED') {
-                    window.showOperationalToast({
-                        id: `order-${orderId}-created`,
-                        title: 'NUEVO PEDIDO',
-                        message: `Pedido #${orderNumber} • ${customerName || 'Venta Mostrador'} (${itemsSummary || ''})`,
-                        url: '/cocina',
-                        type: 'kitchen',
-                        actionBtn: { text: 'VER COCINA', url: '/cocina' }
-                    });
-                } else if (action === 'READY') {
-                    window.showOperationalToast({
-                        id: `order-${orderId}-ready`,
-                        title: 'PEDIDO LISTO PARA RECOGER',
-                        message: `Pedido #${orderNumber} • ${customerName || 'Cliente'}`,
-                        url: '/reparto',
-                        type: 'delivery',
-                        actionBtn: { text: 'VER REPARTO', url: '/reparto' }
-                    });
-                } else if (action === 'DELIVERING') {
+                if (shouldPlaySound) {
+                    if (soundType === 'kitchen' || action === 'ORDER_CREATED') {
+                        window.soundEngine.playKitchenChime();
+                    } else if (soundType === 'delivery' || action === 'READY') {
+                        window.soundEngine.playDeliveryChime();
+                    }
+                }
+
+                if (shouldNotify) {
+                    if (action === 'ORDER_CREATED') {
+                        window.showOperationalToast({
+                            id: `order-${orderId}-created`,
+                            title: 'NUEVO PEDIDO',
+                            message: `Pedido #${orderNumber} • ${customerName || 'Venta Mostrador'} (${itemsSummary || ''})`,
+                            url: '/cocina',
+                            type: 'kitchen',
+                            actionBtn: { text: 'VER COCINA', url: '/cocina' }
+                        });
+                    } else if (action === 'READY') {
+                        window.showOperationalToast({
+                            id: `order-${orderId}-ready`,
+                            title: 'PEDIDO LISTO PARA RECOGER',
+                            message: `Pedido #${orderNumber} • ${customerName || 'Cliente'}`,
+                            url: '/reparto',
+                            type: 'delivery',
+                            actionBtn: { text: 'VER REPARTO', url: '/reparto' }
+                        });
+                    }
+
+                    window.soundEngine.showBrowserNotification(
+                        action === 'ORDER_CREATED' ? 'NUEVO PEDIDO' : (action === 'READY' ? 'PEDIDO LISTO' : 'Actualización de Pedido'),
+                        `Pedido #${orderNumber} (${customerName || ''})`,
+                        action === 'ORDER_CREATED' ? '/cocina' : '/reparto'
+                    );
+                }
+
+                if (action === 'DELIVERING') {
                     const readyToast = document.getElementById(`order-${orderId}-ready`);
                     if (readyToast) readyToast.remove();
                 }
-
-                window.soundEngine.showBrowserNotification(
-                    action === 'ORDER_CREATED' ? 'NUEVO PEDIDO' : (action === 'READY' ? 'PEDIDO LISTO' : 'Actualización de Pedido'),
-                    `Pedido #${orderNumber} (${customerName || ''})`,
-                    action === 'ORDER_CREATED' ? '/cocina' : '/reparto'
-                );
 
                 if (window.Livewire) {
                     window.Livewire.dispatch('order-changed-realtime', { orderId, action, status });

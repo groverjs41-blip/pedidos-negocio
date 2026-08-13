@@ -245,6 +245,15 @@
     @livewireScripts
     
     <script>
+        @auth
+            window.currentUser = {
+                id: {{ auth()->id() }},
+                roles: @json(auth()->user()->roles()->pluck('slug')->toArray())
+            };
+        @else
+            window.currentUser = null;
+        @endauth
+
         function toggleTheme() {
             const isDark = document.documentElement.classList.contains('dark');
             const newTheme = isDark ? 'light' : 'dark';
