@@ -9,11 +9,53 @@ use Livewire\Component;
 
 class OperationalAttention extends Component
 {
+    public array $knownReadyOrderIds = [];
+
+    public function mount(): void
+    {
+        $this->knownReadyOrderIds = Order::where('status', OrderStatus::READY)
+            ->pluck('id')
+            ->toArray();
+    }
+
     #[On('order-changed-realtime')]
     #[On('payment-changed-realtime')]
     public function refreshCounts(): void
     {
         // Triggers re-render on events
+    }
+
+    /**
+     * Polling fallback for global READY orders broadcast across the topbar shell.
+     */
+    public function refreshOperationalOrders(): void
+    {
+        $readyOrders = Order::where('status', OrderStatus::READY)
+            ->with(['items', 'customer'])
+            ->orderBy('ready_at', 'asc')
+            ->get();
+
+        $currentIds = $readyOrders->pluck('id')->toArray();
+        $newIds = array_diff($currentIds, $this->knownReadyOrderIds);
+
+        if (!empty($newIds)) {
+            foreach ($readyOrders as $order) {
+                if (in_array($order->id, $newIds)) {
+                    $itemsSummary = $order->items->map(fn($i) => "{$i->quantity}x {$i->product_name}")->implode(', ');
+                    $this->dispatch('operational-fallback-event', [
+                        'orderId' => $order->id,
+                        'orderNumber' => ltrim($order->number, '#'),
+                        'action' => 'READY',
+                        'soundType' => 'delivery',
+                        'targetRoles' => ['admin', 'reparto', 'pedidos', 'caja'],
+                        'customerName' => $order->customer_name_snapshot ?? 'Cliente',
+                        'itemsSummary' => $itemsSummary,
+                    ]);
+                }
+            }
+        }
+
+        $this->knownReadyOrderIds = $currentIds;
     }
 
     public function render()

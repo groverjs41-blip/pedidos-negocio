@@ -155,7 +155,7 @@ class SoundEngine {
         this.playWebAudioDeliveryChime(vol);
     }
 
-    // Web Audio Synthesizer Engine
+    // Web Audio Synthesizer Engine: Kitchen Reception Bell (Warm single stroke + overtone, 0.70s)
     playWebAudioKitchenChime(vol = 1.0) {
         const ctx = this.getAudioContext();
         if (!ctx) return;
@@ -164,25 +164,24 @@ class SoundEngine {
                 const now = ctx.currentTime;
                 const g = ctx.createGain();
                 g.gain.setValueAtTime(0, now);
-                g.gain.linearRampToValueAtTime(0.75 * vol, now + 0.02);
-                g.gain.exponentialRampToValueAtTime(0.0001, now + 0.75);
+                g.gain.linearRampToValueAtTime(0.65 * vol, now + 0.015);
+                g.gain.exponentialRampToValueAtTime(0.0001, now + 0.72);
                 g.connect(ctx.destination);
 
                 const osc1 = ctx.createOscillator();
                 osc1.type = 'sine';
-                osc1.frequency.setValueAtTime(880, now);
+                osc1.frequency.setValueAtTime(880, now); // Fundamental A5
                 osc1.connect(g);
                 osc1.start(now);
-                osc1.stop(now + 0.78);
+                osc1.stop(now + 0.75);
 
                 const osc2 = ctx.createOscillator();
                 osc2.type = 'sine';
-                osc2.frequency.setValueAtTime(1108.73, now);
+                osc2.frequency.setValueAtTime(1318.5, now); // Overtone E6
                 osc2.connect(g);
                 osc2.start(now);
-                osc2.stop(now + 0.72);
+                osc2.stop(now + 0.45);
             } catch (err) {
-                // Fallback to HTML5 audio if Web Audio throws
                 try {
                     this.kitchenAudio.volume = vol;
                     this.kitchenAudio.currentTime = 0;
@@ -198,31 +197,41 @@ class SoundEngine {
         }
     }
 
+    // Web Audio Synthesizer Engine: Delivery Chime (Two soft warm ascending notes, 0.75s)
     playWebAudioDeliveryChime(vol = 1.0) {
         const ctx = this.getAudioContext();
         if (!ctx) return;
         const play = () => {
             try {
                 const now = ctx.currentTime;
-                const g = ctx.createGain();
-                g.gain.setValueAtTime(0, now);
-                g.gain.linearRampToValueAtTime(0.75 * vol, now + 0.02);
-                g.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
-                g.connect(ctx.destination);
+
+                // Note 1: C5 (523.25Hz) warm soft tone
+                const g1 = ctx.createGain();
+                g1.gain.setValueAtTime(0, now);
+                g1.gain.linearRampToValueAtTime(0.45 * vol, now + 0.015);
+                g1.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+                g1.connect(ctx.destination);
 
                 const osc1 = ctx.createOscillator();
                 osc1.type = 'sine';
-                osc1.frequency.setValueAtTime(698.46, now);
-                osc1.connect(g);
+                osc1.frequency.setValueAtTime(523.25, now);
+                osc1.connect(g1);
                 osc1.start(now);
-                osc1.stop(now + 0.45);
+                osc1.stop(now + 0.48);
+
+                // Note 2: E5 (659.25Hz) soft ascending tone (starts at 0.18s)
+                const g2 = ctx.createGain();
+                g2.gain.setValueAtTime(0, now + 0.18);
+                g2.gain.linearRampToValueAtTime(0.55 * vol, now + 0.20);
+                g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.76);
+                g2.connect(ctx.destination);
 
                 const osc2 = ctx.createOscillator();
                 osc2.type = 'sine';
-                osc2.frequency.setValueAtTime(1046.50, now + 0.16);
-                osc2.connect(g);
-                osc2.start(now + 0.16);
-                osc2.stop(now + 0.88);
+                osc2.frequency.setValueAtTime(659.25, now + 0.18);
+                osc2.connect(g2);
+                osc2.start(now + 0.18);
+                osc2.stop(now + 0.78);
             } catch (err) {
                 try {
                     this.deliveryAudio.volume = vol;
@@ -261,10 +270,10 @@ class SoundEngine {
      * Enforces strict processing order:
      * 1. Receive event
      * 2. Verify structure
-     * 3. Check role authorization (if not target role -> return, do NOT mark processed!)
+     * 3. Check role authorization (if user is kitchen-only, ignore READY event without marking processed)
      * 4. Check deduplication key (orderId:action)
      * 5. Execute toast / sound / browser notification
-     * 6. Mark event as processed
+     * 6. Mark event as processed for target user
      */
     handleOperationalEvent(event, source = 'reverb') {
         if (!event || !event.orderId || !event.action) return;
@@ -284,43 +293,64 @@ class SoundEngine {
             return;
         }
 
-        // 5. Execute toast and sound
         const path = window.location.pathname;
         const cleanNumber = ltrim(String(orderNumber), '#');
 
+        // ORDER_CREATED: Kitchen sound & toast for target roles (admin, cocina)
         if (action === 'ORDER_CREATED') {
             this.playKitchenChime();
             window.showOperationalToast({
                 id: `order-${orderId}-created`,
-                title: 'NUEVO PEDIDO EN COCINA',
-                message: `Pedido #${cleanNumber} • ${customerName || 'Venta Mostrador'}${itemsSummary ? ' (' + itemsSummary + ')' : ''}`,
+                title: 'NUEVO PEDIDO',
+                orderNumber: `#${cleanNumber}`,
+                customerName: customerName || 'Venta Mostrador',
+                message: itemsSummary ? `${itemsSummary}` : 'Comanda enviada a cocina',
                 url: '/cocina',
                 type: 'kitchen',
-                actionBtn: { text: 'VER COCINA', url: '/cocina' }
+                actionBtn: { text: 'VER', url: '/cocina' }
             });
             this.showBrowserNotification(
-                'NUEVO PEDIDO EN COCINA',
-                `Pedido #${cleanNumber} (${customerName || 'Cliente'})`,
+                'NUEVO PEDIDO',
+                `Pedido #${cleanNumber} (${customerName || 'Venta Mostrador'})`,
                 '/cocina'
             );
-        } else if (action === 'READY') {
+        }
+        
+        // READY: Delivery sound & toast for target roles (admin, reparto, pedidos, caja)
+        else if (action === 'READY') {
+            // Do NOT play ready sound/toast on kitchen screen itself to avoid redundant self-noise
             if (!path.startsWith('/cocina')) {
                 this.playDeliveryChime();
+
+                // Role-based target URL (reparto/admin -> /reparto; pedidos/caja -> /pedidos)
+                let readyUrl = '/reparto';
+                if (userRoles.includes('pedidos') || userRoles.includes('caja')) {
+                    if (!userRoles.includes('admin') && !userRoles.includes('reparto')) {
+                        readyUrl = '/pedidos';
+                    }
+                }
+
                 window.showOperationalToast({
                     id: `order-${orderId}-ready`,
-                    title: 'PEDIDO LISTO PARA ENTREGAR',
-                    message: `Pedido #${cleanNumber} • ${customerName || 'Cliente'} está preparado`,
-                    url: '/reparto',
+                    title: 'PEDIDO LISTO',
+                    orderNumber: `#${cleanNumber}`,
+                    customerName: customerName || 'Cliente',
+                    message: 'Listo para recoger y entregar',
+                    url: readyUrl,
                     type: 'delivery',
-                    actionBtn: { text: 'VER REPARTO', url: '/reparto' }
+                    actionBtn: { text: 'VER PEDIDO', url: readyUrl },
+                    glow: true
                 });
                 this.showBrowserNotification(
-                    'PEDIDO LISTO PARA ENTREGAR',
+                    'PEDIDO LISTO',
                     `Pedido #${cleanNumber} (${customerName || 'Cliente'})`,
-                    '/reparto'
+                    readyUrl
                 );
             }
-        } else if (action === 'DELIVERING') {
+        }
+        
+        // DELIVERING: Driver claimed order -> auto-remove READY toast if active
+        else if (action === 'DELIVERING') {
             const readyToast = document.getElementById(`order-${orderId}-ready`);
             if (readyToast) readyToast.remove();
         }
@@ -341,20 +371,53 @@ function ltrim(str, charlist) {
     return String(str).replace(re, '');
 }
 
+// Dynamic Vector SVG Icon Builder (NO EMOJIS)
+function createToastSvgIcon(type) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('width', '18');
+    svg.setAttribute('height', '18');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.style.flexShrink = '0';
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+    if (type === 'kitchen') {
+        path.setAttribute('d', 'M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 10.58 0A4 4 0 0 1 18 13.87V21H6z M6 17h12');
+    } else if (type === 'delivery') {
+        path.setAttribute('d', 'M1 3h15v13H1z M16 8h4l3 3v5h-7V8z M5.5 18.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z M18.5 18.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z');
+    } else if (type === 'success') {
+        path.setAttribute('d', 'M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4L12 14.01l-3-3');
+    } else if (type === 'error') {
+        path.setAttribute('d', 'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01');
+    } else if (type === 'warning') {
+        path.setAttribute('d', 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z');
+    } else {
+        path.setAttribute('d', 'M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm-1-11v6h2v-6h-2zm0-4v2h2V7h-2z');
+    }
+
+    svg.appendChild(path);
+    return svg;
+}
+
 window.soundEngine = new SoundEngine();
 
-// Toast configuration mapping with duration specs (kitchen: 6s, delivery: 8s)
+// Toast configuration mapping with precise duration specs (kitchen: 6s, delivery: 8s)
 const TOAST_CONFIG = {
-    success: { duration: 3500, icon: '✓', title: 'Éxito' },
-    info: { duration: 4500, icon: 'ℹ', title: 'Información' },
-    warning: { duration: 6000, icon: '⚠️', title: 'Advertencia' },
-    error: { duration: 8000, icon: '✕', title: 'Error' },
-    kitchen: { duration: 6000, icon: '👨‍🍳', title: 'Cocina' },
-    delivery: { duration: 8000, icon: '🛵', title: 'Reparto' }
+    success: { duration: 3500, title: 'Éxito' },
+    info: { duration: 4500, title: 'Información' },
+    warning: { duration: 6000, title: 'Advertencia' },
+    error: { duration: 8000, title: 'Error' },
+    kitchen: { duration: 6000, title: 'NUEVO PEDIDO' },
+    delivery: { duration: 8000, title: 'PEDIDO LISTO' }
 };
 
-// Global Floating Toast Dispatcher
-window.showOperationalToast = function ({ id, title, message, url, type = 'info', actionBtn = null }) {
+// Global Floating Toast Dispatcher (DOM-based, no unescaped innerHTML injection)
+window.showOperationalToast = function ({ id, title, orderNumber, customerName, message, url, type = 'info', actionBtn = null, glow = false }) {
     const container = document.getElementById('toastNotificationContainer');
     if (!container) return;
 
@@ -373,11 +436,12 @@ window.showOperationalToast = function ({ id, title, message, url, type = 'info'
 
     const toast = document.createElement('div');
     toast.id = toastId;
-    toast.className = `toast-card toast-${type}`;
+    toast.className = `toast-card toast-${type}${glow ? ' toast-ready-glow' : ''}`;
 
     const toastContent = document.createElement('div');
     toastContent.className = 'toast-content';
 
+    // Header row: Vector Icon + Title + Close Button
     const header = document.createElement('div');
     header.className = 'toast-header';
 
@@ -386,15 +450,12 @@ window.showOperationalToast = function ({ id, title, message, url, type = 'info'
     titleWrap.style.alignItems = 'center';
     titleWrap.style.gap = '0.5rem';
 
-    const iconSpan = document.createElement('span');
-    iconSpan.textContent = config.icon;
-    iconSpan.style.fontSize = '1.1rem';
-
+    const svgIcon = createToastSvgIcon(type);
     const titleSpan = document.createElement('span');
     titleSpan.className = 'toast-title';
     titleSpan.textContent = toastTitle;
 
-    titleWrap.appendChild(iconSpan);
+    titleWrap.appendChild(svgIcon);
     titleWrap.appendChild(titleSpan);
 
     const closeBtn = document.createElement('button');
@@ -406,14 +467,36 @@ window.showOperationalToast = function ({ id, title, message, url, type = 'info'
     header.appendChild(titleWrap);
     header.appendChild(closeBtn);
 
+    toastContent.appendChild(header);
+
+    // Optional Order Number & Customer Name lines
+    if (orderNumber) {
+        const numDiv = document.createElement('div');
+        numDiv.style.fontSize = '0.85rem';
+        numDiv.style.fontWeight = '800';
+        numDiv.style.color = 'var(--text-main)';
+        numDiv.style.marginTop = '0.15rem';
+        numDiv.textContent = orderNumber;
+        toastContent.appendChild(numDiv);
+    }
+
+    if (customerName) {
+        const custDiv = document.createElement('div');
+        custDiv.style.fontSize = '0.775rem';
+        custDiv.style.fontWeight = '600';
+        custDiv.style.color = 'var(--text-muted)';
+        custDiv.textContent = customerName;
+        toastContent.appendChild(custDiv);
+    }
+
+    // Message paragraph
     const msgPara = document.createElement('p');
     msgPara.className = 'toast-message';
     msgPara.textContent = message || '';
-
-    toastContent.appendChild(header);
     toastContent.appendChild(msgPara);
 
-    const btnTarget = actionBtn || (url ? { text: 'VER', url: url } : null);
+    // Action button
+    const btnTarget = actionBtn || (url ? { text: 'VER PEDIDO', url: url } : null);
     if (btnTarget) {
         if (btnTarget.onClick) {
             const actBtn = document.createElement('button');
@@ -434,6 +517,7 @@ window.showOperationalToast = function ({ id, title, message, url, type = 'info'
         }
     }
 
+    // Progress bar
     const progressTrack = document.createElement('div');
     progressTrack.className = 'toast-progress-track';
 
@@ -450,7 +534,7 @@ window.showOperationalToast = function ({ id, title, message, url, type = 'info'
     setTimeout(() => {
         if (document.getElementById(toastId)) {
             toast.classList.add('toast-fade-out');
-            setTimeout(() => toast.remove(), 300);
+            setTimeout(() => toast.remove(), 200);
         }
     }, toastDuration);
 };

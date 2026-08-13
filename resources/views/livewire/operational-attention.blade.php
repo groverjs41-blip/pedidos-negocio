@@ -1,4 +1,4 @@
-<div class="relative inline-block" x-data="{ open: false }" wire:poll.15s>
+<div class="relative inline-block" x-data="{ open: false }" wire:poll.15s="refreshOperationalOrders">
     <button
         type="button"
         @click="open = !open"
