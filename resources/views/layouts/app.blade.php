@@ -212,6 +212,12 @@
                             <x-ui.icon name="volume" class="w-5 h-5" />
                         </button>
 
+                        {{-- TEST SOUND BUTTON --}}
+                        <button type="button" onclick="window.soundEngine.playKitchenChime()" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all flex items-center gap-1.5 focus:outline-none" title="Probar Sonido de Notificación">
+                            <x-ui.icon name="volume" class="w-3.5 h-3.5" />
+                            <span>Probar Sonido</span>
+                        </button>
+
                         {{-- NOTIFICATION BELL --}}
                         <livewire:notification-center />
 
