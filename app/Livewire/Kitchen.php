@@ -44,6 +44,13 @@ class Kitchen extends Component
      */
     public function refreshOperationalOrders(): void
     {
+        $user = auth()->user();
+        if (!$user) return;
+
+        /** @var \App\Services\OperationalNotificationPreferenceService $prefService */
+        $prefService = app(\App\Services\OperationalNotificationPreferenceService::class);
+        $shouldReceive = $prefService->shouldReceiveInApp($user, 'ORDER_CREATED');
+
         $currentOrders = Order::whereIn('status', [OrderStatus::NEW, OrderStatus::PREPARING])
             ->with(['items'])
             ->orderBy('ordered_at', 'asc')
@@ -52,7 +59,10 @@ class Kitchen extends Component
         $currentIds = $currentOrders->pluck('id')->toArray();
         $newIds = array_diff($currentIds, $this->knownOrderIds);
 
-        if (!empty($newIds)) {
+        if (!empty($newIds) && $shouldReceive) {
+            $shouldSound = $prefService->shouldPlaySound($user, 'ORDER_CREATED');
+            $shouldBrowser = $prefService->shouldSendBrowser($user, 'ORDER_CREATED');
+
             foreach ($currentOrders as $order) {
                 if (in_array($order->id, $newIds) && $order->status === OrderStatus::NEW) {
                     $itemsSummary = $order->items->map(fn($i) => "{$i->quantity}x {$i->product_name}")->implode(', ');
@@ -61,7 +71,10 @@ class Kitchen extends Component
                         'orderNumber' => ltrim($order->number, '#'),
                         'action' => 'ORDER_CREATED',
                         'soundType' => 'kitchen',
-                        'targetRoles' => ['admin', 'cocina'],
+                        'targetUserIds' => [$user->id],
+                        'soundUserIds' => $shouldSound ? [$user->id] : [],
+                        'browserUserIds' => $shouldBrowser ? [$user->id] : [],
+                        'originUserId' => null,
                         'customerName' => $order->customer_name_snapshot ?? 'Venta Mostrador',
                         'itemsSummary' => $itemsSummary,
                     ]);

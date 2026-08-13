@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Enums\OrderStatus;
 use App\Models\Order;
+use App\Services\OperationalNotificationPreferenceService;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -31,11 +32,19 @@ class OperationalAttention extends Component
     }
 
     /**
-     * Global polling fallback for operational order events across all views.
+     * Global polling fallback respecting authenticated user's operational notification preferences.
      */
     public function refreshOperationalOrders(): void
     {
-        // 1. Fallback for READY orders (Target: admin, reparto, pedidos, caja)
+        $user = auth()->user();
+        if (!$user) {
+            return;
+        }
+
+        /** @var OperationalNotificationPreferenceService $prefService */
+        $prefService = app(OperationalNotificationPreferenceService::class);
+
+        // 1. Fallback for READY orders
         $readyOrders = Order::where('status', OrderStatus::READY)
             ->with(['items', 'customer'])
             ->orderBy('ready_at', 'asc')
@@ -45,24 +54,33 @@ class OperationalAttention extends Component
         $newReadyIds = array_diff($currentReadyIds, $this->knownReadyOrderIds);
 
         if (!empty($newReadyIds)) {
-            foreach ($readyOrders as $order) {
-                if (in_array($order->id, $newReadyIds)) {
-                    $itemsSummary = $order->items->map(fn($i) => "{$i->quantity}x {$i->product_name}")->implode(', ');
-                    $this->dispatch('operational-fallback-event', [
-                        'orderId' => $order->id,
-                        'orderNumber' => ltrim($order->number, '#'),
-                        'action' => 'READY',
-                        'soundType' => 'delivery',
-                        'targetRoles' => ['admin', 'reparto', 'pedidos', 'caja'],
-                        'customerName' => $order->customer_name_snapshot ?? 'Cliente',
-                        'itemsSummary' => $itemsSummary,
-                    ]);
+            $shouldReceive = $prefService->shouldReceiveInApp($user, 'READY');
+            if ($shouldReceive) {
+                $shouldSound = $prefService->shouldPlaySound($user, 'READY');
+                $shouldBrowser = $prefService->shouldSendBrowser($user, 'READY');
+
+                foreach ($readyOrders as $order) {
+                    if (in_array($order->id, $newReadyIds)) {
+                        $itemsSummary = $order->items->map(fn($i) => "{$i->quantity}x {$i->product_name}")->implode(', ');
+                        $this->dispatch('operational-fallback-event', [
+                            'orderId' => $order->id,
+                            'orderNumber' => ltrim($order->number, '#'),
+                            'action' => 'READY',
+                            'soundType' => 'delivery',
+                            'targetUserIds' => [$user->id],
+                            'soundUserIds' => $shouldSound ? [$user->id] : [],
+                            'browserUserIds' => $shouldBrowser ? [$user->id] : [],
+                            'originUserId' => null,
+                            'customerName' => $order->customer_name_snapshot ?? 'Cliente',
+                            'itemsSummary' => $itemsSummary,
+                        ]);
+                    }
                 }
             }
         }
         $this->knownReadyOrderIds = $currentReadyIds;
 
-        // 2. Fallback for NEW orders (ORDER_CREATED - Target: admin, cocina)
+        // 2. Fallback for NEW orders (ORDER_CREATED)
         $newOrders = Order::where('status', OrderStatus::NEW)
             ->with(['items', 'customer'])
             ->orderBy('created_at', 'asc')
@@ -72,18 +90,27 @@ class OperationalAttention extends Component
         $newCreatedIds = array_diff($currentNewIds, $this->knownNewOrderIds);
 
         if (!empty($newCreatedIds)) {
-            foreach ($newOrders as $order) {
-                if (in_array($order->id, $newCreatedIds)) {
-                    $itemsSummary = $order->items->map(fn($i) => "{$i->quantity}x {$i->product_name}")->implode(', ');
-                    $this->dispatch('operational-fallback-event', [
-                        'orderId' => $order->id,
-                        'orderNumber' => ltrim($order->number, '#'),
-                        'action' => 'ORDER_CREATED',
-                        'soundType' => 'kitchen',
-                        'targetRoles' => ['admin', 'cocina'],
-                        'customerName' => $order->customer_name_snapshot ?? 'Venta Mostrador',
-                        'itemsSummary' => $itemsSummary,
-                    ]);
+            $shouldReceive = $prefService->shouldReceiveInApp($user, 'ORDER_CREATED');
+            if ($shouldReceive) {
+                $shouldSound = $prefService->shouldPlaySound($user, 'ORDER_CREATED');
+                $shouldBrowser = $prefService->shouldSendBrowser($user, 'ORDER_CREATED');
+
+                foreach ($newOrders as $order) {
+                    if (in_array($order->id, $newCreatedIds)) {
+                        $itemsSummary = $order->items->map(fn($i) => "{$i->quantity}x {$i->product_name}")->implode(', ');
+                        $this->dispatch('operational-fallback-event', [
+                            'orderId' => $order->id,
+                            'orderNumber' => ltrim($order->number, '#'),
+                            'action' => 'ORDER_CREATED',
+                            'soundType' => 'kitchen',
+                            'targetUserIds' => [$user->id],
+                            'soundUserIds' => $shouldSound ? [$user->id] : [],
+                            'browserUserIds' => $shouldBrowser ? [$user->id] : [],
+                            'originUserId' => null,
+                            'customerName' => $order->customer_name_snapshot ?? 'Venta Mostrador',
+                            'itemsSummary' => $itemsSummary,
+                        ]);
+                    }
                 }
             }
         }

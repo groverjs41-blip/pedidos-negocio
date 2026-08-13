@@ -56,6 +56,13 @@ class Delivery extends Component
      */
     public function refreshOperationalOrders(): void
     {
+        $user = auth()->user();
+        if (!$user) return;
+
+        /** @var \App\Services\OperationalNotificationPreferenceService $prefService */
+        $prefService = app(\App\Services\OperationalNotificationPreferenceService::class);
+        $shouldReceive = $prefService->shouldReceiveInApp($user, 'READY');
+
         $readyOrders = Order::where('status', OrderStatus::READY)
             ->with(['items'])
             ->orderBy('ready_at', 'asc')
@@ -64,7 +71,10 @@ class Delivery extends Component
         $currentIds = $readyOrders->pluck('id')->toArray();
         $newIds = array_diff($currentIds, $this->knownReadyOrderIds);
 
-        if (!empty($newIds)) {
+        if (!empty($newIds) && $shouldReceive) {
+            $shouldSound = $prefService->shouldPlaySound($user, 'READY');
+            $shouldBrowser = $prefService->shouldSendBrowser($user, 'READY');
+
             foreach ($readyOrders as $order) {
                 if (in_array($order->id, $newIds)) {
                     $this->dispatch('operational-fallback-event', [
@@ -72,7 +82,10 @@ class Delivery extends Component
                         'orderNumber' => ltrim($order->number, '#'),
                         'action' => 'READY',
                         'soundType' => 'delivery',
-                        'targetRoles' => ['admin', 'reparto'],
+                        'targetUserIds' => [$user->id],
+                        'soundUserIds' => $shouldSound ? [$user->id] : [],
+                        'browserUserIds' => $shouldBrowser ? [$user->id] : [],
+                        'originUserId' => null,
                         'customerName' => $order->customer_name_snapshot ?? 'Cliente',
                     ]);
                 }

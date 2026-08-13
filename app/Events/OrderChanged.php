@@ -21,6 +21,10 @@ class OrderChanged implements ShouldBroadcastNow
     public string $action;
     public ?string $soundType;
     public array $targetRoles;
+    public array $targetUserIds;
+    public array $soundUserIds;
+    public array $browserUserIds;
+    public ?int $originUserId;
     public string $customerName;
     public string $itemsSummary;
     public string $occurredAt;
@@ -33,7 +37,11 @@ class OrderChanged implements ShouldBroadcastNow
         ?string $previousStatus = null,
         string $action = 'STATUS_CHANGED',
         ?string $soundType = null,
-        array $targetRoles = []
+        array $targetRoles = [],
+        array $targetUserIds = [],
+        array $soundUserIds = [],
+        array $browserUserIds = [],
+        ?int $originUserId = null
     ) {
         $this->order = $order;
         $this->orderId = (string) $order->id;
@@ -43,6 +51,10 @@ class OrderChanged implements ShouldBroadcastNow
         $this->action = $action;
         $this->soundType = $soundType;
         $this->targetRoles = $targetRoles;
+        $this->targetUserIds = $targetUserIds;
+        $this->soundUserIds = $soundUserIds;
+        $this->browserUserIds = $browserUserIds;
+        $this->originUserId = $originUserId ?? auth()->id();
         $this->customerName = $order->customer_name_snapshot ?? 'Venta Mostrador';
         
         $summaryParts = [];
@@ -82,6 +94,10 @@ class OrderChanged implements ShouldBroadcastNow
             'action' => $this->action,
             'soundType' => $this->soundType,
             'targetRoles' => $this->targetRoles,
+            'targetUserIds' => $this->targetUserIds,
+            'soundUserIds' => $this->soundUserIds,
+            'browserUserIds' => $this->browserUserIds,
+            'originUserId' => $this->originUserId,
             'customerName' => $this->customerName,
             'itemsSummary' => $this->itemsSummary,
             'occurredAt' => $this->occurredAt,

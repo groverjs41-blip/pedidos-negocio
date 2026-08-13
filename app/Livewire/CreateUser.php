@@ -49,6 +49,8 @@ class CreateUser extends Component
             ]);
 
             $user->roles()->sync($this->selectedRoles);
+
+            app(\App\Services\OperationalNotificationPreferenceService::class)->ensureDefaultPreferences($user);
         } catch (\Exception $e) {
             $this->errorMessage = $e->getMessage();
             return;

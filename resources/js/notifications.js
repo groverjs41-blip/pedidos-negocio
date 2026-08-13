@@ -283,28 +283,47 @@ class SoundEngine {
 
     /**
      * UNIFIED OPERATIONAL EVENT HANDLER (Reverb & Polling Fallback)
-     * Enforces strict processing order:
-     * 1. Receive event
-     * 2. Verify structure
-     * 3. Check role authorization (if user is kitchen-only, ignore READY event without marking processed)
-     * 4. Check deduplication key (orderId:action)
-     * 5. Execute toast / sound / browser notification
-     * 6. Mark event as processed for target user
+     * Enforces per-user notification preferences:
+     * 1. Check if current user ID is in targetUserIds.
+     * 2. Check deduplication key (orderId:action).
+     * 3. Check if current user ID is in soundUserIds & suppress on origin user for READY action.
+     * 4. Check if current user ID is in browserUserIds.
+     * 5. Execute toast / sound / browser notification.
+     * 6. Mark event as processed for target user.
      */
     handleOperationalEvent(event, source = 'reverb') {
         if (!event || !event.orderId || !event.action) return;
 
-        const { orderId, orderNumber, action, soundType, customerName, itemsSummary, targetRoles } = event;
+        const {
+            orderId,
+            orderNumber,
+            action,
+            soundType,
+            customerName,
+            itemsSummary,
+            targetRoles,
+            targetUserIds,
+            soundUserIds,
+            browserUserIds,
+            originUserId
+        } = event;
 
-        // 3. Verify User Roles Intersect Target Roles BEFORE checking or marking as processed!
+        const currentUserId = window.PedidosUser ? window.PedidosUser.id : null;
         const userRoles = (window.PedidosUser && Array.isArray(window.PedidosUser.roles)) ? window.PedidosUser.roles : [];
-        const isTargetUser = (targetRoles || []).some(role => userRoles.includes(role));
 
-        if (!isTargetUser) {
-            return; // User does not have target role -> exit without marking as processed!
+        // Check if current user is targeted via targetUserIds array OR legacy targetRoles
+        let isTargetUser = false;
+        if (Array.isArray(targetUserIds)) {
+            isTargetUser = currentUserId !== null && targetUserIds.includes(Number(currentUserId));
+        } else if (Array.isArray(targetRoles)) {
+            isTargetUser = targetRoles.some(role => userRoles.includes(role));
         }
 
-        // 4. Check deduplication key
+        if (!isTargetUser) {
+            return; // Exit without marking as processed
+        }
+
+        // Deduplication key check
         if (this.isEventProcessed(orderId, action)) {
             return;
         }
@@ -312,9 +331,23 @@ class SoundEngine {
         const path = window.location.pathname;
         const cleanNumber = ltrim(String(orderNumber), '#');
 
-        // ORDER_CREATED: Kitchen sound & toast for target roles (admin, cocina)
+        const shouldPlaySound = Array.isArray(soundUserIds)
+            ? soundUserIds.includes(Number(currentUserId))
+            : true;
+        const shouldSendBrowser = Array.isArray(browserUserIds)
+            ? browserUserIds.includes(Number(currentUserId))
+            : false;
+
+        // Section 22: Do NOT play READY sound on the origin browser that initiated the transition
+        const isOriginUser = originUserId && currentUserId && Number(originUserId) === Number(currentUserId);
+        const canPlaySound = shouldPlaySound && !(isOriginUser && action === 'READY');
+
+        // ORDER_CREATED: Kitchen sound & toast
         if (action === 'ORDER_CREATED') {
-            this.playKitchenChime();
+            if (canPlaySound) {
+                this.playKitchenChime();
+            }
+
             window.showOperationalToast({
                 id: `order-${orderId}-created`,
                 title: 'NUEVO PEDIDO',
@@ -325,20 +358,23 @@ class SoundEngine {
                 type: 'kitchen',
                 actionBtn: { text: 'VER', url: '/cocina' }
             });
-            this.showBrowserNotification(
-                'NUEVO PEDIDO',
-                `Pedido #${cleanNumber} (${customerName || 'Venta Mostrador'})`,
-                '/cocina'
-            );
+
+            if (shouldSendBrowser) {
+                this.showBrowserNotification(
+                    'NUEVO PEDIDO',
+                    `Pedido #${cleanNumber} (${customerName || 'Venta Mostrador'})`,
+                    '/cocina'
+                );
+            }
         }
         
-        // READY: Delivery sound & toast for target roles (admin, reparto, pedidos, caja)
+        // READY: Delivery sound & toast
         else if (action === 'READY') {
-            // Do NOT play ready sound/toast on kitchen screen itself to avoid redundant self-noise
             if (!path.startsWith('/cocina')) {
-                this.playDeliveryChime();
+                if (canPlaySound) {
+                    this.playDeliveryChime();
+                }
 
-                // Role-based target URL (reparto/admin -> /reparto; pedidos/caja -> /pedidos)
                 let readyUrl = '/reparto';
                 if (userRoles.includes('pedidos') || userRoles.includes('caja')) {
                     if (!userRoles.includes('admin') && !userRoles.includes('reparto')) {
@@ -357,14 +393,65 @@ class SoundEngine {
                     actionBtn: { text: 'VER PEDIDO', url: readyUrl },
                     glow: true
                 });
+
+                if (shouldSendBrowser) {
+                    this.showBrowserNotification(
+                        'PEDIDO LISTO',
+                        `Pedido #${cleanNumber} (${customerName || 'Cliente'})`,
+                        readyUrl
+                    );
+                }
+            }
+        }
+
+        // DELIVERED: Toast & optional sound
+        else if (action === 'DELIVERED') {
+            if (canPlaySound && soundType === 'delivery') {
+                this.playDeliveryChime();
+            }
+
+            window.showOperationalToast({
+                id: `order-${orderId}-delivered`,
+                title: 'PEDIDO ENTREGADO',
+                orderNumber: `#${cleanNumber}`,
+                customerName: customerName || 'Cliente',
+                message: 'Pedido entregado correctamente',
+                url: '/caja',
+                type: 'success',
+                actionBtn: { text: 'VER EN CAJA', url: '/caja' }
+            });
+
+            if (shouldSendBrowser) {
                 this.showBrowserNotification(
-                    'PEDIDO LISTO',
-                    `Pedido #${cleanNumber} (${customerName || 'Cliente'})`,
-                    readyUrl
+                    'PEDIDO ENTREGADO',
+                    `Pedido #${cleanNumber} entregado`,
+                    '/caja'
                 );
             }
         }
-        
+
+        // CANCELLED: Toast
+        else if (action === 'CANCELLED') {
+            window.showOperationalToast({
+                id: `order-${orderId}-cancelled`,
+                title: 'PEDIDO CANCELADO',
+                orderNumber: `#${cleanNumber}`,
+                customerName: customerName || 'Cliente',
+                message: 'El pedido ha sido cancelado',
+                url: '/pedidos',
+                type: 'error',
+                actionBtn: { text: 'VER PEDIDOS', url: '/pedidos' }
+            });
+
+            if (shouldSendBrowser) {
+                this.showBrowserNotification(
+                    'PEDIDO CANCELADO',
+                    `Pedido #${cleanNumber} cancelado`,
+                    '/pedidos'
+                );
+            }
+        }
+
         // DELIVERING: Driver claimed order -> auto-remove READY toast if active
         else if (action === 'DELIVERING') {
             const readyToast = document.getElementById(`order-${orderId}-ready`);
@@ -375,7 +462,6 @@ class SoundEngine {
             window.Livewire.dispatch('order-changed-realtime', { orderId, action });
         }
 
-        // 6. Mark event as processed for this target user
         this.markEventProcessed(orderId, action);
     }
 }

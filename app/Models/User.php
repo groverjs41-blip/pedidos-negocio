@@ -111,6 +111,14 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * Get the user's operational notification preferences.
+     */
+    public function operationalNotificationPreferences()
+    {
+        return $this->hasMany(UserOperationalNotificationPreference::class);
+    }
+
+    /**
      * Determine if the user can access the Filament panel.
      */
     public function canAccessPanel(Panel $panel): bool

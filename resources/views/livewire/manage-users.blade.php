@@ -52,6 +52,7 @@
                                     {{ strtoupper(substr($u->name, 0, 1)) }}
                                 </div>
                                 <span>{{ $u->name }}</span>
+                                <span title="Configuración de Notificaciones Operativas" style="font-size: 0.75rem; opacity: 0.7;">🔔</span>
                             </div>
                         </td>
                         <td style="padding: 0.85rem 1rem; color: var(--text-muted);">
