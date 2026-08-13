@@ -15,45 +15,6 @@
         </div>
 
         <div class="app-layout" :class="{ 'sidebar-collapsed': collapsed }">
-            {{-- DESKTOP & MOBILE TOPBAR (Compact Sticky Header ~56-60px) --}}
-            <header class="topbar-unified">
-                <div class="topbar-left">
-                    <button type="button" @click="collapsed = !collapsed" class="btn-toggle-sidebar" title="Colapsar / Expandir Menú">
-                        <x-ui.icon name="sidebar-left" class="w-5 h-5" />
-                    </button>
-                    <a href="{{ url('/inicio') }}" class="topbar-brand">
-                        <div class="brand-icon-wrap" style="width: 32px; height: 32px; border-radius: 8px;">
-                            <x-ui.icon name="bag" class="w-4 h-4" />
-                        </div>
-                        <span class="brand-title" style="font-size: 0.95rem;">PEDIDOS <span>NEGOCIO</span></span>
-                    </a>
-                </div>
-
-                <div class="topbar-actions">
-                    {{-- ATENDER AHORA OPERATIONAL ACCESS --}}
-                    <livewire:operational-attention />
-
-                    {{-- SOUND TOGGLE --}}
-                    <button type="button" id="soundToggleBtn" onclick="window.soundEngine.toggleMute()" class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all flex items-center justify-center focus:outline-none" title="Alternar Sonido">
-                        <x-ui.icon name="volume" class="w-5 h-5" />
-                    </button>
-
-                    {{-- NOTIFICATION BELL --}}
-                    <livewire:notification-center />
-
-                    <div class="connection-status-inline">
-                        <span class="dot online"></span> <span class="status-text">En línea</span>
-                    </div>
-
-                    <div class="user-profile-inline">
-                        <div class="user-avatar-sm" title="{{ auth()->user()->name }}">
-                            {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
-                        </div>
-                        <span class="user-name-sm">{{ auth()->user()->name }}</span>
-                    </div>
-                </div>
-            </header>
-
             {{-- DESKTOP SIDEBAR --}}
             <aside class="sidebar" :class="{ 'collapsed': collapsed }">
                 <a href="{{ url('/inicio') }}" class="sidebar-brand">
@@ -192,6 +153,39 @@
 
             {{-- MAIN CONTENT WRAPPER --}}
             <div class="main-wrapper" :class="{ 'collapsed': collapsed }">
+                {{-- TOPBAR STICKY INSIDE MAIN WRAPPER --}}
+                <header class="topbar-unified">
+                    <div class="topbar-left">
+                        <button type="button" @click="collapsed = !collapsed" class="btn-toggle-sidebar" title="Colapsar / Expandir Menú">
+                            <x-ui.icon name="sidebar-left" class="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <div class="topbar-actions">
+                        {{-- ATENDER AHORA OPERATIONAL ACCESS --}}
+                        <livewire:operational-attention />
+
+                        {{-- SOUND TOGGLE --}}
+                        <button type="button" id="soundToggleBtn" onclick="window.soundEngine.toggleMute()" class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all flex items-center justify-center focus:outline-none" title="Alternar Sonido">
+                            <x-ui.icon name="volume" class="w-5 h-5" />
+                        </button>
+
+                        {{-- NOTIFICATION BELL --}}
+                        <livewire:notification-center />
+
+                        <div class="connection-status-inline">
+                            <span class="dot online"></span> <span class="status-text">En línea</span>
+                        </div>
+
+                        <div class="user-profile-inline">
+                            <div class="user-avatar-sm" title="{{ auth()->user()->name }}">
+                                {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                            </div>
+                            <span class="user-name-sm">{{ auth()->user()->name }}</span>
+                        </div>
+                    </div>
+                </header>
+
                 <main class="content-area page-fade-in">
                     {{ $slot }}
                 </main>

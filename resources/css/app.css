@@ -417,6 +417,7 @@ body {
     flex-direction: column;
     background: var(--bg-main);
     min-height: 100vh;
+    transition: margin-left 200ms var(--ease-out);
 }
 
 .topbar {
@@ -1625,6 +1626,46 @@ body {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+}
+
+.connection-status-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.775rem;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--radius-sm);
+}
+
+.user-profile-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-left: 0.5rem;
+    border-left: 1px solid var(--border);
+}
+
+.user-avatar-sm {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(39, 230, 164, 0.15);
+    color: var(--primary);
+    border: 1px solid rgba(39, 230, 164, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.75rem;
+}
+
+.user-name-sm {
+    font-size: 0.825rem;
+    font-weight: 600;
+    color: var(--text-main);
 }
 
 .sidebar {
