@@ -17,11 +17,11 @@
          x-transition:leave="transition ease-in duration-75"
          x-transition:leave-start="transform opacity-100 scale-100"
          x-transition:leave-end="transform opacity-0 scale-95"
-         class="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-slate-900 border border-slate-700/80 shadow-2xl z-50 overflow-hidden" 
+         class="notification-dropdown-panel absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-slate-900 border border-slate-700/80 shadow-2xl z-50 overflow-hidden" 
          style="display: none;">
         
-        <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90 backdrop-blur-md">
-            <div class="flex items-center gap-2">
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2 bg-slate-900/90 backdrop-blur-md">
+            <div class="flex items-center gap-2 flex-wrap">
                 <h3 class="font-bold text-sm text-white">Centro de Notificaciones</h3>
                 @if($unreadCount > 0)
                     <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-400">

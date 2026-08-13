@@ -14,6 +14,27 @@
     </div>
 
     <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+        {{-- Quick Preferences (Theme / Sound for Mobile) --}}
+        <div class="card" style="padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 0.85rem;">
+                <div class="header-icon-wrap violet" style="width: 40px; height: 40px; border-radius: 10px;">
+                    <x-ui.icon name="gear" class="w-5 h-5" />
+                </div>
+                <div>
+                    <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-main);">Preferencias de Sistema</div>
+                    <div style="font-size: 0.775rem; color: var(--text-muted);">Modo Claro/Oscuro y Audio de avisos</div>
+                </div>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button type="button" onclick="toggleTheme()" class="chip-btn" style="padding: 0.4rem 0.75rem; font-size: 0.8rem;">
+                    🌙/☀️ Tema
+                </button>
+                <button type="button" onclick="window.soundEngine.toggleMute()" class="chip-btn" style="padding: 0.4rem 0.75rem; font-size: 0.8rem;">
+                    🔊 Audio
+                </button>
+            </div>
+        </div>
+
         @if(auth()->user()->hasRole('pedidos') || auth()->user()->hasRole('admin'))
             <a href="{{ url('/pedidos/nuevo') }}" class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 0.85rem;">

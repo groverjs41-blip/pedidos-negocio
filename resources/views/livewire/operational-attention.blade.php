@@ -11,7 +11,8 @@
             @endif
             <span class="relative inline-flex rounded-full h-2 w-2 {{ $totalCount > 0 ? 'bg-red-500' : 'bg-slate-400' }}"></span>
         </span>
-        <span>ATENDER AHORA</span>
+        <span class="hidden sm:inline">ATENDER AHORA</span>
+        <span class="sm:hidden">⚡</span>
         @if($totalCount > 0)
             <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-red-500 text-white font-extrabold">{{ $totalCount }}</span>
         @endif
@@ -21,7 +22,7 @@
         x-show="open"
         x-transition.opacity.scale.95
         @click.outside="open = false"
-        class="absolute right-0 mt-2 w-80 rounded-xl shadow-2xl z-50 overflow-hidden"
+        class="operational-dropdown-panel absolute right-0 mt-2 w-80 rounded-xl shadow-2xl z-50 overflow-hidden"
         style="background: var(--bg-card); border: 1px solid var(--border); display: none;"
     >
         <div class="px-4 py-3 border-b flex justify-between items-center" style="border-color: var(--border);">

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{{ $title ?? 'Pedidos Negocio' }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
@@ -44,13 +44,13 @@
     @livewireStyles
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="no-transitions" x-data="{ collapsed: localStorage.getItem('sidebar_collapsed') === 'true', currentTheme: localStorage.getItem('theme') || 'dark' }" x-init="$watch('collapsed', value => localStorage.setItem('sidebar_collapsed', value))">
+<body class="no-transitions" x-data="{ collapsed: localStorage.getItem('sidebar_collapsed') === 'true', currentTheme: localStorage.getItem('theme') || 'dark', showOperacionModal: false }" x-init="$watch('collapsed', value => localStorage.setItem('sidebar_collapsed', value))">
     {{-- GLOBAL TOP LOADING PROGRESS BAR FOR MOBILE, TABLET & DESKTOP --}}
     <div id="globalLoadingBar" class="global-loading-bar"></div>
     @auth
         <div class="app-layout" :class="{ 'sidebar-collapsed': collapsed }">
             {{-- DESKTOP SIDEBAR --}}
-            <aside class="sidebar" :class="{ 'collapsed': collapsed }">
+            <aside class="sidebar hidden md:flex" :class="{ 'collapsed': collapsed }">
                 <a href="{{ url('/inicio') }}" class="sidebar-brand">
                     <div class="brand-icon-wrap">
                         <x-ui.icon name="bag" class="w-5 h-5" />
@@ -190,17 +190,23 @@
                 {{-- TOPBAR STICKY INSIDE MAIN WRAPPER --}}
                 <header class="topbar-unified">
                     <div class="topbar-left">
-                        <button type="button" @click="collapsed = !collapsed" class="btn-toggle-sidebar" title="Colapsar / Expandir Menú">
+                        <button type="button" @click="collapsed = !collapsed" class="btn-toggle-sidebar hidden md:flex" title="Colapsar / Expandir Menú">
                             <x-ui.icon name="sidebar-left" class="w-5 h-5" />
                         </button>
+                        <a href="{{ url('/inicio') }}" wire:navigate class="mobile-logo-brand md:hidden">
+                            <div class="brand-icon-wrap" style="width: 32px; height: 32px;">
+                                <x-ui.icon name="bag" class="w-4 h-4" />
+                            </div>
+                            <span class="font-extrabold text-sm text-slate-100 tracking-tight">PEDIDOS <span style="color: var(--primary);">NEGOCIO</span></span>
+                        </a>
                     </div>
 
                     <div class="topbar-actions">
                         {{-- ATENDER AHORA OPERATIONAL ACCESS --}}
                         <livewire:operational-attention />
 
-                        {{-- THEME TOGGLE BUTTON --}}
-                        <button type="button" id="themeToggleBtn" onclick="toggleTheme()" class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all flex items-center justify-center focus:outline-none" title="Alternar Modo Claro / Oscuro">
+                        {{-- THEME TOGGLE BUTTON (Desktop only, mobile in /menu) --}}
+                        <button type="button" id="themeToggleBtn" onclick="toggleTheme()" class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all hidden md:flex items-center justify-center focus:outline-none" title="Alternar Modo Claro / Oscuro">
                             <span x-show="currentTheme === 'dark'" style="display: flex; align-items: center;">
                                 <x-ui.icon name="sun" class="w-5 h-5 text-amber-400" />
                             </span>
@@ -209,8 +215,8 @@
                             </span>
                         </button>
 
-                        {{-- SOUND TOGGLE --}}
-                        <button type="button" id="soundToggleBtn" onclick="window.soundEngine.toggleMute()" class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all flex items-center justify-center focus:outline-none" title="Alternar Sonido">
+                        {{-- SOUND TOGGLE (Desktop only, mobile in /menu) --}}
+                        <button type="button" id="soundToggleBtn" onclick="window.soundEngine.toggleMute()" class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all hidden md:flex items-center justify-center focus:outline-none" title="Alternar Sonido">
                             <x-ui.icon name="volume" class="w-5 h-5" />
                         </button>
 
@@ -218,14 +224,14 @@
                         <livewire:notification-center />
 
                         <div class="connection-status-inline" id="connectionStatusIndicator">
-                            <span class="dot online"></span> <span class="status-text">En línea</span>
+                            <span class="dot online"></span> <span class="status-text hidden sm:inline">En línea</span>
                         </div>
 
                         <div class="user-profile-inline">
                             <div class="user-avatar-sm" title="{{ auth()->user()->name }}">
                                 {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
                             </div>
-                            <span class="user-name-sm">{{ auth()->user()->name }}</span>
+                            <span class="user-name-sm hidden sm:inline">{{ auth()->user()->name }}</span>
                         </div>
                     </div>
                 </header>
@@ -235,6 +241,76 @@
                 </main>
             </div>
         </div>
+
+        {{-- MOBILE BOTTOM NAVIGATION (<=768px) --}}
+        <nav class="mobile-bottom-nav">
+            <a href="{{ url('/inicio') }}" wire:navigate.hover class="mobile-nav-item {{ request()->is('inicio') ? 'active' : '' }}">
+                <x-ui.icon name="home" class="w-5 h-5" />
+                <span>Inicio</span>
+            </a>
+
+            @if(auth()->user()->hasRole('admin'))
+                <a href="{{ url('/pedidos/nuevo') }}" wire:navigate class="mobile-nav-item {{ request()->is('pedidos/nuevo') ? 'active' : '' }}">
+                    <x-ui.icon name="plus" class="w-5 h-5" />
+                    <span>Nuevo</span>
+                </a>
+                <a href="{{ url('/pedidos') }}" wire:navigate class="mobile-nav-item {{ request()->is('pedidos') ? 'active' : '' }}">
+                    <x-ui.icon name="list" class="w-5 h-5" />
+                    <span>Pedidos</span>
+                </a>
+                <button type="button" @click="showOperacionModal = true" class="mobile-nav-item {{ request()->is('cocina') || request()->is('reparto') ? 'active' : '' }}">
+                    <x-ui.icon name="chef" class="w-5 h-5" />
+                    <span>Operación</span>
+                </button>
+            @elseif(auth()->user()->hasRole('pedidos'))
+                <a href="{{ url('/pedidos/nuevo') }}" wire:navigate class="mobile-nav-item {{ request()->is('pedidos/nuevo') ? 'active' : '' }}">
+                    <x-ui.icon name="plus" class="w-5 h-5" />
+                    <span>Nuevo</span>
+                </a>
+                <a href="{{ url('/pedidos') }}" wire:navigate class="mobile-nav-item {{ request()->is('pedidos') ? 'active' : '' }}">
+                    <x-ui.icon name="list" class="w-5 h-5" />
+                    <span>Pedidos</span>
+                </a>
+            @elseif(auth()->user()->hasRole('cocina'))
+                <a href="{{ url('/cocina') }}" wire:navigate class="mobile-nav-item {{ request()->is('cocina') ? 'active' : '' }}">
+                    <x-ui.icon name="chef" class="w-5 h-5" />
+                    <span>Cocina</span>
+                </a>
+            @elseif(auth()->user()->hasRole('reparto'))
+                <a href="{{ url('/reparto') }}" wire:navigate class="mobile-nav-item {{ request()->is('reparto') ? 'active' : '' }}">
+                    <x-ui.icon name="truck" class="w-5 h-5" />
+                    <span>Reparto</span>
+                </a>
+            @elseif(auth()->user()->hasRole('caja'))
+                <a href="{{ url('/caja') }}" wire:navigate class="mobile-nav-item {{ request()->is('caja*') ? 'active' : '' }}">
+                    <x-ui.icon name="wallet" class="w-5 h-5" />
+                    <span>Caja</span>
+                </a>
+            @endif
+
+            <a href="{{ url('/menu') }}" wire:navigate class="mobile-nav-item {{ request()->is('menu') ? 'active' : '' }}">
+                <x-ui.icon name="dots" class="w-5 h-5" />
+                <span>Más</span>
+            </a>
+
+            {{-- OPERACIÓN BOTTOM SHEET FOR ADMIN --}}
+            <template x-teleport="body">
+                <div x-show="showOperacionModal" style="display: none; position: fixed; inset: 0; z-index: 999999;" x-on:keydown.escape.window="showOperacionModal = false">
+                    <div x-show="showOperacionModal" x-transition.opacity x-on:click="showOperacionModal = false" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"></div>
+                    <div x-show="showOperacionModal" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="transform translateY(100%)" x-transition:enter-end="transform translateY(0)" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="transform translateY(0)" x-transition:leave-end="transform translateY(100%)" style="position: fixed; bottom: calc(64px + env(safe-area-inset-bottom)); left: 12px; right: 12px; background: var(--bg-card, #0F172A); border: 1px solid var(--border, rgba(255,255,255,0.12)); border-radius: 18px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; box-shadow: 0 20px 40px rgba(0,0,0,0.6); z-index: 1000000;">
+                        <div style="font-size: 0.85rem; font-weight: 800; color: var(--text-muted, #94A3B8); letter-spacing: 0.05em; margin-bottom: 0.25rem;">ACCESOS OPERATIVOS</div>
+                        <a href="{{ url('/cocina') }}" wire:navigate @click="showOperacionModal = false" class="card" style="padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-main, #F8FAFC); font-weight: 700;">
+                            <x-ui.icon name="chef" class="w-5 h-5 text-amber-400" />
+                            <span>Cocina KDS</span>
+                        </a>
+                        <a href="{{ url('/reparto') }}" wire:navigate @click="showOperacionModal = false" class="card" style="padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-main, #F8FAFC); font-weight: 700;">
+                            <x-ui.icon name="truck" class="w-5 h-5 text-emerald-400" />
+                            <span>Panel de Reparto</span>
+                        </a>
+                    </div>
+                </div>
+            </template>
+        </nav>
 
         {{-- Toast Container for Operative Notifications --}}
         <div id="toastNotificationContainer" class="toast-container"></div>

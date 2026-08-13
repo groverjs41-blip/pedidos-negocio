@@ -2000,4 +2000,248 @@ html.sidebar-collapsed-init .btn-logout-sidebar {
     40%, 80% { transform: translateX(8px); }
 }
 
+/* ========================================================
+   COMPREHENSIVE MOBILE RESPONSIVE SYSTEM (320px - 768px)
+   ======================================================== */
+
+/* Global Protection Against Horizontal Overflow */
+html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+
+img, svg, video {
+    max-width: 100%;
+}
+
+main, .content-area, .card, .modal-content, form {
+    min-width: 0;
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+}
+
+/* Mobile Bottom Navigation Bar */
+.mobile-bottom-nav {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .mobile-bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: calc(64px + env(safe-area-inset-bottom));
+        padding-bottom: env(safe-area-inset-bottom);
+        background: var(--bg-surface, #0F172A);
+        border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+        z-index: 99990;
+        justify-content: space-around;
+        align-items: center;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+
+    .mobile-nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        color: var(--text-muted, #94A3B8);
+        text-decoration: none;
+        font-size: 0.7rem;
+        font-weight: 600;
+        background: transparent;
+        border: none;
+        padding: 6px 8px;
+        cursor: pointer;
+        transition: color 0.15s ease;
+        flex: 1;
+    }
+
+    .mobile-nav-item.active,
+    .mobile-nav-item:hover {
+        color: var(--primary, #27E6A4);
+    }
+
+    .main-wrapper {
+        margin-left: 0 !important;
+        padding-bottom: calc(76px + env(safe-area-inset-bottom)) !important;
+    }
+
+    .content-area {
+        padding: 1rem 0.85rem !important;
+        padding-bottom: calc(84px + env(safe-area-inset-bottom)) !important;
+    }
+
+    /* Topbar Compact Mobile */
+    .topbar-unified {
+        padding: 0.6rem 0.85rem !important;
+    }
+
+    .topbar-actions {
+        gap: 0.5rem !important;
+    }
+
+    .mobile-logo-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+    }
+
+    /* POS Layout Mobile */
+    .pos-container {
+        flex-direction: column !important;
+        gap: 1rem !important;
+    }
+
+    .pos-left {
+        width: 100% !important;
+    }
+
+    .pos-right {
+        min-width: 0 !important;
+        position: fixed !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        top: auto !important;
+        z-index: 99995 !important;
+        background: var(--bg-card, #0F172A) !important;
+        border-top: 1px solid var(--border, rgba(255, 255, 255, 0.12)) !important;
+        border-radius: 18px 18px 0 0 !important;
+        max-height: 85dvh !important;
+        box-shadow: 0 -10px 30px rgba(0,0,0,0.6) !important;
+        transform: translateY(100%);
+        transition: transform 220ms ease-out;
+        padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    }
+
+    .pos-right.mobile-cart-open {
+        transform: translateY(0) !important;
+    }
+
+    .products-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.65rem !important;
+    }
+
+    /* Operational Dropdown Mobile Bottom Sheet */
+    .operational-dropdown-panel {
+        position: fixed !important;
+        left: 12px !important;
+        right: 12px !important;
+        bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+        top: auto !important;
+        width: auto !important;
+        max-width: none !important;
+        max-height: 65vh !important;
+        overflow-y: auto !important;
+        z-index: 99999 !important;
+    }
+}
+
+@media (max-width: 640px) {
+    /* Notification Center Mobile */
+    .notification-dropdown-panel {
+        position: fixed !important;
+        left: 12px !important;
+        right: 12px !important;
+        top: 60px !important;
+        width: auto !important;
+        max-width: none !important;
+        max-height: calc(100dvh - 150px) !important;
+        overflow-y: auto !important;
+        z-index: 99999 !important;
+    }
+
+    /* Toast Container & Cards Mobile */
+    .toast-container {
+        left: 12px !important;
+        right: 12px !important;
+        top: 12px !important;
+        width: auto !important;
+        max-width: none !important;
+        transform: none !important;
+    }
+
+    .toast-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        padding: 0.75rem 0.85rem !important;
+        animation: toastMobileFadeIn 220ms ease-out forwards !important;
+    }
+
+    .toast-card.toast-exiting {
+        animation: toastMobileFadeOut 180ms ease-in forwards !important;
+    }
+
+    .toast-card * {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    /* Bottom Sheet Modals */
+    .modal-backdrop-wrap {
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-end !important;
+    }
+
+    .ui-modal-card {
+        margin: auto 0 0 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 18px 18px 0 0 !important;
+        max-height: 88dvh !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* Alerts */
+    .alert {
+        max-width: 100% !important;
+        min-width: 0 !important;
+        flex-wrap: wrap !important;
+    }
+
+    .alert span {
+        overflow-wrap: anywhere !important;
+    }
+}
+
+@media (max-width: 360px) {
+    .products-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@keyframes toastMobileFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes toastMobileFadeOut {
+    to {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+}
+
 
