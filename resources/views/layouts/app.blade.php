@@ -45,6 +45,8 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="no-transitions" x-data="{ collapsed: localStorage.getItem('sidebar_collapsed') === 'true', currentTheme: localStorage.getItem('theme') || 'dark' }" x-init="$watch('collapsed', value => localStorage.setItem('sidebar_collapsed', value))">
+    {{-- GLOBAL TOP LOADING PROGRESS BAR FOR MOBILE, TABLET & DESKTOP --}}
+    <div id="globalLoadingBar" class="global-loading-bar"></div>
     @auth
         <div class="app-layout" :class="{ 'sidebar-collapsed': collapsed }">
             {{-- DESKTOP SIDEBAR --}}
@@ -276,6 +278,53 @@
                 if (bodyData) bodyData.currentTheme = newTheme;
             }
         }
+
+        document.addEventListener('livewire:init', () => {
+            const bar = document.getElementById('globalLoadingBar');
+            let timer = null;
+
+            if (window.Livewire) {
+                window.Livewire.hook('commit', ({ respond, succeed, fail }) => {
+                    if (bar) {
+                        bar.style.width = '35%';
+                        bar.classList.add('active');
+                        if (timer) clearInterval(timer);
+                        timer = setInterval(() => {
+                            let current = parseFloat(bar.style.width) || 35;
+                            if (current < 85) {
+                                bar.style.width = (current + 8) + '%';
+                            }
+                        }, 80);
+                    }
+
+                    succeed(() => {
+                        if (bar) {
+                            if (timer) clearInterval(timer);
+                            bar.style.width = '100%';
+                            setTimeout(() => {
+                                bar.classList.remove('active');
+                                setTimeout(() => { bar.style.width = '0%'; }, 250);
+                            }, 120);
+                        }
+                    });
+
+                    fail(() => {
+                        if (bar) {
+                            if (timer) clearInterval(timer);
+                            bar.style.width = '100%';
+                            bar.style.background = '#EF5350';
+                            setTimeout(() => {
+                                bar.classList.remove('active');
+                                setTimeout(() => {
+                                    bar.style.width = '0%';
+                                    bar.style.background = '';
+                                }, 250);
+                            }, 200);
+                        }
+                    });
+                });
+            }
+        });
 
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
