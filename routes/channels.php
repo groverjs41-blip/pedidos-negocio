@@ -18,4 +18,9 @@ Broadcast::channel('returnables.operations', function ($user) {
     return $user && $user->isActive() && $user->hasAnyRole(['admin', 'caja', 'reparto', 'pedidos']);
 });
 
+Broadcast::channel('closures.operations', function ($user) {
+    return $user && $user->isActive() && $user->hasAnyRole(['admin', 'caja']);
+});
+
+
 

@@ -42,5 +42,6 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Returnable container routes (role:caja,reparto or admin)
     Route::get('/tazas', \App\Livewire\ReturnableDashboard::class)->middleware('role:caja,reparto')->name('tazas.dashboard');
     Route::get('/tazas/por-recoger', \App\Livewire\ReturnablePending::class)->middleware('role:caja,reparto')->name('tazas.por-recoger');
-    Route::get('/tazas/clientes/{customer}', \App\Livewire\CustomerReturnables::class)->middleware('role:caja,reparto')->name('tazas.cliente');
+    // Daily closure routes (role:caja or admin)
+    Route::get('/cierre', \App\Livewire\DailyClosureDashboard::class)->middleware('role:caja')->name('cierre.dashboard');
 });
