@@ -495,4 +495,32 @@ class OrderWorkflowTest extends TestCase
 
         $this->assertEquals('0.90', (string) $order->total);
     }
+
+    /**
+     * Test order creation calculates and saves returnable plans snapshot.
+     */
+    public function test_order_creation_calculates_and_saves_returnable_plans_snapshot(): void
+    {
+        $returnableType = \App\Models\ReturnableType::create([
+            'name' => 'Taza Especial',
+            'sort_order' => 1,
+            'active' => true,
+        ]);
+
+        \App\Models\ProductReturnableRequirement::create([
+            'product_id' => $this->activeProduct->id,
+            'returnable_type_id' => $returnableType->id,
+            'quantity' => 2,
+        ]);
+
+        $order = $this->orderService->createOrder([
+            'items' => [
+                ['product_id' => $this->activeProduct->id, 'quantity' => 3],
+            ]
+        ], $this->pedidosUser);
+
+        $this->assertCount(1, $order->returnablePlans);
+        $this->assertEquals($returnableType->id, $order->returnablePlans->first()->returnable_type_id);
+        $this->assertEquals(6, $order->returnablePlans->first()->quantity);
+    }
 }

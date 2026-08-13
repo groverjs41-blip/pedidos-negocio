@@ -51,7 +51,13 @@
 
     {{-- RIGHT PANEL: Login Form --}}
     <div class="login-form-panel">
-        <div class="login-card">
+        <div class="login-card {{ $errors->any() ? 'login-card-shake' : '' }}" style="position: relative;">
+            {{-- Submit Overlay --}}
+            <div id="loginOverlay" style="display: none; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px); border-radius: inherit; z-index: 10; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem;">
+                <span class="spinner" style="width: 28px; height: 28px; border-width: 3px;"></span>
+                <span style="font-weight: 700; font-size: 0.9rem; color: #F8FAFC;">Iniciando tu jornada...</span>
+            </div>
+
             <div class="login-header">
                 <h2 class="login-header-title">Bienvenido de nuevo</h2>
                 <p class="login-subtitle">Ingresa para comenzar tu jornada.</p>
@@ -124,6 +130,7 @@
 
         const loginForm = document.getElementById('loginForm');
         const submitBtn = document.getElementById('submitBtn');
+        const loginOverlay = document.getElementById('loginOverlay');
 
         loginForm.addEventListener('submit', function(e) {
             if (!loginForm.checkValidity()) return;
@@ -133,8 +140,11 @@
             }
             submitBtn.classList.add('loading');
             submitBtn.disabled = true;
-            setTimeout(() => { submitBtn.disabled = true; }, 1);
-            submitBtn.innerHTML = '<span class="spinner"></span> INICIANDO SESIÓN...';
+            document.getElementById('email').disabled = true;
+            document.getElementById('password').disabled = true;
+            if (loginOverlay) {
+                loginOverlay.style.display = 'flex';
+            }
         });
     </script>
 </body>

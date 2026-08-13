@@ -95,7 +95,7 @@ class OperationalNotificationService
                 'sound_type' => null,
             ],
             'READY' => [
-                'target_roles' => ['admin', 'reparto', 'pedidos', 'caja', 'cocina'],
+                'target_roles' => ['admin', 'reparto'],
                 'title' => 'PEDIDO LISTO PARA RECOGER',
                 'message' => "Pedido {$order->number} • {$customer}",
                 'url' => '/reparto',

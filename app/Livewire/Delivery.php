@@ -28,7 +28,7 @@ class Delivery extends Component
     public function getReadyOrdersProperty()
     {
         return Order::where('status', OrderStatus::READY)
-            ->with(['items'])
+            ->with(['items', 'returnablePlans.returnableType'])
             ->orderBy('ready_at', 'asc')
             ->get();
     }
@@ -37,7 +37,7 @@ class Delivery extends Component
     {
         return Order::where('status', OrderStatus::DELIVERING)
             ->where('delivery_user_id', auth()->id())
-            ->with(['items'])
+            ->with(['items', 'returnablePlans.returnableType'])
             ->orderBy('delivering_at', 'asc')
             ->get();
     }
@@ -78,6 +78,13 @@ class Delivery extends Component
                 $activeTypes = ReturnableType::where('active', true)->orderBy('sort_order', 'asc')->get();
                 foreach ($activeTypes as $t) {
                     $this->outQuantities[$t->id] = 0;
+                }
+                // Prefill with expected returnable plan snapshot
+                $orderPlans = $order->returnablePlans()->pluck('quantity', 'returnable_type_id')->toArray();
+                foreach ($orderPlans as $typeId => $planQty) {
+                    if (isset($this->outQuantities[$typeId])) {
+                        $this->outQuantities[$typeId] = $planQty;
+                    }
                 }
                 $this->showReturnablePrompt = true;
             }

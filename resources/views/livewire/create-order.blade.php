@@ -57,14 +57,25 @@
                                 @if($selectedCustomerAddress) • 📍 {{ $selectedCustomerAddress }} @endif
                             </div>
                             @if($selectedCustomerId)
-                                @inject('returnableService', 'App\Services\ReturnableService')
-                                @php
-                                    $customerObj = \App\Models\Customer::find($selectedCustomerId);
-                                    $pendingCount = $customerObj ? $returnableService->getCustomerTotalOutstanding($customerObj) : 0;
-                                @endphp
-                                @if($pendingCount > 0)
-                                    <div style="font-size: 0.75rem; color: var(--warning-text); font-weight: 700; margin-top: 2px;">
-                                        📦 Envases por recoger: {{ $pendingCount }}
+                                {{-- DEBT NOTICE --}}
+                                @if(bccomp($this->selectedCustomerDebt, '0.00', 2) > 0)
+                                    <div style="font-size: 0.775rem; color: #F87171; font-weight: 700; margin-top: 2px;">
+                                        💳 Saldo pendiente: @money($this->selectedCustomerDebt)
+                                    </div>
+                                @endif
+
+                                {{-- RETURNABLES PENDING & QUICK RETURN BUTTON --}}
+                                @if(count($this->selectedCustomerReturnables) > 0)
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 4px; flex-wrap: wrap;">
+                                        <span style="font-size: 0.775rem; color: var(--warning-text); font-weight: 700;">
+                                            📦 ENVASES POR RECOGER: 
+                                            @foreach($this->selectedCustomerReturnables as $index => $item)
+                                                {{ $item['outstanding'] }}x {{ $item['type']->name }}{{ $index < count($this->selectedCustomerReturnables) - 1 ? ', ' : '' }}
+                                            @endforeach
+                                        </span>
+                                        <button type="button" wire:click="openReturnModal" class="px-2 py-0.5 text-xs font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-all">
+                                            [ REGISTRAR DEVOLUCIÓN ]
+                                        </button>
                                     </div>
                                 @endif
                             @endif
@@ -476,6 +487,53 @@
             </div>
         </form>
     </x-ui.modal>
+
+    {{-- MODAL DEVOLUCIÓN RÁPIDA (CONSERVA EL CARRITO ACTIVO) --}}
+    @if($showReturnModal)
+        <div class="modal-overlay" wire:click.self="closeReturnModal">
+            <div class="modal-content" style="max-width: 440px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
+                    <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--text-main);">Registrar Devolución de Envases</h3>
+                    <button type="button" wire:click="closeReturnModal" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">
+                    Cliente: <strong>{{ $selectedCustomerName }}</strong>
+                </div>
+
+                <form wire:submit.prevent="submitQuickReturn" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 0.75rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                        @foreach($this->selectedCustomerReturnables as $item)
+                            <div style="background: var(--bg-surface); padding: 0.75rem 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">{{ $item['type']->name }}</div>
+                                    <div style="font-size: 0.75rem; color: var(--warning-text);">Pendientes: {{ $item['outstanding'] }}</div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="{{ $item['outstanding'] }}"
+                                        wire:model="returnQuantities.{{ $item['type']->id }}"
+                                        style="width: 75px; text-align: center; height: 38px; border-radius: var(--radius-sm); background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); font-weight: 700;"
+                                    />
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                        <button type="button" wire:click="closeReturnModal" class="btn-secondary" style="padding: 0.5rem 1rem;">Cancelar</button>
+                        <button type="submit" wire:loading.attr="disabled" class="btn-primary" style="padding: 0.5rem 1.25rem;">
+                            <span wire:loading wire:target="submitQuickReturn" class="spinner"></span>
+                            <span wire:loading.remove wire:target="submitQuickReturn">REGISTRAR DEVOLUCIÓN</span>
+                            <span wire:loading wire:target="submitQuickReturn">REGISTRANDO...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
 
     <script>
         document.addEventListener('livewire:init', () => {

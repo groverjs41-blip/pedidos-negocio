@@ -61,7 +61,7 @@
                 <nav class="sidebar-nav">
                     <span class="nav-section-header" x-show="!collapsed">PRINCIPAL</span>
 
-                    <a href="{{ url('/inicio') }}" class="nav-item {{ request()->is('inicio') ? 'active' : '' }}" :title="collapsed ? 'Inicio' : ''">
+                    <a href="{{ url('/inicio') }}" wire:navigate.hover class="nav-item {{ request()->is('inicio') ? 'active' : '' }}" :title="collapsed ? 'Inicio' : ''">
                         <x-ui.icon name="home" />
                         <span class="nav-label" x-show="!collapsed">Inicio</span>
                     </a>
@@ -69,11 +69,11 @@
                     @if(auth()->user()->hasRole('pedidos') || auth()->user()->hasRole('admin'))
                         <span class="nav-section-header" x-show="!collapsed">OPERACIÓN</span>
 
-                        <a href="{{ url('/pedidos/nuevo') }}" class="nav-item {{ request()->is('pedidos/nuevo') ? 'active' : '' }}" :title="collapsed ? 'Nuevo Pedido' : ''">
+                        <a href="{{ url('/pedidos/nuevo') }}" wire:navigate class="nav-item {{ request()->is('pedidos/nuevo') ? 'active' : '' }}" :title="collapsed ? 'Nuevo Pedido' : ''">
                             <x-ui.icon name="plus" />
                             <span class="nav-label" x-show="!collapsed">Nuevo Pedido</span>
                         </a>
-                        <a href="{{ url('/pedidos') }}" class="nav-item {{ request()->is('pedidos') || request()->is('pedidos/*/editar') ? 'active' : '' }}" :title="collapsed ? 'Pedidos' : ''">
+                        <a href="{{ url('/pedidos') }}" wire:navigate class="nav-item {{ request()->is('pedidos') || request()->is('pedidos/*/editar') ? 'active' : '' }}" :title="collapsed ? 'Pedidos' : ''">
                             <x-ui.icon name="list" />
                             <span class="nav-label" x-show="!collapsed">Pedidos</span>
                         </a>
@@ -83,7 +83,7 @@
                         @php
                             $kitchenCount = \App\Models\Order::whereIn('status', [\App\Enums\OrderStatus::NEW, \App\Enums\OrderStatus::PREPARING])->count();
                         @endphp
-                        <a href="{{ url('/cocina') }}" class="nav-item {{ request()->is('cocina') ? 'active' : '' }}" :title="collapsed ? 'Cocina (' . $kitchenCount . ')' : ''">
+                        <a href="{{ url('/cocina') }}" wire:navigate class="nav-item {{ request()->is('cocina') ? 'active' : '' }}" :title="collapsed ? 'Cocina (' . $kitchenCount . ')' : ''">
                             <x-ui.icon name="chef" />
                             <span class="nav-label" x-show="!collapsed">Cocina</span>
                             @if($kitchenCount > 0)
@@ -96,7 +96,7 @@
                         @php
                             $deliveryCount = \App\Models\Order::where('status', \App\Enums\OrderStatus::READY)->count();
                         @endphp
-                        <a href="{{ url('/reparto') }}" class="nav-item {{ request()->is('reparto') ? 'active' : '' }}" :title="collapsed ? 'Reparto (' . $deliveryCount . ' LISTOS)' : ''">
+                        <a href="{{ url('/reparto') }}" wire:navigate class="nav-item {{ request()->is('reparto') ? 'active' : '' }}" :title="collapsed ? 'Reparto (' . $deliveryCount . ' LISTOS)' : ''">
                             <x-ui.icon name="truck" />
                             <span class="nav-label" x-show="!collapsed">Reparto</span>
                             @if($deliveryCount > 0)
@@ -107,31 +107,31 @@
 
                     @if(auth()->user()->hasRole('admin'))
                         <span class="nav-section-header" x-show="!collapsed">GESTIÓN</span>
-                        <a href="{{ url('/gestion') }}" class="nav-item {{ request()->is('gestion') ? 'active' : '' }}" :title="collapsed ? 'Panel Gestión' : ''">
+                        <a href="{{ url('/gestion') }}" wire:navigate class="nav-item {{ request()->is('gestion') ? 'active' : '' }}" :title="collapsed ? 'Panel Gestión' : ''">
                             <x-ui.icon name="gear" />
                             <span class="nav-label" x-show="!collapsed">Panel Gestión</span>
                         </a>
-                        <a href="{{ url('/gestion/productos') }}" class="nav-item {{ request()->is('gestion/productos*') ? 'active' : '' }}" :title="collapsed ? 'Productos' : ''">
+                        <a href="{{ url('/gestion/productos') }}" wire:navigate class="nav-item {{ request()->is('gestion/productos*') ? 'active' : '' }}" :title="collapsed ? 'Productos' : ''">
                             <x-ui.icon name="bag" />
                             <span class="nav-label" x-show="!collapsed">Productos</span>
                         </a>
-                        <a href="{{ url('/gestion/categorias') }}" class="nav-item {{ request()->is('gestion/categorias*') ? 'active' : '' }}" :title="collapsed ? 'Categorías' : ''">
+                        <a href="{{ url('/gestion/categorias') }}" wire:navigate class="nav-item {{ request()->is('gestion/categorias*') ? 'active' : '' }}" :title="collapsed ? 'Categorías' : ''">
                             <x-ui.icon name="list" />
                             <span class="nav-label" x-show="!collapsed">Categorías</span>
                         </a>
-                        <a href="{{ url('/gestion/clientes') }}" class="nav-item {{ request()->is('gestion/clientes*') ? 'active' : '' }}" :title="collapsed ? 'Clientes' : ''">
+                        <a href="{{ url('/gestion/clientes') }}" wire:navigate class="nav-item {{ request()->is('gestion/clientes*') ? 'active' : '' }}" :title="collapsed ? 'Clientes' : ''">
                             <x-ui.icon name="user" />
                             <span class="nav-label" x-show="!collapsed">Clientes</span>
                         </a>
-                        <a href="{{ url('/gestion/usuarios') }}" class="nav-item {{ request()->is('gestion/usuarios*') ? 'active' : '' }}" :title="collapsed ? 'Usuarios' : ''">
+                        <a href="{{ url('/gestion/usuarios') }}" wire:navigate class="nav-item {{ request()->is('gestion/usuarios*') ? 'active' : '' }}" :title="collapsed ? 'Usuarios' : ''">
                             <x-ui.icon name="user" />
                             <span class="nav-label" x-show="!collapsed">Usuarios</span>
                         </a>
-                        <a href="{{ url('/gestion/envases') }}" class="nav-item {{ request()->is('gestion/envases*') ? 'active' : '' }}" :title="collapsed ? 'Envases' : ''">
+                        <a href="{{ url('/gestion/envases') }}" wire:navigate class="nav-item {{ request()->is('gestion/envases*') ? 'active' : '' }}" :title="collapsed ? 'Envases' : ''">
                             <x-ui.icon name="check" />
                             <span class="nav-label" x-show="!collapsed">Envases</span>
                         </a>
-                        <a href="{{ url('/gestion/configuracion') }}" class="nav-item {{ request()->is('gestion/configuracion*') ? 'active' : '' }}" :title="collapsed ? 'Configuración' : ''">
+                        <a href="{{ url('/gestion/configuracion') }}" wire:navigate class="nav-item {{ request()->is('gestion/configuracion*') ? 'active' : '' }}" :title="collapsed ? 'Configuración' : ''">
                             <x-ui.icon name="gear" />
                             <span class="nav-label" x-show="!collapsed">Configuración</span>
                         </a>
@@ -140,19 +140,19 @@
                     @if(auth()->user()->hasRole('caja') || auth()->user()->hasRole('admin') || auth()->user()->hasRole('reparto'))
                         <span class="nav-section-header" x-show="!collapsed">FINANZAS</span>
                         @if(auth()->user()->hasRole('caja') || auth()->user()->hasRole('admin'))
-                            <a href="{{ url('/caja') }}" class="nav-item {{ request()->is('caja*') ? 'active' : '' }}" :title="collapsed ? 'Cobranza' : ''">
+                            <a href="{{ url('/caja') }}" wire:navigate class="nav-item {{ request()->is('caja*') ? 'active' : '' }}" :title="collapsed ? 'Cobranza' : ''">
                                 <x-ui.icon name="wallet" />
                                 <span class="nav-label" x-show="!collapsed">Cobranza</span>
                             </a>
                         @endif
 
-                        <a href="{{ url('/tazas') }}" class="nav-item {{ request()->is('tazas*') ? 'active' : '' }}" :title="collapsed ? 'Tazas / Envases' : ''">
+                        <a href="{{ url('/tazas') }}" wire:navigate class="nav-item {{ request()->is('tazas*') ? 'active' : '' }}" :title="collapsed ? 'Tazas / Envases' : ''">
                             <x-ui.icon name="check" />
                             <span class="nav-label" x-show="!collapsed">Tazas / Envases</span>
                         </a>
 
                         @if(auth()->user()->hasRole('caja') || auth()->user()->hasRole('admin'))
-                            <a href="{{ url('/cierre') }}" class="nav-item {{ request()->is('cierre*') ? 'active' : '' }}" :title="collapsed ? 'Cierre Diario' : ''">
+                            <a href="{{ url('/cierre') }}" wire:navigate class="nav-item {{ request()->is('cierre*') ? 'active' : '' }}" :title="collapsed ? 'Cierre Diario' : ''">
                                 <x-ui.icon name="wallet" />
                                 <span class="nav-label" x-show="!collapsed">Cierre Diario</span>
                             </a>
@@ -214,12 +214,6 @@
                             <x-ui.icon name="volume" class="w-5 h-5" />
                         </button>
 
-                        {{-- TEST SOUND BUTTON --}}
-                        <button type="button" onclick="window.soundEngine.playKitchenChime()" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all flex items-center gap-1.5 focus:outline-none" title="Probar Sonido de Notificación">
-                            <x-ui.icon name="volume" class="w-3.5 h-3.5" />
-                            <span>Probar Sonido</span>
-                        </button>
-
                         {{-- NOTIFICATION BELL --}}
                         <livewire:notification-center />
 
@@ -254,13 +248,25 @@
     
     <script>
         @auth
-            window.currentUser = {
+            window.PedidosUser = {
                 id: {{ auth()->id() }},
-                roles: @json(auth()->user()->roles()->pluck('slug')->toArray())
+                roles: @json(auth()->user()->roles->pluck('slug')->toArray())
             };
+            window.currentUser = window.PedidosUser;
         @else
+            window.PedidosUser = { id: null, roles: [] };
             window.currentUser = null;
         @endauth
+
+        @php
+            $bSettings = app(\App\Services\BusinessSettingsService::class)->getSettings();
+        @endphp
+        window.PedidosSoundSettings = {
+            soundEnabled: {{ $bSettings->notification_sound_enabled ? 'true' : 'false' }},
+            volume: {{ (float) ($bSettings->notification_volume / 100) }},
+            kitchenEnabled: {{ $bSettings->kitchen_sound_enabled ? 'true' : 'false' }},
+            deliveryEnabled: {{ $bSettings->delivery_sound_enabled ? 'true' : 'false' }}
+        };
 
         function toggleTheme() {
             const isDark = document.documentElement.classList.contains('dark');

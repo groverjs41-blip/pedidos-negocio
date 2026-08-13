@@ -110,6 +110,14 @@ class Order extends Model
     }
 
     /**
+     * Get the expected returnable plans (snapshot) for the order.
+     */
+    public function returnablePlans(): HasMany
+    {
+        return $this->hasMany(OrderReturnablePlan::class);
+    }
+
+    /**
      * Get the total paid amount for valid (non-voided) payments using BCMath.
      */
     public function paidAmount(): string

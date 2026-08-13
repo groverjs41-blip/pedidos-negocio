@@ -97,6 +97,7 @@
 
                 {{-- Items List (LARGE TEXT FOR KITCHEN READABILITY) --}}
                 <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+                    <span style="font-size: 0.725rem; font-weight: 800; color: var(--text-muted); letter-spacing: 0.05em; text-transform: uppercase;">PRODUCTOS</span>
                     @foreach($order->items as $item)
                         <div style="display: flex; align-items: center; gap: 0.85rem;">
                             <span class="kds-item-qty">{{ $item->quantity }}x</span>
@@ -104,6 +105,19 @@
                         </div>
                     @endforeach
                 </div>
+
+                {{-- Expected Returnable Packaging --}}
+                @if($order->returnablePlans && $order->returnablePlans->count() > 0)
+                    <div style="background: rgba(39, 230, 164, 0.05); border: 1px border-dash rgba(39, 230, 164, 0.2); padding: 0.75rem; border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 0.4rem;">
+                        <span style="font-size: 0.725rem; font-weight: 800; color: var(--primary); letter-spacing: 0.05em; text-transform: uppercase;">ENVASES / EMPAQUE PREVISTO</span>
+                        @foreach($order->returnablePlans as $plan)
+                            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 700; color: var(--text-main);">
+                                <span style="color: var(--primary);">📦 {{ $plan->quantity }}x</span>
+                                <span>{{ $plan->returnableType->name }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
 
                 {{-- Special notes --}}
                 @if($order->notes)

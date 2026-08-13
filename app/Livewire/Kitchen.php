@@ -25,7 +25,7 @@ class Kitchen extends Component
     public function getOrdersProperty()
     {
         return Order::whereIn('status', [OrderStatus::NEW, OrderStatus::PREPARING])
-            ->with(['items'])
+            ->with(['items', 'returnablePlans.returnableType'])
             ->orderBy('ordered_at', 'asc')
             ->get();
     }

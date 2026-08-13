@@ -120,10 +120,31 @@ class OrderService
                     'ordered_at' => now(),
                 ]);
 
-                // 5. Create Items
+                // 5. Create Items and calculate returnable plans
+                $plansToCreate = [];
                 foreach ($itemsToCreate as $itemFields) {
                     $itemFields['order_id'] = $order->id;
                     OrderItem::create($itemFields);
+
+                    $product = Product::with('returnableRequirements')->find($itemFields['product_id']);
+                    if ($product && $product->returnableRequirements) {
+                        foreach ($product->returnableRequirements as $req) {
+                            $typeId = $req->returnable_type_id;
+                            $needed = $itemFields['quantity'] * $req->quantity;
+                            $plansToCreate[$typeId] = ($plansToCreate[$typeId] ?? 0) + $needed;
+                        }
+                    }
+                }
+
+                // 5b. Save Returnable Plans Snapshot
+                foreach ($plansToCreate as $typeId => $planQty) {
+                    if ($planQty > 0) {
+                        \App\Models\OrderReturnablePlan::create([
+                            'order_id' => $order->id,
+                            'returnable_type_id' => $typeId,
+                            'quantity' => $planQty,
+                        ]);
+                    }
                 }
 
                 // 6. Log History

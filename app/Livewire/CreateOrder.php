@@ -127,6 +127,86 @@ class CreateOrder extends Component
         $this->dispatch('focus-search-product');
     }
 
+    // Quick Return Modal State
+    public bool $showReturnModal = false;
+    public array $returnQuantities = [];
+
+    public function getSelectedCustomerDebtProperty(): string
+    {
+        if (!$this->selectedCustomerId) return '0.00';
+        $customer = Customer::find($this->selectedCustomerId);
+        return $customer ? $customer->outstandingBalance() : '0.00';
+    }
+
+    public function getSelectedCustomerReturnablesProperty(): array
+    {
+        if (!$this->selectedCustomerId) return [];
+        $customer = Customer::find($this->selectedCustomerId);
+        if (!$customer) return [];
+        return app(\App\Services\ReturnableService::class)->getCustomerSummary($customer);
+    }
+
+    public function openReturnModal(): void
+    {
+        if (!$this->selectedCustomerId) return;
+        $this->returnQuantities = [];
+        $summary = $this->selectedCustomerReturnables;
+        foreach ($summary as $item) {
+            $this->returnQuantities[$item['type']->id] = 0;
+        }
+        $this->showReturnModal = true;
+    }
+
+    public function closeReturnModal(): void
+    {
+        $this->showReturnModal = false;
+        $this->returnQuantities = [];
+    }
+
+    public function submitQuickReturn(\App\Services\ReturnableService $returnableService): void
+    {
+        if (!$this->selectedCustomerId) {
+            $this->closeReturnModal();
+            return;
+        }
+        $customer = Customer::find($this->selectedCustomerId);
+        if (!$customer) {
+            $this->closeReturnModal();
+            return;
+        }
+
+        $items = [];
+        foreach ($this->returnQuantities as $typeId => $qty) {
+            $q = (int) $qty;
+            if ($q > 0) {
+                $items[] = [
+                    'returnable_type_id' => (int) $typeId,
+                    'quantity' => $q,
+                ];
+            }
+        }
+
+        if (empty($items)) {
+            $this->closeReturnModal();
+            return;
+        }
+
+        try {
+            $returnableService->recordReturnBatch(
+                $customer,
+                $items,
+                auth()->user(),
+                (string) Str::uuid(),
+                null,
+                'Devolución registrada en nuevo pedido'
+            );
+            $this->dispatch('notify-toast', type: 'success', title: 'Devolución Registrada', message: 'Envases devueltos registrados correctamente.');
+            $this->closeReturnModal();
+        } catch (\Throwable $e) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'No se pudo registrar la devolución de envases.');
+        }
+    }
+
     /**
      * Clear customer selection.
      */

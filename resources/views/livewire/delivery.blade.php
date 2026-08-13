@@ -131,6 +131,15 @@
                         @endforeach
                     </div>
 
+                    @if($order->returnablePlans && $order->returnablePlans->count() > 0)
+                        <div style="font-size: 0.8rem; color: var(--primary); background: rgba(39, 230, 164, 0.05); padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px border-dash rgba(39, 230, 164, 0.2); font-weight: 700;">
+                            📦 ENVASES PREVISTOS: 
+                            @foreach($order->returnablePlans as $index => $plan)
+                                {{ $plan->quantity }}x {{ $plan->returnableType->name }}{{ $index < count($order->returnablePlans) - 1 ? ', ' : '' }}
+                            @endforeach
+                        </div>
+                    @endif
+
                     <button type="button"
                             wire:click="claimOrder({{ $order->id }})"
                             wire:loading.attr="disabled"
