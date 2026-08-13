@@ -28,7 +28,7 @@ class CashierDashboard extends Component
 
         $todayCollected = '0.00';
         foreach ($todayPayments as $p) {
-            $todayCollected = bcadd($todayCollected, number_format((float)$p->amount, 2, '.', ''), 2);
+            $todayCollected = bcadd($todayCollected, (string) $p->amount, 2);
         }
 
         // 2. Saldo Pendiente (sum of balances of DELIVERED orders)

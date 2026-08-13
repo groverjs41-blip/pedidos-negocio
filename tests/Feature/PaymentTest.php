@@ -453,4 +453,87 @@ class PaymentTest extends TestCase
 
         Event::assertDispatched(PaymentChanged::class);
     }
+
+    public function test_amount_with_three_decimals_is_rejected()
+    {
+        $order = $this->createOrder($this->activeCustomer, '50.00');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->paymentService->recordOrderPayment(
+            $order,
+            '10.999',
+            PaymentMethod::CASH,
+            null,
+            null,
+            $this->cajaUser,
+            (string) Str::uuid()
+        );
+    }
+
+    public function test_exact_decimal_preservation_and_bcmath_addition()
+    {
+        $order = $this->createOrder($this->activeCustomer, '100.00');
+
+        // Pay 0.10
+        $this->paymentService->recordOrderPayment(
+            $order,
+            '0.10',
+            PaymentMethod::CASH,
+            null,
+            null,
+            $this->cajaUser,
+            (string) Str::uuid()
+        );
+
+        $order->refresh();
+        $this->assertEquals('0.10', $order->paidAmount());
+
+        // Pay 0.20
+        $this->paymentService->recordOrderPayment(
+            $order,
+            '0.20',
+            PaymentMethod::CASH,
+            null,
+            null,
+            $this->cajaUser,
+            (string) Str::uuid()
+        );
+
+        $order->refresh();
+        $this->assertEquals('0.30', $order->paidAmount());
+        $this->assertEquals('99.70', $order->outstandingBalance());
+    }
+
+    public function test_already_voided_payment_cannot_be_revoided()
+    {
+        $order = $this->createOrder($this->activeCustomer, '100.00');
+
+        $payment = $this->paymentService->recordOrderPayment(
+            $order,
+            '100.00',
+            PaymentMethod::CASH,
+            null,
+            null,
+            $this->cajaUser,
+            (string) Str::uuid()
+        );
+
+        $this->paymentService->voidPayment($payment, 'Primera anulación', $this->adminUser);
+
+        $firstVoidedBy = $payment->fresh()->voided_by;
+        $firstVoidReason = $payment->fresh()->void_reason;
+
+        // Second void attempt must throw exception
+        try {
+            $this->paymentService->voidPayment($payment->fresh(), 'Segunda anulación', $this->cajaUser);
+            $this->fail('Expected InvalidArgumentException was not thrown.');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('ya se encuentra anulado', $e->getMessage());
+        }
+
+        // Verify second void did not overwrite original audit values
+        $fresh = $payment->fresh();
+        $this->assertEquals($firstVoidedBy, $fresh->voided_by);
+        $this->assertEquals($firstVoidReason, $fresh->void_reason);
+    }
 }

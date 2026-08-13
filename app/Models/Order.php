@@ -112,7 +112,7 @@ class Order extends Model
         })->get();
 
         foreach ($allocations as $alloc) {
-            $sum = bcadd($sum, number_format((float)$alloc->amount, 2, '.', ''), 2);
+            $sum = bcadd($sum, (string) $alloc->amount, 2);
         }
 
         return $sum;
@@ -123,7 +123,7 @@ class Order extends Model
      */
     public function outstandingBalance(): string
     {
-        $total = number_format((float)$this->total, 2, '.', '');
+        $total = (string) $this->total;
         $paid = $this->paidAmount();
         $balance = bcsub($total, $paid, 2);
 
@@ -136,7 +136,7 @@ class Order extends Model
     public function paymentStatus(): \App\Enums\PaymentStatus
     {
         $paid = $this->paidAmount();
-        $total = number_format((float)$this->total, 2, '.', '');
+        $total = (string) $this->total;
 
         if (bccomp($paid, '0.00', 2) === 0) {
             return \App\Enums\PaymentStatus::PENDING;
