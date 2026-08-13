@@ -23,10 +23,37 @@ class Customer extends Model
      *
      * @return array<string, string>
      */
-    protected function casts(): array
+    /**
+     * Get the orders for the customer.
+     */
+    public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return [
-            'active' => 'boolean',
-        ];
+        return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Get the payments for the customer.
+     */
+    public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Calculate the total customer debt derived from DELIVERED orders using BCMath.
+     */
+    public function outstandingBalance(): string
+    {
+        $sum = '0.00';
+        $deliveredOrders = $this->orders()
+            ->where('status', \App\Enums\OrderStatus::DELIVERED)
+            ->get();
+
+        foreach ($deliveredOrders as $order) {
+            $balance = $order->outstandingBalance();
+            $sum = bcadd($sum, $balance, 2);
+        }
+
+        return $sum;
     }
 }

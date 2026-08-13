@@ -135,9 +135,13 @@
                             </tbody>
                         </table>
 
-                        <div style="display: flex; justify-content: space-between; font-weight: 800; margin-top: 0.5rem; font-size: 1.1rem; border-top: 2px solid var(--border); padding-top: 0.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 800; margin-top: 0.5rem; font-size: 1.1rem; border-top: 2px solid var(--border); padding-top: 0.5rem;">
                             <span>TOTAL:</span>
-                            <span style="color: var(--primary);">${{ number_format($selectedOrder->total, 2) }}</span>
+                            <span style="color: var(--primary);">${{ number_format((float)$selectedOrder->total, 2) }}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-top: 0.35rem; color: var(--text-muted);">
+                            <span>Estado de pago: <x-ui.status-badge :status="$selectedOrder->paymentStatus()" /></span>
+                            <span>Pagado: ${{ number_format((float)$selectedOrder->paidAmount(), 2) }} | Saldo: ${{ number_format((float)$selectedOrder->outstandingBalance(), 2) }}</span>
                         </div>
                     </div>
 

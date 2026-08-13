@@ -9,3 +9,8 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 Broadcast::channel('orders.operations', function ($user) {
     return $user && $user->isActive() && $user->hasAnyRole(['admin', 'pedidos', 'cocina', 'reparto']);
 });
+
+Broadcast::channel('payments.operations', function ($user) {
+    return $user && $user->isActive() && $user->hasAnyRole(['admin', 'caja', 'pedidos']);
+});
+

@@ -33,5 +33,10 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/pedidos/{order}/editar', \App\Livewire\EditOrder::class)->middleware('role:pedidos')->name('pedidos.edit');
     Route::get('/cocina', \App\Livewire\Kitchen::class)->middleware('role:cocina')->name('cocina');
     Route::get('/reparto', \App\Livewire\Delivery::class)->middleware('role:reparto')->name('reparto');
-    Route::get('/caja', [HomeController::class, 'cajaPlaceholder'])->name('caja');
+    // Cashier routes (role:caja or admin)
+    Route::get('/caja', \App\Livewire\CashierDashboard::class)->middleware('role:caja')->name('caja.dashboard');
+    Route::get('/caja/clientes/{customer}', \App\Livewire\CustomerAccount::class)->middleware('role:caja')->name('caja.cliente');
+    Route::get('/caja/pedidos/{order}', \App\Livewire\PayOrder::class)->middleware('role:caja')->name('caja.pedido');
+    Route::get('/caja/pagos', \App\Livewire\ListPayments::class)->middleware('role:caja')->name('caja.pagos');
+
 });

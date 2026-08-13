@@ -391,6 +391,16 @@ class OrderService
                 throw new \Exception('No se puede cancelar un pedido entregado o ya cancelado.');
             }
 
+            // Check for active (non-voided) payment allocations
+            $activePaymentCount = $lockedOrder->paymentAllocations()
+                ->whereHas('payment', function ($query) {
+                    $query->whereNull('voided_at');
+                })->count();
+
+            if ($activePaymentCount > 0) {
+                throw new \Exception('Este pedido tiene pagos registrados. Anula primero los pagos asociados antes de cancelar el pedido.');
+            }
+
             if ($lockedOrder->status === OrderStatus::DELIVERING && !$user->hasRole('admin')) {
                 throw new \Exception('Solo los administradores pueden cancelar un pedido que ya está en reparto.');
             }

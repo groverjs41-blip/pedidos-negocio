@@ -92,4 +92,60 @@ class Order extends Model
     {
         return $this->hasMany(OrderStatusHistory::class);
     }
+
+    /**
+     * Get the payment allocations for the order.
+     */
+    public function paymentAllocations(): HasMany
+    {
+        return $this->hasMany(PaymentAllocation::class);
+    }
+
+    /**
+     * Get the total paid amount for valid (non-voided) payments using BCMath.
+     */
+    public function paidAmount(): string
+    {
+        $sum = '0.00';
+        $allocations = $this->paymentAllocations()->whereHas('payment', function ($query) {
+            $query->whereNull('voided_at');
+        })->get();
+
+        foreach ($allocations as $alloc) {
+            $sum = bcadd($sum, number_format((float)$alloc->amount, 2, '.', ''), 2);
+        }
+
+        return $sum;
+    }
+
+    /**
+     * Get the outstanding balance for the order using BCMath.
+     */
+    public function outstandingBalance(): string
+    {
+        $total = number_format((float)$this->total, 2, '.', '');
+        $paid = $this->paidAmount();
+        $balance = bcsub($total, $paid, 2);
+
+        return bccomp($balance, '0.00', 2) < 0 ? '0.00' : $balance;
+    }
+
+    /**
+     * Get the payment status enum for the order.
+     */
+    public function paymentStatus(): \App\Enums\PaymentStatus
+    {
+        $paid = $this->paidAmount();
+        $total = number_format((float)$this->total, 2, '.', '');
+
+        if (bccomp($paid, '0.00', 2) === 0) {
+            return \App\Enums\PaymentStatus::PENDING;
+        }
+
+        if (bccomp($paid, $total, 2) >= 0) {
+            return \App\Enums\PaymentStatus::PAID;
+        }
+
+        return \App\Enums\PaymentStatus::PARTIAL;
+    }
 }
