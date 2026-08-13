@@ -10,10 +10,15 @@ use Livewire\Component;
 class OperationalAttention extends Component
 {
     public array $knownReadyOrderIds = [];
+    public array $knownNewOrderIds = [];
 
     public function mount(): void
     {
         $this->knownReadyOrderIds = Order::where('status', OrderStatus::READY)
+            ->pluck('id')
+            ->toArray();
+
+        $this->knownNewOrderIds = Order::where('status', OrderStatus::NEW)
             ->pluck('id')
             ->toArray();
     }
@@ -26,21 +31,22 @@ class OperationalAttention extends Component
     }
 
     /**
-     * Polling fallback for global READY orders broadcast across the topbar shell.
+     * Global polling fallback for operational order events across all views.
      */
     public function refreshOperationalOrders(): void
     {
+        // 1. Fallback for READY orders (Target: admin, reparto, pedidos, caja)
         $readyOrders = Order::where('status', OrderStatus::READY)
             ->with(['items', 'customer'])
             ->orderBy('ready_at', 'asc')
             ->get();
 
-        $currentIds = $readyOrders->pluck('id')->toArray();
-        $newIds = array_diff($currentIds, $this->knownReadyOrderIds);
+        $currentReadyIds = $readyOrders->pluck('id')->toArray();
+        $newReadyIds = array_diff($currentReadyIds, $this->knownReadyOrderIds);
 
-        if (!empty($newIds)) {
+        if (!empty($newReadyIds)) {
             foreach ($readyOrders as $order) {
-                if (in_array($order->id, $newIds)) {
+                if (in_array($order->id, $newReadyIds)) {
                     $itemsSummary = $order->items->map(fn($i) => "{$i->quantity}x {$i->product_name}")->implode(', ');
                     $this->dispatch('operational-fallback-event', [
                         'orderId' => $order->id,
@@ -54,8 +60,34 @@ class OperationalAttention extends Component
                 }
             }
         }
+        $this->knownReadyOrderIds = $currentReadyIds;
 
-        $this->knownReadyOrderIds = $currentIds;
+        // 2. Fallback for NEW orders (ORDER_CREATED - Target: admin, cocina)
+        $newOrders = Order::where('status', OrderStatus::NEW)
+            ->with(['items', 'customer'])
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $currentNewIds = $newOrders->pluck('id')->toArray();
+        $newCreatedIds = array_diff($currentNewIds, $this->knownNewOrderIds);
+
+        if (!empty($newCreatedIds)) {
+            foreach ($newOrders as $order) {
+                if (in_array($order->id, $newCreatedIds)) {
+                    $itemsSummary = $order->items->map(fn($i) => "{$i->quantity}x {$i->product_name}")->implode(', ');
+                    $this->dispatch('operational-fallback-event', [
+                        'orderId' => $order->id,
+                        'orderNumber' => ltrim($order->number, '#'),
+                        'action' => 'ORDER_CREATED',
+                        'soundType' => 'kitchen',
+                        'targetRoles' => ['admin', 'cocina'],
+                        'customerName' => $order->customer_name_snapshot ?? 'Venta Mostrador',
+                        'itemsSummary' => $itemsSummary,
+                    ]);
+                }
+            }
+        }
+        $this->knownNewOrderIds = $currentNewIds;
     }
 
     public function render()

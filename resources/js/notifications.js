@@ -128,12 +128,7 @@ class SoundEngine {
         const vol = this.getEffectiveVolume();
         if (vol <= 0) return;
 
-        const ctx = this.getAudioContext();
-        if (ctx && ctx.state === 'suspended' && !this.unlocked) {
-            this.showAudioBlockedPrompt('kitchen');
-            return;
-        }
-
+        this.unlockAudio();
         this.playWebAudioKitchenChime(vol);
     }
 
@@ -146,19 +141,44 @@ class SoundEngine {
         const vol = this.getEffectiveVolume();
         if (vol <= 0) return;
 
-        const ctx = this.getAudioContext();
-        if (ctx && ctx.state === 'suspended' && !this.unlocked) {
-            this.showAudioBlockedPrompt('delivery');
-            return;
-        }
-
+        this.unlockAudio();
         this.playWebAudioDeliveryChime(vol);
+    }
+
+    playHtml5KitchenAudio(vol = 1.0) {
+        try {
+            this.kitchenAudio.volume = vol;
+            this.kitchenAudio.currentTime = 0;
+            const p = this.kitchenAudio.play();
+            if (p !== undefined) {
+                p.catch(() => this.showAudioBlockedPrompt('kitchen'));
+            }
+        } catch (e) {
+            this.showAudioBlockedPrompt('kitchen');
+        }
+    }
+
+    playHtml5DeliveryAudio(vol = 1.0) {
+        try {
+            this.deliveryAudio.volume = vol;
+            this.deliveryAudio.currentTime = 0;
+            const p = this.deliveryAudio.play();
+            if (p !== undefined) {
+                p.catch(() => this.showAudioBlockedPrompt('delivery'));
+            }
+        } catch (e) {
+            this.showAudioBlockedPrompt('delivery');
+        }
     }
 
     // Web Audio Synthesizer Engine: Kitchen Reception Bell (Warm single stroke + overtone, 0.70s)
     playWebAudioKitchenChime(vol = 1.0) {
         const ctx = this.getAudioContext();
-        if (!ctx) return;
+        if (!ctx) {
+            this.playHtml5KitchenAudio(vol);
+            return;
+        }
+
         const play = () => {
             try {
                 const now = ctx.currentTime;
@@ -182,16 +202,12 @@ class SoundEngine {
                 osc2.start(now);
                 osc2.stop(now + 0.45);
             } catch (err) {
-                try {
-                    this.kitchenAudio.volume = vol;
-                    this.kitchenAudio.currentTime = 0;
-                    this.kitchenAudio.play().catch(console.warn);
-                } catch (e) {}
+                this.playHtml5KitchenAudio(vol);
             }
         };
 
         if (ctx.state === 'suspended') {
-            ctx.resume().then(play).catch(() => this.showAudioBlockedPrompt('kitchen'));
+            ctx.resume().then(play).catch(() => this.playHtml5KitchenAudio(vol));
         } else {
             play();
         }
@@ -200,7 +216,11 @@ class SoundEngine {
     // Web Audio Synthesizer Engine: Delivery Chime (Two soft warm ascending notes, 0.75s)
     playWebAudioDeliveryChime(vol = 1.0) {
         const ctx = this.getAudioContext();
-        if (!ctx) return;
+        if (!ctx) {
+            this.playHtml5DeliveryAudio(vol);
+            return;
+        }
+
         const play = () => {
             try {
                 const now = ctx.currentTime;
@@ -233,16 +253,12 @@ class SoundEngine {
                 osc2.start(now + 0.18);
                 osc2.stop(now + 0.78);
             } catch (err) {
-                try {
-                    this.deliveryAudio.volume = vol;
-                    this.deliveryAudio.currentTime = 0;
-                    this.deliveryAudio.play().catch(console.warn);
-                } catch (e) {}
+                this.playHtml5DeliveryAudio(vol);
             }
         };
 
         if (ctx.state === 'suspended') {
-            ctx.resume().then(play).catch(() => this.showAudioBlockedPrompt('delivery'));
+            ctx.resume().then(play).catch(() => this.playHtml5DeliveryAudio(vol));
         } else {
             play();
         }
