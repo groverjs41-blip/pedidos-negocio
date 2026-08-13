@@ -5,15 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $title ?? 'Pedidos Negocio' }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    {{-- Blocking Pre-render Script for Theme & Sidebar State to Eliminate Flash of Unstyled Content (FOUC) --}}
+    <script>
+        (function() {
+            var isCollapsed = localStorage.getItem('sidebar_collapsed') === 'true';
+            if (isCollapsed) {
+                document.documentElement.classList.add('sidebar-collapsed-preload');
+            }
+            var savedTheme = localStorage.getItem('theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.documentElement.classList.add('light');
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            }
+        })();
+    </script>
+    
+    <style>
+        /* Instant Preload CSS to prevent Flash of Unstyled Content (FOUC) */
+        html.sidebar-collapsed-preload .sidebar { width: 72px !important; }
+        html.sidebar-collapsed-preload .main-wrapper { margin-left: 72px !important; }
+        html.sidebar-collapsed-preload .nav-label,
+        html.sidebar-collapsed-preload .nav-section-header,
+        html.sidebar-collapsed-preload .brand-title,
+        html.sidebar-collapsed-preload .user-details,
+        html.sidebar-collapsed-preload .btn-logout-sidebar,
+        html.sidebar-collapsed-preload .nav-badge { display: none !important; }
+        html.sidebar-collapsed-preload .sidebar-brand,
+        html.sidebar-collapsed-preload .user-profile { justify-content: center !important; }
+        html.sidebar-collapsed-preload .nav-item { justify-content: center !important; padding: 0.75rem 0 !important; width: 48px !important; height: 48px !important; margin: 0 auto !important; }
+        
+        .no-transitions *, .no-transitions { transition: none !important; }
+    </style>
+
     @livewireStyles
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body x-data="{ collapsed: localStorage.getItem('sidebar_collapsed') === 'true' }" x-init="$watch('collapsed', value => localStorage.setItem('sidebar_collapsed', value))">
+<body class="no-transitions" x-data="{ collapsed: localStorage.getItem('sidebar_collapsed') === 'true', currentTheme: localStorage.getItem('theme') || 'dark' }" x-init="$watch('collapsed', value => localStorage.setItem('sidebar_collapsed', value))">
     @auth
-        <div class="connection-status" id="connectionStatusIndicator">
-            <span class="dot online"></span> <span class="status-text">En línea</span>
-        </div>
-
         <div class="app-layout" :class="{ 'sidebar-collapsed': collapsed }">
             {{-- DESKTOP SIDEBAR --}}
             <aside class="sidebar" :class="{ 'collapsed': collapsed }">
@@ -165,6 +197,16 @@
                         {{-- ATENDER AHORA OPERATIONAL ACCESS --}}
                         <livewire:operational-attention />
 
+                        {{-- THEME TOGGLE BUTTON --}}
+                        <button type="button" id="themeToggleBtn" onclick="toggleTheme()" class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all flex items-center justify-center focus:outline-none" title="Alternar Modo Claro / Oscuro">
+                            <span x-show="currentTheme === 'dark'" style="display: flex; align-items: center;">
+                                <x-ui.icon name="sun" class="w-5 h-5 text-amber-400" />
+                            </span>
+                            <span x-show="currentTheme !== 'dark'" style="display: flex; align-items: center;">
+                                <x-ui.icon name="moon" class="w-5 h-5 text-indigo-400" />
+                            </span>
+                        </button>
+
                         {{-- SOUND TOGGLE --}}
                         <button type="button" id="soundToggleBtn" onclick="window.soundEngine.toggleMute()" class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all flex items-center justify-center focus:outline-none" title="Alternar Sonido">
                             <x-ui.icon name="volume" class="w-5 h-5" />
@@ -173,7 +215,7 @@
                         {{-- NOTIFICATION BELL --}}
                         <livewire:notification-center />
 
-                        <div class="connection-status-inline">
+                        <div class="connection-status-inline" id="connectionStatusIndicator">
                             <span class="dot online"></span> <span class="status-text">En línea</span>
                         </div>
 
@@ -203,7 +245,29 @@
     @livewireScripts
     
     <script>
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const newTheme = isDark ? 'light' : 'dark';
+            if (newTheme === 'light') {
+                document.documentElement.classList.add('light');
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            }
+            localStorage.setItem('theme', newTheme);
+            if (window.Alpine) {
+                const bodyData = Alpine.$data(document.body);
+                if (bodyData) bodyData.currentTheme = newTheme;
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                document.documentElement.classList.remove('sidebar-collapsed-preload');
+                document.body.classList.remove('no-transitions');
+            }, 50);
+
             @if(session()->has('success'))
                 window.showOperationalToast({ type: 'success', title: 'Éxito', message: @json(session('success')) });
             @endif
@@ -211,7 +275,7 @@
                 window.showOperationalToast({ type: 'error', title: 'Error', message: @json(session('error')) });
             @endif
             @if(session()->has('warning'))
-                window.showOperationalToast({ type: 'warning', title: 'Atención', message: @json(session('warning')) });
+                window.showOperationalToast({ type: 'Atención', message: @json(session('warning')) });
             @endif
             @if(session()->has('info'))
                 window.showOperationalToast({ type: 'info', title: 'Información', message: @json(session('info')) });
