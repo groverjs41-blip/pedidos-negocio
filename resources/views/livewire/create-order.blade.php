@@ -124,6 +124,13 @@
 
                 {{-- Horizontal Categories Chips --}}
                 <div class="category-chips">
+                    <button
+                        type="button"
+                        wire:click="selectCategory(0)"
+                        class="chip-btn {{ (is_null($selectedCategoryId) || $selectedCategoryId === 0) && empty($productSearch) ? 'active' : '' }}"
+                    >
+                        TODOS
+                    </button>
                     @foreach($activeCategories as $cat)
                         <button
                             type="button"

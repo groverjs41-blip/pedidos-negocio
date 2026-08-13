@@ -339,12 +339,41 @@ class CreateOrder extends Component
     }
 
     /**
-     * Select active category.
+     * Select active category (or null/0 for all products).
      */
-    public function selectCategory(int $id): void
+    public function selectCategory(?int $id): void
     {
-        $this->selectedCategoryId = $id;
+        $this->selectedCategoryId = ($id === 0 || $id === null) ? null : $id;
         $this->productSearch = '';
+    }
+
+    public function render()
+    {
+        $activeCategories = Category::where('active', true)->orderBy('sort_order')->orderBy('name')->get();
+
+        // If selectedCategoryId is null but categories exist, default to first category if not explicitly set to all
+        if (is_null($this->selectedCategoryId) && $activeCategories->isNotEmpty() && empty($this->productSearch)) {
+            // Keep null to show all or select first category
+        }
+
+        if (!empty($this->productSearch)) {
+            $products = Product::where('active', true)
+                ->where('name', 'like', '%' . $this->productSearch . '%')
+                ->orderBy('name')
+                ->get();
+        } else {
+            $query = Product::where('active', true);
+            if ($this->selectedCategoryId) {
+                $query->where('category_id', $this->selectedCategoryId);
+            }
+            $products = $query->orderBy('name')->get();
+        }
+
+        return view('livewire.create-order', [
+            'activeCategories' => $activeCategories,
+            'returnableTypes' => ReturnableType::where('active', true)->orderBy('sort_order')->orderBy('name')->get(),
+            'categoryProducts' => $products,
+        ])->title('Nuevo Pedido');
     }
 
     /**
@@ -461,25 +490,5 @@ class CreateOrder extends Component
         } catch (\Exception $e) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error del sistema', message: 'Error al crear el pedido. Verifique los datos ingresados.');
         }
-    }
-
-    public function render()
-    {
-        if (!empty($this->productSearch)) {
-            $products = Product::where('active', true)
-                ->where('name', 'like', '%' . $this->productSearch . '%')
-                ->orderBy('name')
-                ->get();
-        } else {
-            $products = $this->selectedCategoryId
-                ? Product::where('category_id', $this->selectedCategoryId)->where('active', true)->orderBy('name')->get()
-                : [];
-        }
-
-        return view('livewire.create-order', [
-            'activeCategories' => Category::where('active', true)->orderBy('sort_order')->orderBy('name')->get(),
-            'returnableTypes' => ReturnableType::where('active', true)->orderBy('sort_order')->orderBy('name')->get(),
-            'categoryProducts' => $products,
-        ])->title('Nuevo Pedido');
     }
 }
