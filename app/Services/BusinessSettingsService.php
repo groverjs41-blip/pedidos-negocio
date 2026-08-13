@@ -11,6 +11,7 @@ class BusinessSettingsService
 
     /**
      * Get the central business settings instance (cached in production/dev, fresh in testing).
+     * Handles type safety if cache holds stale serialized objects.
      */
     public function getSettings(): BusinessSetting
     {
@@ -36,7 +37,7 @@ class BusinessSettingsService
             return $setting;
         }
 
-        return Cache::remember(self::CACHE_KEY, now()->addDays(30), function () {
+        $settings = Cache::remember(self::CACHE_KEY, now()->addDays(30), function () {
             $setting = BusinessSetting::first();
             if (!$setting) {
                 $setting = BusinessSetting::create([
@@ -57,6 +58,27 @@ class BusinessSettingsService
             }
             return $setting;
         });
+
+        if (!($settings instanceof BusinessSetting)) {
+            $this->clearCache();
+            $settings = BusinessSetting::first() ?? BusinessSetting::create([
+                'business_name' => 'Pedidos Negocio',
+                'currency_name' => 'Bolivianos',
+                'currency_code' => 'BOB',
+                'currency_symbol' => 'Bs',
+                'currency_symbol_position' => 'BEFORE',
+                'currency_decimals' => 2,
+                'decimal_separator' => ',',
+                'thousands_separator' => '.',
+                'timezone' => 'America/La_Paz',
+                'notification_sound_enabled' => true,
+                'notification_volume' => 80,
+                'kitchen_sound_enabled' => true,
+                'delivery_sound_enabled' => true,
+            ]);
+        }
+
+        return $settings;
     }
 
     /**

@@ -45,8 +45,11 @@
                         <span class="dot online"></span> <span class="status-text">En línea</span>
                     </div>
 
-                    <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.8rem;" title="{{ auth()->user()->name }}">
-                        {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                    <div class="user-profile-inline">
+                        <div class="user-avatar-sm" title="{{ auth()->user()->name }}">
+                            {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                        </div>
+                        <span class="user-name-sm">{{ auth()->user()->name }}</span>
                     </div>
                 </div>
             </header>
@@ -85,13 +88,11 @@
                         @php
                             $kitchenCount = \App\Models\Order::whereIn('status', [\App\Enums\OrderStatus::NEW, \App\Enums\OrderStatus::PREPARING])->count();
                         @endphp
-                        <a href="{{ url('/cocina') }}" class="nav-item {{ request()->is('cocina') ? 'active' : '' }}" :title="collapsed ? 'Cocina (' . $kitchenCount . ')' : ''" style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <x-ui.icon name="chef" />
-                                <span class="nav-label" x-show="!collapsed">Cocina</span>
-                            </div>
+                        <a href="{{ url('/cocina') }}" class="nav-item {{ request()->is('cocina') ? 'active' : '' }}" :title="collapsed ? 'Cocina (' . $kitchenCount . ')' : ''">
+                            <x-ui.icon name="chef" />
+                            <span class="nav-label" x-show="!collapsed">Cocina</span>
                             @if($kitchenCount > 0)
-                                <span class="badge" style="background: rgba(245, 185, 66, 0.2); color: var(--warning-text); font-size: 0.725rem; padding: 2px 7px; border-radius: 10px;">{{ $kitchenCount }}</span>
+                                <span class="nav-badge warning" x-show="!collapsed">{{ $kitchenCount }}</span>
                             @endif
                         </a>
                     @endif
@@ -100,13 +101,11 @@
                         @php
                             $deliveryCount = \App\Models\Order::where('status', \App\Enums\OrderStatus::READY)->count();
                         @endphp
-                        <a href="{{ url('/reparto') }}" class="nav-item {{ request()->is('reparto') ? 'active' : '' }}" :title="collapsed ? 'Reparto (' . $deliveryCount . ' LISTOS)' : ''" style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <x-ui.icon name="truck" />
-                                <span class="nav-label" x-show="!collapsed">Reparto</span>
-                            </div>
+                        <a href="{{ url('/reparto') }}" class="nav-item {{ request()->is('reparto') ? 'active' : '' }}" :title="collapsed ? 'Reparto (' . $deliveryCount . ' LISTOS)' : ''">
+                            <x-ui.icon name="truck" />
+                            <span class="nav-label" x-show="!collapsed">Reparto</span>
                             @if($deliveryCount > 0)
-                                <span class="badge" style="background: rgba(39, 230, 164, 0.2); color: var(--primary); font-size: 0.725rem; padding: 2px 7px; border-radius: 10px;">{{ $deliveryCount }} LISTOS</span>
+                                <span class="nav-badge success" x-show="!collapsed">{{ $deliveryCount }} LISTOS</span>
                             @endif
                         </a>
                     @endif
@@ -197,83 +196,30 @@
                     {{ $slot }}
                 </main>
             </div>
-
-            {{-- MOBILE BOTTOM NAV BAR (Max 5 items) --}}
-            <nav class="mobile-bottom-nav">
-                <a href="{{ url('/inicio') }}" class="mobile-nav-item {{ request()->is('inicio') ? 'active' : '' }}">
-                    <x-ui.icon name="home" />
-                    <span class="mobile-nav-label">Inicio</span>
-                </a>
-
-                @if(auth()->user()->hasRole('pedidos') || auth()->user()->hasRole('admin'))
-                    <a href="{{ url('/pedidos/nuevo') }}" class="mobile-nav-item {{ request()->is('pedidos/nuevo') ? 'active' : '' }}">
-                        <x-ui.icon name="plus" />
-                        <span class="mobile-nav-label">Nuevo</span>
-                    </a>
-                    <a href="{{ url('/pedidos') }}" class="mobile-nav-item {{ request()->is('pedidos') || request()->is('pedidos/*/editar') ? 'active' : '' }}">
-                        <x-ui.icon name="list" />
-                        <span class="mobile-nav-label">Pedidos</span>
-                    </a>
-                @endif
-
-                @if(auth()->user()->hasRole('cocina') || auth()->user()->hasRole('admin'))
-                    <a href="{{ url('/cocina') }}" class="mobile-nav-item {{ request()->is('cocina') ? 'active' : '' }}">
-                        <x-ui.icon name="chef" />
-                        <span class="mobile-nav-label">Cocina</span>
-                    </a>
-                @endif
-
-                <a href="{{ url('/menu') }}" class="mobile-nav-item {{ request()->is('menu') || request()->is('gestion*') ? 'active' : '' }}">
-                    <x-ui.icon name="gear" />
-                    <span class="mobile-nav-label">Más</span>
-                </a>
-            </nav>
         </div>
+
+        {{-- Toast Container for Operative Notifications --}}
+        <div id="toastNotificationContainer" class="toast-container"></div>
     @else
-        {{ $slot }}
+        <main class="content-area page-fade-in">
+            {{ $slot }}
+        </main>
     @endauth
 
-    {{-- Toast Container & Audio Unlock Banner --}}
-    <div id="toastNotificationContainer" class="toast-container"></div>
-    <div id="audioUnlockBanner" class="audio-unlock-banner" style="display: none;">
-        <span>🔔 Activar sonidos operativos</span>
-        <button type="button" onclick="window.soundEngine.unlockAudio()" class="btn-unlock-sound">ACTIVAR SONIDOS</button>
-    </div>
-
     @livewireScripts
+    
     <script>
-        window.addEventListener('online', updateConnectionStatus);
-        window.addEventListener('offline', updateConnectionStatus);
-
-        function updateConnectionStatus() {
-            const indicators = document.querySelectorAll('.connection-status, .connection-status-inline');
-            indicators.forEach(indicator => {
-                const dot = indicator.querySelector('.dot');
-                const text = indicator.querySelector('.status-text');
-                if (navigator.onLine) {
-                    dot.className = 'dot online';
-                    text.textContent = 'En línea';
-                } else {
-                    dot.className = 'dot offline';
-                    text.textContent = 'Sin conexión';
-                }
-            });
-        }
-
         document.addEventListener('DOMContentLoaded', () => {
-            updateConnectionStatus();
-
-            // Flash Session -> Toast Automatic Dispatch (Requerimiento 3)
-            @if(session('success'))
-                window.showOperationalToast({ type: 'success', title: 'Operación Exitosa', message: @json(session('success')) });
+            @if(session()->has('success'))
+                window.showOperationalToast({ type: 'success', title: 'Éxito', message: @json(session('success')) });
             @endif
-            @if(session('error'))
+            @if(session()->has('error'))
                 window.showOperationalToast({ type: 'error', title: 'Error', message: @json(session('error')) });
             @endif
-            @if(session('warning'))
-                window.showOperationalToast({ type: 'warning', title: 'Advertencia', message: @json(session('warning')) });
+            @if(session()->has('warning'))
+                window.showOperationalToast({ type: 'warning', title: 'Atención', message: @json(session('warning')) });
             @endif
-            @if(session('info'))
+            @if(session()->has('info'))
                 window.showOperationalToast({ type: 'info', title: 'Información', message: @json(session('info')) });
             @endif
         });
