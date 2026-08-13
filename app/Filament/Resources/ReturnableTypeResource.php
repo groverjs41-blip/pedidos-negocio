@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ReturnableTypeResource\Pages;
 use App\Models\ReturnableType;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -40,6 +41,7 @@ class ReturnableTypeResource extends Resource
                         TextInput::make('sort_order')
                             ->label('Orden de Despliegue')
                             ->numeric()
+                            ->minValue(0)
                             ->default(0),
                         Toggle::make('active')
                             ->label('Activo')
@@ -69,7 +71,7 @@ class ReturnableTypeResource extends Resource
             ])
             ->filters([])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                EditAction::make(),
             ])
             ->bulkActions([]);
     }

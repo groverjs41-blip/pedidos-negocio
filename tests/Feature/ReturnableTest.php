@@ -325,13 +325,15 @@ class ReturnableTest extends TestCase
         $this->assertEquals(1, $this->returnableService->getCustomerBalance($this->activeCustomer, $this->tazaType));
     }
 
-    public function test_visit_rollback_on_failure()
+    public function test_visit_rollback_and_zero_events()
     {
         $order = $this->createDeliveredOrder($this->activeCustomer); // Debt = 100
 
         $this->returnableService->recordOutBatch($this->activeCustomer, [
             ['returnable_type_id' => $this->tazaType->id, 'quantity' => 2],
         ], $this->adminUser, (string) Str::uuid(), null, 'Salida');
+
+        Event::fake([\App\Events\PaymentChanged::class, ReturnableChanged::class]);
 
         // Attempt Visit: Pay 40.00 + Return 5 Tazas (only owes 2, so return part will fail!)
         try {
@@ -351,6 +353,141 @@ class ReturnableTest extends TestCase
         $this->assertEquals('100.00', $this->activeCustomer->fresh()->outstandingBalance());
         $this->assertEquals(2, $this->returnableService->getCustomerBalance($this->activeCustomer, $this->tazaType));
         $this->assertEquals(0, \App\Models\Payment::count());
+        $this->assertEquals(0, \App\Models\CollectionVisit::count());
+
+        // Zero events dispatched
+        Event::assertNotDispatched(\App\Events\PaymentChanged::class);
+        Event::assertNotDispatched(ReturnableChanged::class);
+    }
+
+    public function test_visit_idempotency_with_same_token()
+    {
+        $order = $this->createDeliveredOrder($this->activeCustomer); // Debt = 100
+        $this->returnableService->recordOutBatch($this->activeCustomer, [
+            ['returnable_type_id' => $this->tazaType->id, 'quantity' => 3],
+        ], $this->adminUser, (string) Str::uuid(), null, 'Salida inicial');
+
+        $token = (string) Str::uuid();
+
+        // Request 1
+        $r1 = $this->visitService->recordVisit(
+            $this->activeCustomer,
+            ['amount' => '40.00', 'method' => PaymentMethod::CASH],
+            ['items' => [['returnable_type_id' => $this->tazaType->id, 'quantity' => 2]]],
+            $this->cajaUser,
+            $token
+        );
+
+        // Request 2 with SAME token
+        $r2 = $this->visitService->recordVisit(
+            $this->activeCustomer,
+            ['amount' => '40.00', 'method' => PaymentMethod::CASH],
+            ['items' => [['returnable_type_id' => $this->tazaType->id, 'quantity' => 2]]],
+            $this->cajaUser,
+            $token
+        );
+
+        $this->assertEquals(1, \App\Models\CollectionVisit::count());
+        $this->assertEquals(1, \App\Models\Payment::count());
+        $this->assertEquals($r1['visit']->id, $r2['visit']->id);
+        $this->assertEquals('60.00', $this->activeCustomer->fresh()->outstandingBalance());
+        $this->assertEquals(1, $this->returnableService->getCustomerBalance($this->activeCustomer, $this->tazaType));
+    }
+
+    public function test_visit_only_payment_idempotency()
+    {
+        $this->createDeliveredOrder($this->activeCustomer); // Debt = 100
+        $token = (string) Str::uuid();
+
+        $r1 = $this->visitService->recordVisit(
+            $this->activeCustomer,
+            ['amount' => '50.00', 'method' => PaymentMethod::CASH],
+            null,
+            $this->cajaUser,
+            $token
+        );
+
+        $r2 = $this->visitService->recordVisit(
+            $this->activeCustomer,
+            ['amount' => '50.00', 'method' => PaymentMethod::CASH],
+            null,
+            $this->cajaUser,
+            $token
+        );
+
+        $this->assertEquals(1, \App\Models\CollectionVisit::count());
+        $this->assertEquals(1, \App\Models\Payment::count());
+        $this->assertEquals('50.00', $this->activeCustomer->fresh()->outstandingBalance());
+    }
+
+    public function test_visit_only_return_idempotency()
+    {
+        $this->returnableService->recordOutBatch($this->activeCustomer, [
+            ['returnable_type_id' => $this->tazaType->id, 'quantity' => 3],
+        ], $this->adminUser, (string) Str::uuid(), null, 'Salida');
+
+        $token = (string) Str::uuid();
+
+        $r1 = $this->visitService->recordVisit(
+            $this->activeCustomer,
+            null,
+            ['items' => [['returnable_type_id' => $this->tazaType->id, 'quantity' => 2]]],
+            $this->cajaUser,
+            $token
+        );
+
+        $r2 = $this->visitService->recordVisit(
+            $this->activeCustomer,
+            null,
+            ['items' => [['returnable_type_id' => $this->tazaType->id, 'quantity' => 2]]],
+            $this->cajaUser,
+            $token
+        );
+
+        $this->assertEquals(1, \App\Models\CollectionVisit::count());
+        $this->assertEquals(1, $this->returnableService->getCustomerBalance($this->activeCustomer, $this->tazaType));
+    }
+
+    public function test_inactive_customer_out_rejected_even_with_order()
+    {
+        $order = $this->createDeliveredOrder($this->activeCustomer);
+        $this->activeCustomer->update(['active' => false]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('No se pueden registrar nuevas salidas de envases a un cliente inactivo.');
+
+        $this->returnableService->recordOutBatch(
+            $this->activeCustomer->fresh(),
+            [['returnable_type_id' => $this->tazaType->id, 'quantity' => 1]],
+            $this->adminUser,
+            (string) Str::uuid(),
+            $order
+        );
+    }
+
+    public function test_return_order_customer_mismatch_rejected()
+    {
+        $otherCustomer = Customer::create(['name' => 'Otro Cliente', 'phone' => '111', 'active' => true]);
+        $orderOfOther = $this->createDeliveredOrder($otherCustomer);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('El pedido seleccionado no pertenece al cliente.');
+
+        $this->returnableService->recordReturnBatch(
+            $this->activeCustomer,
+            [['returnable_type_id' => $this->tazaType->id, 'quantity' => 1]],
+            $this->adminUser,
+            (string) Str::uuid(),
+            $orderOfOther
+        );
+    }
+
+    public function test_filament_returnable_resources_smoke()
+    {
+        $this->actingAs($this->adminUser);
+
+        $this->get('/admin/returnable-types')->assertStatus(200);
+        $this->get('/admin/returnable-movements')->assertStatus(200);
     }
 
     public function test_returnables_role_authorization()

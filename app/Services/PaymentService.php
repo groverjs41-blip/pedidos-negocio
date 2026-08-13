@@ -164,76 +164,16 @@ class PaymentService
                 &$paymentToBroadcast,
                 &$orderIdsToBroadcast
             ) {
-                // Secondary check inside lock
-                $existingInside = Payment::where('submission_token', $submissionToken)->lockForUpdate()->first();
-                if ($existingInside) {
-                    $paymentToBroadcast = $existingInside;
-                    $orderIdsToBroadcast = $existingInside->allocations->pluck('order_id')->toArray();
-                    return;
-                }
-
-                // Lock all DELIVERED orders for this customer ordered_at ASC, id ASC
-                $candidateOrders = Order::where('customer_id', $customer->id)
-                    ->where('status', OrderStatus::DELIVERED)
-                    ->orderBy('ordered_at', 'asc')
-                    ->orderBy('id', 'asc')
-                    ->lockForUpdate()
-                    ->get();
-
-                // Calculate total debt inside lock
-                $totalDebt = '0.00';
-                $ordersToAllocate = [];
-
-                foreach ($candidateOrders as $ord) {
-                    $bal = $ord->outstandingBalance();
-                    if (bccomp($bal, '0.00', 2) > 0) {
-                        $totalDebt = bcadd($totalDebt, $bal, 2);
-                        $ordersToAllocate[] = [
-                            'order' => $ord,
-                            'balance' => $bal,
-                        ];
-                    }
-                }
-
-                if (bccomp($formattedAmount, $totalDebt, 2) > 0) {
-                    throw new InvalidArgumentException("El monto excede el saldo pendiente total del cliente ({$totalDebt}).");
-                }
-
-                $payment = Payment::create([
-                    'submission_token' => $submissionToken,
-                    'customer_id' => $customer->id,
-                    'amount' => $formattedAmount,
-                    'method' => $method,
-                    'reference' => $reference,
-                    'paid_at' => now(),
-                    'created_by' => $user->id,
-                    'notes' => $notes,
-                ]);
-
-                $remainingToAllocate = $formattedAmount;
-
-                foreach ($ordersToAllocate as $item) {
-                    if (bccomp($remainingToAllocate, '0.00', 2) <= 0) {
-                        break;
-                    }
-
-                    $ord = $item['order'];
-                    $bal = $item['balance'];
-
-                    // Allocate min(remainingToAllocate, bal)
-                    $allocAmount = bccomp($remainingToAllocate, $bal, 2) >= 0 ? $bal : $remainingToAllocate;
-
-                    PaymentAllocation::create([
-                        'payment_id' => $payment->id,
-                        'order_id' => $ord->id,
-                        'amount' => $allocAmount,
-                    ]);
-
-                    $remainingToAllocate = bcsub($remainingToAllocate, $allocAmount, 2);
-                    $orderIdsToBroadcast[] = $ord->id;
-                }
-
-                $paymentToBroadcast = $payment;
+                $paymentToBroadcast = $this->recordCustomerPaymentInternal(
+                    $customer,
+                    $formattedAmount,
+                    $method,
+                    $reference,
+                    $notes,
+                    $user,
+                    $submissionToken,
+                    $orderIdsToBroadcast
+                );
             });
         } catch (QueryException $e) {
             // Concurrent race recovery for duplicate submission_token (SQLSTATE 23000)
@@ -249,6 +189,91 @@ class PaymentService
         $this->safeBroadcast($paymentToBroadcast, $orderIdsToBroadcast, 'CREATED');
 
         return $paymentToBroadcast;
+    }
+
+    /**
+     * Internal method to execute customer payment recording within an existing transaction.
+     * Does NOT open a DB::transaction() and does NOT fire broadcasts.
+     */
+    public function recordCustomerPaymentInternal(
+        Customer $customer,
+        string $formattedAmount,
+        PaymentMethod $method,
+        ?string $reference,
+        ?string $notes,
+        User $user,
+        string $submissionToken,
+        array &$orderIdsToBroadcast = []
+    ): Payment {
+        // Secondary check inside lock
+        $existingInside = Payment::where('submission_token', $submissionToken)->lockForUpdate()->first();
+        if ($existingInside) {
+            $orderIdsToBroadcast = $existingInside->allocations->pluck('order_id')->toArray();
+            return $existingInside;
+        }
+
+        // Lock all DELIVERED orders for this customer ordered_at ASC, id ASC
+        $candidateOrders = Order::where('customer_id', $customer->id)
+            ->where('status', OrderStatus::DELIVERED)
+            ->orderBy('ordered_at', 'asc')
+            ->orderBy('id', 'asc')
+            ->lockForUpdate()
+            ->get();
+
+        // Calculate total debt inside lock
+        $totalDebt = '0.00';
+        $ordersToAllocate = [];
+
+        foreach ($candidateOrders as $ord) {
+            $bal = $ord->outstandingBalance();
+            if (bccomp($bal, '0.00', 2) > 0) {
+                $totalDebt = bcadd($totalDebt, $bal, 2);
+                $ordersToAllocate[] = [
+                    'order' => $ord,
+                    'balance' => $bal,
+                ];
+            }
+        }
+
+        if (bccomp($formattedAmount, $totalDebt, 2) > 0) {
+            throw new InvalidArgumentException("El monto excede el saldo pendiente total del cliente ({$totalDebt}).");
+        }
+
+        $payment = Payment::create([
+            'submission_token' => $submissionToken,
+            'customer_id' => $customer->id,
+            'amount' => $formattedAmount,
+            'method' => $method,
+            'reference' => $reference,
+            'paid_at' => now(),
+            'created_by' => $user->id,
+            'notes' => $notes,
+        ]);
+
+        $remainingToAllocate = $formattedAmount;
+
+        foreach ($ordersToAllocate as $item) {
+            if (bccomp($remainingToAllocate, '0.00', 2) <= 0) {
+                break;
+            }
+
+            $ord = $item['order'];
+            $bal = $item['balance'];
+
+            // Allocate min(remainingToAllocate, bal)
+            $allocAmount = bccomp($remainingToAllocate, $bal, 2) >= 0 ? $bal : $remainingToAllocate;
+
+            PaymentAllocation::create([
+                'payment_id' => $payment->id,
+                'order_id' => $ord->id,
+                'amount' => $allocAmount,
+            ]);
+
+            $remainingToAllocate = bcsub($remainingToAllocate, $allocAmount, 2);
+            $orderIdsToBroadcast[] = $ord->id;
+        }
+
+        return $payment;
     }
 
     /**

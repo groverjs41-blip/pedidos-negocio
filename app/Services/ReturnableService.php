@@ -36,7 +36,12 @@ class ReturnableService
 
         $balance = $out - $return;
 
-        return max(0, $balance);
+        if ($balance < 0) {
+            Log::error("Corrupción de saldo de envases detectada para cliente ID {$customer->id}: saldo negativo ({$balance}).");
+            throw new \LogicException("Inconsistencia en el saldo de envases para el cliente ID {$customer->id}.");
+        }
+
+        return $balance;
     }
 
     /**
@@ -105,8 +110,76 @@ class ReturnableService
             return $existing->all();
         }
 
+        $createdMovements = [];
+        $totalQty = 0;
+        $typeIds = [];
+
+        try {
+            DB::transaction(function () use (
+                $customer,
+                $items,
+                $user,
+                $batchToken,
+                $order,
+                $notes,
+                &$createdMovements,
+                &$totalQty,
+                &$typeIds
+            ) {
+                $createdMovements = $this->recordOutBatchInternal(
+                    $customer,
+                    $items,
+                    $user,
+                    $batchToken,
+                    $order,
+                    $notes,
+                    $totalQty,
+                    $typeIds
+                );
+            });
+        } catch (QueryException $e) {
+            if ($e->getCode() == '23000' || ($e->errorInfo[1] ?? null) == 1062) {
+                $existing = ReturnableMovement::where('batch_token', $batchToken)->get();
+                if ($existing->isNotEmpty()) {
+                    return $existing->all();
+                }
+            }
+            throw $e;
+        }
+
+        $this->safeBroadcast($customer->id, $order?->id, ReturnableMovementType::OUT->value, $typeIds, $totalQty, 'CREATED');
+
+        return $createdMovements;
+    }
+
+    /**
+     * Internal method to execute OUT batch recording within an existing transaction.
+     * Does NOT open a DB::transaction() and does NOT fire broadcasts.
+     */
+    public function recordOutBatchInternal(
+        Customer $customer,
+        array $items,
+        User $user,
+        string $batchToken,
+        ?Order $order = null,
+        ?string $notes = null,
+        int &$totalQty = 0,
+        array &$typeIds = []
+    ): array {
+        // Secondary check inside lock
+        $existingInside = ReturnableMovement::where('batch_token', $batchToken)->lockForUpdate()->get();
+        if ($existingInside->isNotEmpty()) {
+            $totalQty = $existingInside->sum('quantity');
+            $typeIds = $existingInside->pluck('returnable_type_id')->unique()->all();
+            return $existingInside->all();
+        }
+
         if (!$customer || !$customer->id) {
             throw new InvalidArgumentException('Para dejar envases retornables debes asociar el pedido a un cliente.');
+        }
+
+        if (!$customer->active) {
+            throw new InvalidArgumentException('No se pueden registrar nuevas salidas de envases a un cliente inactivo.');
         }
 
         if ($order) {
@@ -123,9 +196,6 @@ class ReturnableService
             }
             if (empty(trim($notes ?? ''))) {
                 throw new InvalidArgumentException('Debe ingresar una nota obligatoria para salidas manuales de envases.');
-            }
-            if (!$customer->active) {
-                throw new InvalidArgumentException('No se pueden registrar nuevas salidas de envases a un cliente inactivo.');
             }
         }
 
@@ -148,62 +218,31 @@ class ReturnableService
             throw new InvalidArgumentException('Debe especificar al menos una cantidad de envase mayor a cero.');
         }
 
+        // Lock customer for update
+        Customer::where('id', $customer->id)->lockForUpdate()->firstOrFail();
+
+        $now = now();
         $createdMovements = [];
         $totalQty = 0;
         $typeIds = [];
 
-        try {
-            DB::transaction(function () use (
-                $customer,
-                $order,
-                $validItems,
-                $user,
-                $batchToken,
-                $notes,
-                &$createdMovements,
-                &$totalQty,
-                &$typeIds
-            ) {
-                // Secondary idempotency check
-                $existingInside = ReturnableMovement::where('batch_token', $batchToken)->lockForUpdate()->get();
-                if ($existingInside->isNotEmpty()) {
-                    $createdMovements = $existingInside->all();
-                    return;
-                }
+        foreach ($validItems as $v) {
+            $m = ReturnableMovement::create([
+                'batch_token' => $batchToken,
+                'customer_id' => $customer->id,
+                'order_id' => $order?->id,
+                'returnable_type_id' => $v['type']->id,
+                'movement_type' => ReturnableMovementType::OUT,
+                'quantity' => $v['quantity'],
+                'occurred_at' => $now,
+                'user_id' => $user->id,
+                'notes' => $notes,
+            ]);
 
-                // Lock customer
-                Customer::where('id', $customer->id)->lockForUpdate()->firstOrFail();
-
-                $now = now();
-                foreach ($validItems as $v) {
-                    $m = ReturnableMovement::create([
-                        'batch_token' => $batchToken,
-                        'customer_id' => $customer->id,
-                        'order_id' => $order?->id,
-                        'returnable_type_id' => $v['type']->id,
-                        'movement_type' => ReturnableMovementType::OUT,
-                        'quantity' => $v['quantity'],
-                        'occurred_at' => $now,
-                        'user_id' => $user->id,
-                        'notes' => $notes,
-                    ]);
-
-                    $createdMovements[] = $m;
-                    $totalQty += $v['quantity'];
-                    $typeIds[] = $v['type']->id;
-                }
-            });
-        } catch (QueryException $e) {
-            if ($e->getCode() == '23000' || ($e->errorInfo[1] ?? null) == 1062) {
-                $existing = ReturnableMovement::where('batch_token', $batchToken)->get();
-                if ($existing->isNotEmpty()) {
-                    return $existing->all();
-                }
-            }
-            throw $e;
+            $createdMovements[] = $m;
+            $totalQty += $v['quantity'];
+            $typeIds[] = $v['type']->id;
         }
-
-        $this->safeBroadcast($customer->id, $order?->id, ReturnableMovementType::OUT->value, $typeIds, $totalQty, 'CREATED');
 
         return $createdMovements;
     }
@@ -227,8 +266,76 @@ class ReturnableService
             return $existing->all();
         }
 
+        $createdMovements = [];
+        $totalQty = 0;
+        $typeIds = [];
+
+        try {
+            DB::transaction(function () use (
+                $customer,
+                $items,
+                $user,
+                $batchToken,
+                $order,
+                $notes,
+                &$createdMovements,
+                &$totalQty,
+                &$typeIds
+            ) {
+                $createdMovements = $this->recordReturnBatchInternal(
+                    $customer,
+                    $items,
+                    $user,
+                    $batchToken,
+                    $order,
+                    $notes,
+                    $totalQty,
+                    $typeIds
+                );
+            });
+        } catch (QueryException $e) {
+            if ($e->getCode() == '23000' || ($e->errorInfo[1] ?? null) == 1062) {
+                $existing = ReturnableMovement::where('batch_token', $batchToken)->get();
+                if ($existing->isNotEmpty()) {
+                    return $existing->all();
+                }
+            }
+            throw $e;
+        }
+
+        $this->safeBroadcast($customer->id, $order?->id, ReturnableMovementType::RETURN->value, $typeIds, $totalQty, 'CREATED');
+
+        return $createdMovements;
+    }
+
+    /**
+     * Internal method to execute RETURN batch recording within an existing transaction.
+     * Does NOT open a DB::transaction() and does NOT fire broadcasts.
+     */
+    public function recordReturnBatchInternal(
+        Customer $customer,
+        array $items,
+        User $user,
+        string $batchToken,
+        ?Order $order = null,
+        ?string $notes = null,
+        int &$totalQty = 0,
+        array &$typeIds = []
+    ): array {
+        // Secondary check inside lock
+        $existingInside = ReturnableMovement::where('batch_token', $batchToken)->lockForUpdate()->get();
+        if ($existingInside->isNotEmpty()) {
+            $totalQty = $existingInside->sum('quantity');
+            $typeIds = $existingInside->pluck('returnable_type_id')->unique()->all();
+            return $existingInside->all();
+        }
+
         if (!$customer || !$customer->id) {
             throw new InvalidArgumentException('Cliente inválido.');
+        }
+
+        if ($order && (int)$order->customer_id !== (int)$customer->id) {
+            throw new InvalidArgumentException('El pedido seleccionado no pertenece al cliente.');
         }
 
         $validItems = [];
@@ -247,70 +354,39 @@ class ReturnableService
             throw new InvalidArgumentException('Debe especificar al menos una cantidad a devolver mayor a cero.');
         }
 
+        // Lock customer for update
+        Customer::where('id', $customer->id)->lockForUpdate()->firstOrFail();
+
+        // Recalculate balances inside lock
+        $now = now();
         $createdMovements = [];
         $totalQty = 0;
         $typeIds = [];
 
-        try {
-            DB::transaction(function () use (
-                $customer,
-                $order,
-                $validItems,
-                $user,
-                $batchToken,
-                $notes,
-                &$createdMovements,
-                &$totalQty,
-                &$typeIds
-            ) {
-                // Secondary check inside lock
-                $existingInside = ReturnableMovement::where('batch_token', $batchToken)->lockForUpdate()->get();
-                if ($existingInside->isNotEmpty()) {
-                    $createdMovements = $existingInside->all();
-                    return;
-                }
+        foreach ($validItems as $v) {
+            $type = $v['type'];
+            $currentBal = $this->getCustomerBalance($customer, $type);
 
-                // Lock customer for update
-                Customer::where('id', $customer->id)->lockForUpdate()->firstOrFail();
-
-                // Recalculate balances inside lock
-                $now = now();
-                foreach ($validItems as $v) {
-                    $type = $v['type'];
-                    $currentBal = $this->getCustomerBalance($customer, $type);
-
-                    if ($v['quantity'] > $currentBal) {
-                        throw new InvalidArgumentException("El cliente solo tiene {$currentBal} {$type->name} pendiente(s).");
-                    }
-
-                    $m = ReturnableMovement::create([
-                        'batch_token' => $batchToken,
-                        'customer_id' => $customer->id,
-                        'order_id' => $order?->id,
-                        'returnable_type_id' => $type->id,
-                        'movement_type' => ReturnableMovementType::RETURN,
-                        'quantity' => $v['quantity'],
-                        'occurred_at' => $now,
-                        'user_id' => $user->id,
-                        'notes' => $notes,
-                    ]);
-
-                    $createdMovements[] = $m;
-                    $totalQty += $v['quantity'];
-                    $typeIds[] = $type->id;
-                }
-            });
-        } catch (QueryException $e) {
-            if ($e->getCode() == '23000' || ($e->errorInfo[1] ?? null) == 1062) {
-                $existing = ReturnableMovement::where('batch_token', $batchToken)->get();
-                if ($existing->isNotEmpty()) {
-                    return $existing->all();
-                }
+            if ($v['quantity'] > $currentBal) {
+                throw new InvalidArgumentException("El cliente solo tiene {$currentBal} {$type->name} pendiente(s).");
             }
-            throw $e;
-        }
 
-        $this->safeBroadcast($customer->id, $order?->id, ReturnableMovementType::RETURN->value, $typeIds, $totalQty, 'CREATED');
+            $m = ReturnableMovement::create([
+                'batch_token' => $batchToken,
+                'customer_id' => $customer->id,
+                'order_id' => $order?->id,
+                'returnable_type_id' => $type->id,
+                'movement_type' => ReturnableMovementType::RETURN,
+                'quantity' => $v['quantity'],
+                'occurred_at' => $now,
+                'user_id' => $user->id,
+                'notes' => $notes,
+            ]);
+
+            $createdMovements[] = $m;
+            $totalQty += $v['quantity'];
+            $typeIds[] = $type->id;
+        }
 
         return $createdMovements;
     }

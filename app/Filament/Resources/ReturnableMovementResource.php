@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources;
 
-use App\Actions\ViewAction;
 use App\Filament\Resources\ReturnableMovementResource\Pages;
 use App\Models\ReturnableMovement;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -123,7 +123,7 @@ class ReturnableMovementResource extends Resource
                     ),
             ])
             ->actions([
-                \Filament\Actions\ViewAction::make(),
+                ViewAction::make(),
             ])
             ->bulkActions([]);
     }
