@@ -45,7 +45,7 @@ class AuthController extends Controller
             $request->session()->forget('url.intended');
 
             if ($user->hasRole('admin')) {
-                return redirect('/admin');
+                return redirect('/inicio');
             }
 
             return redirect('/inicio');

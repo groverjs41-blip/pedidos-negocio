@@ -40,7 +40,7 @@ class AuthTest extends TestCase
 
         $response = $this->get('/');
 
-        $response->assertRedirect('/admin');
+        $response->assertRedirect('/inicio');
     }
 
     /**
@@ -59,7 +59,7 @@ class AuthTest extends TestCase
     }
 
     /**
-     * 4. admin autenticado entrando a /login -> redirect /admin
+     * 4. admin autenticado entrando a /login -> redirect /inicio
      */
     public function test_authenticated_admin_accessing_login_redirects_to_admin(): void
     {
@@ -70,7 +70,7 @@ class AuthTest extends TestCase
 
         $response = $this->get('/login');
 
-        $response->assertRedirect('/admin');
+        $response->assertRedirect('/inicio');
     }
 
     /**
@@ -89,7 +89,7 @@ class AuthTest extends TestCase
     }
 
     /**
-     * 6. login admin correcto -> redirect /admin
+     * 6. login admin correcto -> redirect /inicio
      */
     public function test_admin_login_redirects_to_admin(): void
     {
@@ -104,7 +104,7 @@ class AuthTest extends TestCase
             'password' => 'password123',
         ]);
 
-        $response->assertRedirect('/admin');
+        $response->assertRedirect('/inicio');
         $this->assertAuthenticatedAs($user);
     }
 

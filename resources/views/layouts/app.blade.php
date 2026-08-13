@@ -33,7 +33,7 @@
                     </a>
 
                     @if(auth()->user()->hasRole('pedidos') || auth()->user()->hasRole('admin'))
-                        <span class="nav-section-header">PEDIDOS</span>
+                        <span class="nav-section-header">OPERACIÓN</span>
 
                         <a href="{{ url('/pedidos/nuevo') }}" class="nav-item {{ request()->is('pedidos/nuevo') ? 'active' : '' }}">
                             <x-ui.icon name="plus" />
@@ -45,37 +45,75 @@
                         </a>
                     @endif
 
-                    @if(auth()->user()->hasRole('cocina') || auth()->user()->hasRole('admin') || auth()->user()->hasRole('reparto'))
-                        <span class="nav-section-header">OPERACIÓN</span>
-
-                        @if(auth()->user()->hasRole('cocina') || auth()->user()->hasRole('admin'))
-                            <a href="{{ url('/cocina') }}" class="nav-item {{ request()->is('cocina') ? 'active' : '' }}">
-                                <x-ui.icon name="chef" />
-                                Cocina
-                            </a>
-                        @endif
-
-                        @if(auth()->user()->hasRole('reparto') || auth()->user()->hasRole('admin'))
-                            <a href="{{ url('/reparto') }}" class="nav-item {{ request()->is('reparto') ? 'active' : '' }}">
-                                <x-ui.icon name="truck" />
-                                Reparto
-                            </a>
-                        @endif
+                    @if(auth()->user()->hasRole('cocina') || auth()->user()->hasRole('admin'))
+                        <a href="{{ url('/cocina') }}" class="nav-item {{ request()->is('cocina') ? 'active' : '' }}">
+                            <x-ui.icon name="chef" />
+                            Cocina
+                        </a>
                     @endif
 
-                    @if(auth()->user()->hasRole('caja') || auth()->user()->hasRole('admin'))
-                        <span class="nav-section-header">FINANZAS</span>
-                        <a href="{{ url('/caja') }}" class="nav-item {{ request()->is('caja') ? 'active' : '' }}">
-                            <x-ui.icon name="dollar" />
-                            Cobranza
+                    @if(auth()->user()->hasRole('reparto') || auth()->user()->hasRole('admin'))
+                        <a href="{{ url('/reparto') }}" class="nav-item {{ request()->is('reparto') ? 'active' : '' }}">
+                            <x-ui.icon name="truck" />
+                            Reparto
                         </a>
                     @endif
 
                     @if(auth()->user()->hasRole('admin'))
-                        <span class="nav-section-header">SISTEMA</span>
-                        <a href="{{ url('/admin') }}" class="nav-item">
+                        <span class="nav-section-header">GESTIÓN</span>
+                        <a href="{{ url('/gestion') }}" class="nav-item {{ request()->is('gestion') ? 'active' : '' }}">
                             <x-ui.icon name="gear" />
-                            Administración
+                            Panel Gestión
+                        </a>
+                        <a href="{{ url('/gestion/productos') }}" class="nav-item {{ request()->is('gestion/productos*') ? 'active' : '' }}">
+                            <x-ui.icon name="bag" />
+                            Productos
+                        </a>
+                        <a href="{{ url('/gestion/categorias') }}" class="nav-item {{ request()->is('gestion/categorias*') ? 'active' : '' }}">
+                            <x-ui.icon name="list" />
+                            Categorías
+                        </a>
+                        <a href="{{ url('/gestion/clientes') }}" class="nav-item {{ request()->is('gestion/clientes*') ? 'active' : '' }}">
+                            <x-ui.icon name="user" />
+                            Clientes
+                        </a>
+                        <a href="{{ url('/gestion/usuarios') }}" class="nav-item {{ request()->is('gestion/usuarios*') ? 'active' : '' }}">
+                            <x-ui.icon name="user" />
+                            Usuarios
+                        </a>
+                        <a href="{{ url('/gestion/envases') }}" class="nav-item {{ request()->is('gestion/envases*') ? 'active' : '' }}">
+                            <x-ui.icon name="check" />
+                            Envases
+                        </a>
+                    @endif
+
+                    @if(auth()->user()->hasRole('caja') || auth()->user()->hasRole('admin') || auth()->user()->hasRole('reparto'))
+                        <span class="nav-section-header">FINANZAS</span>
+                        @if(auth()->user()->hasRole('caja') || auth()->user()->hasRole('admin'))
+                            <a href="{{ url('/caja') }}" class="nav-item {{ request()->is('caja*') ? 'active' : '' }}">
+                                <x-ui.icon name="dollar" />
+                                Cobranza
+                            </a>
+                        @endif
+
+                        <a href="{{ url('/tazas') }}" class="nav-item {{ request()->is('tazas*') ? 'active' : '' }}">
+                            <x-ui.icon name="check" />
+                            Tazas / Envases
+                        </a>
+
+                        @if(auth()->user()->hasRole('caja') || auth()->user()->hasRole('admin'))
+                            <a href="{{ url('/cierre') }}" class="nav-item {{ request()->is('cierre*') ? 'active' : '' }}">
+                                <x-ui.icon name="dollar" />
+                                Cierre Diario
+                            </a>
+                        @endif
+                    @endif
+
+                    @if(auth()->user()->hasRole('admin'))
+                        <span class="nav-section-header">SISTEMA</span>
+                        <a href="{{ url('/admin') }}" class="nav-item" style="color: var(--text-muted);">
+                            <x-ui.icon name="gear" />
+                            Auditoría Avanzada
                         </a>
                     @endif
                 </nav>
@@ -122,7 +160,7 @@
                 </main>
             </div>
 
-            {{-- MOBILE BOTTOM NAV BAR --}}
+            {{-- MOBILE BOTTOM NAV BAR (Max 5 items) --}}
             <nav class="mobile-bottom-nav">
                 <a href="{{ url('/inicio') }}" class="mobile-nav-item {{ request()->is('inicio') ? 'active' : '' }}">
                     <x-ui.icon name="home" />
@@ -147,12 +185,10 @@
                     </a>
                 @endif
 
-                @if(auth()->user()->hasRole('reparto') || auth()->user()->hasRole('admin'))
-                    <a href="{{ url('/reparto') }}" class="mobile-nav-item {{ request()->is('reparto') ? 'active' : '' }}">
-                        <x-ui.icon name="truck" />
-                        <span class="mobile-nav-label">Reparto</span>
-                    </a>
-                @endif
+                <a href="{{ url('/menu') }}" class="mobile-nav-item {{ request()->is('menu') || request()->is('gestion*') ? 'active' : '' }}">
+                    <x-ui.icon name="gear" />
+                    <span class="mobile-nav-label">Más</span>
+                </a>
             </nav>
         </div>
     @else

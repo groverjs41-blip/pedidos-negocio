@@ -38,6 +38,14 @@ class CreateOrder extends Component
         if ($firstCategory) {
             $this->selectedCategoryId = $firstCategory->id;
         }
+
+        $customerParam = request()->query('customer');
+        if ($customerParam) {
+            $cust = Customer::where('id', $customerParam)->where('active', true)->first();
+            if ($cust) {
+                $this->selectCustomer($cust->id);
+            }
+        }
     }
 
     /**

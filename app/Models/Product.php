@@ -41,4 +41,12 @@ class Product extends Model
     {
         return $this->belongsTo(Category::class);
     }
+
+    /**
+     * Get the returnable container requirements for the product.
+     */
+    public function returnableRequirements(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ProductReturnableRequirement::class);
+    }
 }

@@ -23,12 +23,6 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $middleware->redirectUsersTo(function (Request $request) {
-            $user = $request->user();
-
-            if ($user && $user->isActive() && $user->hasRole('admin')) {
-                return '/admin';
-            }
-
             return '/inicio';
         });
     })

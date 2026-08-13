@@ -94,14 +94,56 @@
                     </a>
                 @endif
 
+                @if($user->hasRole('caja') || $user->hasRole('admin'))
+                    <a href="{{ url('/caja') }}" class="card" style="padding: 1.25rem; text-decoration: none; display: flex; align-items: center; gap: 1rem;">
+                        <div class="header-icon-wrap mint" style="width: 44px; height: 44px; border-radius: 14px;">
+                            <x-ui.icon name="dollar" class="w-6 h-6" />
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Cobranza</div>
+                            <div style="font-size: 0.775rem; color: var(--text-muted);">Pagos de clientes</div>
+                        </div>
+                    </a>
+
+                    <a href="{{ url('/cierre') }}" class="card" style="padding: 1.25rem; text-decoration: none; display: flex; align-items: center; gap: 1rem;">
+                        <div class="header-icon-wrap warning" style="width: 44px; height: 44px; border-radius: 14px;">
+                            <x-ui.icon name="dollar" class="w-6 h-6" />
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Cierre Diario</div>
+                            <div style="font-size: 0.775rem; color: var(--text-muted);">Resumen de caja</div>
+                        </div>
+                    </a>
+                @endif
+
                 @if($user->hasRole('admin'))
-                    <a href="{{ url('/admin') }}" class="card" style="padding: 1.25rem; text-decoration: none; display: flex; align-items: center; gap: 1rem;">
+                    <a href="{{ url('/gestion') }}" class="card" style="padding: 1.25rem; text-decoration: none; display: flex; align-items: center; gap: 1rem;">
                         <div class="header-icon-wrap mint" style="width: 44px; height: 44px; border-radius: 14px;">
                             <x-ui.icon name="gear" class="w-6 h-6" />
                         </div>
                         <div>
-                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Administración</div>
-                            <div style="font-size: 0.775rem; color: var(--text-muted);">Panel de Filament</div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Panel de Gestión</div>
+                            <div style="font-size: 0.775rem; color: var(--text-muted);">Catálogo y usuarios</div>
+                        </div>
+                    </a>
+
+                    <a href="{{ url('/gestion/productos') }}" class="card" style="padding: 1.25rem; text-decoration: none; display: flex; align-items: center; gap: 1rem;">
+                        <div class="header-icon-wrap blue" style="width: 44px; height: 44px; border-radius: 14px;">
+                            <x-ui.icon name="bag" class="w-6 h-6" />
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Productos</div>
+                            <div style="font-size: 0.775rem; color: var(--text-muted);">Administrar precios</div>
+                        </div>
+                    </a>
+
+                    <a href="{{ url('/admin') }}" class="card" style="padding: 1.25rem; text-decoration: none; display: flex; align-items: center; gap: 1rem; border-color: rgba(255,255,255,0.08);">
+                        <div class="header-icon-wrap" style="width: 44px; height: 44px; border-radius: 14px; background: rgba(255,255,255,0.05); color: var(--text-muted);">
+                            <x-ui.icon name="gear" class="w-6 h-6" />
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Auditoría Avanzada</div>
+                            <div style="font-size: 0.775rem; color: var(--text-muted);">Panel Filament</div>
                         </div>
                     </a>
                 @endif

@@ -52,6 +52,12 @@ class AdminPanelProvider extends PanelProvider
                 Dashboard::class,
             ])
             ->brandName('Pedidos Negocio')
+            ->navigationItems([
+                \Filament\Navigation\NavigationItem::make('Volver a Pedidos Negocio')
+                    ->url('/inicio')
+                    ->icon('heroicon-o-arrow-left')
+                    ->sort(-1),
+            ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,
