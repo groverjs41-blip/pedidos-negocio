@@ -9,9 +9,6 @@ use Livewire\Component;
 
 class Kitchen extends Component
 {
-    public ?string $successMessage = null;
-    public ?string $errorMessage = null;
-
     /**
      * Listen to Echo OrderChanged broadcasts.
      */
@@ -40,16 +37,15 @@ class Kitchen extends Component
     {
         $order = Order::find($orderId);
         if (!$order) {
-            $this->errorMessage = 'El pedido no existe.';
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'El pedido no existe.');
             return;
         }
 
         try {
             $orderService->startPreparing($order, auth()->user());
-            $this->successMessage = "Pedido {$order->number} en preparación.";
-            $this->errorMessage = null;
+            $this->dispatch('notify-toast', type: 'info', title: 'En Preparación', message: "Pedido #{$order->number} en preparación.");
         } catch (\Exception $e) {
-            $this->errorMessage = $e->getMessage();
+            $this->dispatch('notify-toast', type: 'error', title: 'Error operativo', message: 'No se pudo iniciar preparación del pedido.');
         }
     }
 
@@ -60,16 +56,15 @@ class Kitchen extends Component
     {
         $order = Order::find($orderId);
         if (!$order) {
-            $this->errorMessage = 'El pedido no existe.';
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'El pedido no existe.');
             return;
         }
 
         try {
             $orderService->markReady($order, auth()->user());
-            $this->successMessage = "Pedido {$order->number} listo para entrega.";
-            $this->errorMessage = null;
+            $this->dispatch('notify-toast', type: 'success', title: 'Pedido Listo', message: "Pedido #{$order->number} listo para entrega.");
         } catch (\Exception $e) {
-            $this->errorMessage = $e->getMessage();
+            $this->dispatch('notify-toast', type: 'error', title: 'Error operativo', message: 'No se pudo marcar el pedido como listo.');
         }
     }
 

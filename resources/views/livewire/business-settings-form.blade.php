@@ -6,12 +6,6 @@
         </div>
     </div>
 
-    @if (session()->has('message'))
-        <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-medium flex items-center justify-between">
-            <span>{{ session('message') }}</span>
-        </div>
-    @endif
-
     <form wire:submit="save" class="space-y-6">
         {{-- SECCIÓN NEGOCIO --}}
         <div class="p-6 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 shadow-sm space-y-4">
@@ -30,7 +24,7 @@
         {{-- SECCIÓN MONEDA --}}
         <div class="p-6 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 shadow-sm space-y-4">
             <h2 class="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                <x-ui.icon name="dollar" class="w-5 h-5 text-emerald-500" />
+                <x-ui.icon name="wallet" class="w-5 h-5 text-emerald-500" />
                 MONEDA
             </h2>
 
@@ -161,8 +155,10 @@
         </div>
 
         <div class="flex justify-end pt-4">
-            <button type="submit" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-600/30 transition-all">
-                GUARDAR CONFIGURACIÓN
+            <button type="submit" wire:loading.attr="disabled" wire:target="save" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-600/30 transition-all">
+                <span wire:loading wire:target="save" class="spinner"></span>
+                <span wire:loading.remove wire:target="save">GUARDAR CONFIGURACIÓN</span>
+                <span wire:loading wire:target="save">GUARDANDO CONFIGURACIÓN...</span>
             </button>
         </div>
     </form>

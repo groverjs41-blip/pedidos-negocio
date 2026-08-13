@@ -1,18 +1,4 @@
-<div wire:poll.15s class="kitchen-layout" style="max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
-
-    @if($successMessage)
-        <div class="alert alert-success">
-            <span>{{ $successMessage }}</span>
-            <button wire:click="$set('successMessage', null)" class="close-alert">&times;</button>
-        </div>
-    @endif
-
-    @if($errorMessage)
-        <div class="alert alert-danger">
-            <span>{{ $errorMessage }}</span>
-            <button wire:click="$set('errorMessage', null)" class="close-alert">&times;</button>
-        </div>
-    @endif
+<div wire:poll.15s class="kitchen-layout" style="max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
 
     <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
         <div>
@@ -79,21 +65,34 @@
         @forelse($orders as $order)
             @php
                 $elapsedMinutes = now()->diffInMinutes($order->ordered_at);
+                $isWarning = $elapsedMinutes >= 10 && $elapsedMinutes < 15;
                 $isDelayed = $elapsedMinutes >= 15;
             @endphp
-            <div class="kds-card {{ $order->status === \App\Enums\OrderStatus::PREPARING ? 'status-preparing' : '' }} stagger-item">
+            <div class="kds-card {{ $order->status === \App\Enums\OrderStatus::PREPARING ? 'status-preparing' : 'status-new' }}">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 0.85rem;">
                     <div>
-                        <div class="kds-order-num">{{ $order->number }}</div>
+                        <div class="kds-order-num">#{{ $order->number }}</div>
                         <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.15rem;">
                             👤 {{ $order->customer_name_snapshot ?? 'Venta Mostrador' }}
                         </div>
                     </div>
 
-                    <span class="{{ $isDelayed ? 'delayed-badge' : 'status-badge NEW' }}">
-                        <x-ui.icon name="clock" class="w-3.5 h-3.5" />
-                        {{ $isDelayed ? 'DEMORADO' : '' }} {{ $elapsedMinutes }}m
-                    </span>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem;">
+                        @if($order->status === \App\Enums\OrderStatus::PREPARING)
+                            <span class="status-badge PREPARING" style="font-size: 0.7rem; padding: 2px 8px;">
+                                PREPARANDO •••
+                            </span>
+                        @else
+                            <span class="status-badge NEW" style="font-size: 0.7rem; padding: 2px 8px;">
+                                NUEVO
+                            </span>
+                        @endif
+
+                        <span class="status-badge {{ $isDelayed ? 'timer-delayed' : ($isWarning ? 'timer-warning' : '') }}" style="font-size: 0.75rem;">
+                            <x-ui.icon name="clock" class="w-3.5 h-3.5" />
+                            {{ $isDelayed ? 'DEMORADO' : '' }} {{ $elapsedMinutes }} min
+                        </span>
+                    </div>
                 </div>
 
                 {{-- Items List (LARGE TEXT FOR KITCHEN READABILITY) --}}
@@ -124,7 +123,7 @@
                                 style="background: var(--warning); color: #0E141B;">
                             <span wire:loading wire:target="startPreparingOrder({{ $order->id }})" class="spinner"></span>
                             <span wire:loading.remove wire:target="startPreparingOrder({{ $order->id }})">EMPEZAR PREPARACIÓN</span>
-                            <span wire:loading wire:target="startPreparingOrder({{ $order->id }})">Procesando...</span>
+                            <span wire:loading wire:target="startPreparingOrder({{ $order->id }})">INICIANDO...</span>
                         </button>
                     @elseif($order->status === \App\Enums\OrderStatus::PREPARING)
                         <button type="button"
@@ -135,7 +134,7 @@
                                 style="background: var(--primary); color: var(--primary-text);">
                             <span wire:loading wire:target="markOrderReady({{ $order->id }})" class="spinner"></span>
                             <span wire:loading.remove wire:target="markOrderReady({{ $order->id }})">MARCAR COMO LISTO</span>
-                            <span wire:loading wire:target="markOrderReady({{ $order->id }})">Procesando...</span>
+                            <span wire:loading wire:target="markOrderReady({{ $order->id }})">MARCANDO LISTO...</span>
                         </button>
                     @endif
                 </div>

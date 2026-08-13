@@ -5,6 +5,8 @@ namespace App\Livewire;
 use App\Models\Category;
 use App\Models\Customer;
 use App\Models\Product;
+use App\Models\ProductReturnableRequirement;
+use App\Models\ReturnableType;
 use App\Services\OrderService;
 use Livewire\Component;
 use Illuminate\Support\Str;
@@ -23,9 +25,6 @@ class CreateOrder extends Component
     public array $cart = []; // Structure: [product_id => [id, name, price, quantity]]
     public string $notes = '';
 
-    public ?string $successMessage = null;
-    public ?string $errorMessage = null;
-
     // Quick Customer Modal State
     public string $quickCustomerName = '';
     public string $quickCustomerPhone = '';
@@ -37,9 +36,16 @@ class CreateOrder extends Component
     public string $quickProductCategoryId = '';
     public string $quickProductPrice = '';
     public bool $quickProductActive = true;
+    public string $quickProdReturnableTypeId = '';
+    public int $quickProdReturnableQty = 1;
 
     // Inner Quick Category State (inside Quick Product modal)
     public string $quickProductCatName = '';
+
+    // Inner Quick Returnable Type State
+    public string $quickReturnableName = '';
+    public int $quickReturnableSortOrder = 0;
+    public bool $quickReturnableActive = true;
 
     // Idempotency token
     public string $submissionToken = '';
@@ -102,7 +108,6 @@ class CreateOrder extends Component
             $this->selectedCustomerPhone = $customer->phone ?? '';
             $this->selectedCustomerAddress = $customer->address ?? '';
             $this->searchQuery = '';
-            $this->errorMessage = null;
 
             $this->dispatch('focus-search-product');
         }
@@ -118,7 +123,6 @@ class CreateOrder extends Component
         $this->selectedCustomerPhone = '';
         $this->selectedCustomerAddress = '';
         $this->searchQuery = '';
-        $this->errorMessage = null;
 
         $this->dispatch('focus-search-product');
     }
@@ -192,6 +196,29 @@ class CreateOrder extends Component
     }
 
     /**
+     * Create Quick Returnable Type from within Quick Product modal.
+     */
+    public function createQuickReturnableType()
+    {
+        $this->validate([
+            'quickReturnableName' => ['required', 'string', 'max:255', 'unique:returnable_types,name'],
+            'quickReturnableSortOrder' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $returnableType = ReturnableType::create([
+            'name' => trim($this->quickReturnableName),
+            'sort_order' => $this->quickReturnableSortOrder ?: 0,
+            'active' => $this->quickReturnableActive,
+        ]);
+
+        $this->quickProdReturnableTypeId = (string) $returnableType->id;
+        $this->quickReturnableName = '';
+
+        $this->dispatch('close-modal', 'quick-returnable-type-modal');
+        $this->dispatch('notify-toast', type: 'success', title: 'Envase Creado', message: "Tipo de envase '{$returnableType->name}' seleccionado.");
+    }
+
+    /**
      * Create Quick Product and automatically add it to the cart.
      */
     public function createQuickProduct()
@@ -200,6 +227,8 @@ class CreateOrder extends Component
             'quickProductName' => ['required', 'string', 'max:255'],
             'quickProductCategoryId' => ['required', 'exists:categories,id'],
             'quickProductPrice' => ['required', 'numeric', 'min:0'],
+            'quickProdReturnableTypeId' => ['nullable', 'exists:returnable_types,id'],
+            'quickProdReturnableQty' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $product = Product::create([
@@ -209,11 +238,21 @@ class CreateOrder extends Component
             'active' => $this->quickProductActive,
         ]);
 
+        if (!empty($this->quickProdReturnableTypeId) && $this->quickProdReturnableQty > 0) {
+            ProductReturnableRequirement::create([
+                'product_id' => $product->id,
+                'returnable_type_id' => (int) $this->quickProdReturnableTypeId,
+                'quantity' => (int) $this->quickProdReturnableQty,
+            ]);
+        }
+
         $this->selectedCategoryId = (int) $this->quickProductCategoryId;
         $this->addToCart($product->id);
 
         $this->quickProductName = '';
         $this->quickProductPrice = '';
+        $this->quickProdReturnableTypeId = '';
+        $this->quickProdReturnableQty = 1;
 
         $this->dispatch('close-modal', 'quick-product-modal');
         $this->dispatch('notify-toast', type: 'success', title: 'Producto Creado', message: "Producto '{$product->name}' agregado al pedido.");
@@ -235,12 +274,12 @@ class CreateOrder extends Component
     {
         $product = Product::where('id', $productId)->where('active', true)->first();
         if (!$product) {
-            $this->errorMessage = 'El producto no está disponible.';
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'El producto no está disponible.');
             return;
         }
 
         if (!$product->category->active) {
-            $this->errorMessage = 'La categoría de este producto está inactiva.';
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'La categoría de este producto está inactiva.');
             return;
         }
 
@@ -254,8 +293,6 @@ class CreateOrder extends Component
                 'quantity' => 1,
             ];
         }
-
-        $this->errorMessage = null;
     }
 
     public function incrementQty(int $productId): void
@@ -299,12 +336,12 @@ class CreateOrder extends Component
     public function submitOrder(OrderService $orderService): void
     {
         if (empty($this->selectedCustomerName)) {
-            $this->errorMessage = 'Debe seleccionar un cliente o venta mostrador.';
+            $this->dispatch('notify-toast', type: 'warning', title: 'Cliente Requerido', message: 'Debe seleccionar un cliente o venta mostrador.');
             return;
         }
 
         if (empty($this->cart)) {
-            $this->errorMessage = 'El carrito de compras está vacío.';
+            $this->dispatch('notify-toast', type: 'warning', title: 'Carrito Vacío', message: 'El carrito de compras está vacío.');
             return;
         }
 
@@ -324,7 +361,7 @@ class CreateOrder extends Component
                 'items' => $items,
             ], auth()->user());
 
-            $this->successMessage = "Pedido {$order->number} enviado a cocina.";
+            $this->dispatch('notify-toast', type: 'success', title: 'Pedido Enviado', message: "Pedido #{$order->number} enviado a cocina correctamente.");
 
             // Reset state completely
             $this->selectedCustomerId = null;
@@ -335,15 +372,14 @@ class CreateOrder extends Component
             $this->productSearch = '';
             $this->cart = [];
             $this->notes = '';
-            $this->errorMessage = null;
 
             $this->generateSubmissionToken();
             $this->dispatch('focus-search-customer');
 
         } catch (\InvalidArgumentException $e) {
-            $this->errorMessage = $e->getMessage();
+            $this->dispatch('notify-toast', type: 'error', title: 'Error al enviar', message: $e->getMessage());
         } catch (\Exception $e) {
-            $this->errorMessage = 'Error al crear el pedido. Verifique los datos ingresados.';
+            $this->dispatch('notify-toast', type: 'error', title: 'Error del sistema', message: 'Error al crear el pedido. Verifique los datos ingresados.');
         }
     }
 
@@ -362,6 +398,7 @@ class CreateOrder extends Component
 
         return view('livewire.create-order', [
             'activeCategories' => Category::where('active', true)->orderBy('sort_order')->orderBy('name')->get(),
+            'returnableTypes' => ReturnableType::where('active', true)->orderBy('sort_order')->orderBy('name')->get(),
             'categoryProducts' => $products,
         ])->title('Nuevo Pedido');
     }

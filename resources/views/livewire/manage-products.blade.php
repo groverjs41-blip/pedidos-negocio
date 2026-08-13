@@ -1,10 +1,4 @@
 <div style="max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem;">
-    @if($successMessage)
-        <div class="alert alert-success">
-            <span>{{ $successMessage }}</span>
-            <button wire:click="$set('successMessage', null)" class="close-alert">&times;</button>
-        </div>
-    @endif
 
     <div class="page-header" style="margin-bottom: 0;">
         <div>

@@ -1,23 +1,9 @@
 <div class="pos-layout" x-data="{ mobileCartOpen: false }">
-    {{-- Offline status warning --}}
+    {{-- Offline status warning (kept persistent as per rule 2) --}}
     <div wire:offline class="alert alert-danger">
         <x-ui.icon name="alert" class="w-4 h-4" />
         <span><strong>SIN CONEXIÓN:</strong> Este pedido NO se ha enviado a cocina.</span>
     </div>
-
-    @if($successMessage)
-        <div class="alert alert-success">
-            <span>{{ $successMessage }}</span>
-            <button wire:click="$set('successMessage', null)" class="close-alert">&times;</button>
-        </div>
-    @endif
-
-    @if($errorMessage)
-        <div class="alert alert-danger">
-            <span>{{ $errorMessage }}</span>
-            <button wire:click="$set('errorMessage', null)" class="close-alert">&times;</button>
-        </div>
-    @endif
 
     <div class="pos-container">
         {{-- LEFT PANEL (70% on Desktop - Catalog) --}}
@@ -359,11 +345,13 @@
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
-                <button type="button" x-on:click="$dispatch('close-modal', 'quick-customer-modal')" class="chip-btn" style="padding: 0.5rem 1rem;">
+                <button type="button" wire:loading.attr="disabled" x-on:click="$dispatch('close-modal', 'quick-customer-modal')" class="chip-btn" style="padding: 0.5rem 1rem;">
                     Cancelar
                 </button>
-                <button type="submit" class="btn-primary" style="height: 38px; padding: 0 1.25rem;">
-                    Guardar y Seleccionar
+                <button type="submit" wire:loading.attr="disabled" wire:target="createQuickCustomer" class="btn-primary" style="height: 38px; padding: 0 1.25rem;">
+                    <span wire:loading wire:target="createQuickCustomer" class="spinner"></span>
+                    <span wire:loading.remove wire:target="createQuickCustomer">Guardar y Seleccionar</span>
+                    <span wire:loading wire:target="createQuickCustomer">CREANDO...</span>
                 </button>
             </div>
         </form>
@@ -399,12 +387,42 @@
                 @error('quickProductPrice') <span style="color: var(--danger-text); font-size: 0.775rem;">{{ $message }}</span> @enderror
             </div>
 
+            {{-- SECCIÓN OPTATIVA: ENVASE RETORNABLE (Requerimientos 9, 10, 11) --}}
+            <div style="border-top: 1px dashed var(--border); padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                    ENVASE RETORNABLE (OPCIONAL)
+                </span>
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0.75rem; align-items: flex-end;">
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label class="form-label" style="font-size: 0.775rem;">Tipo de envase</label>
+                            <button type="button" x-on:click="$dispatch('open-modal', 'quick-returnable-type-modal')" class="chip-btn" style="padding: 2px 8px; font-size: 0.75rem;">
+                                + Nuevo
+                            </button>
+                        </div>
+                        <select wire:model="quickProdReturnableTypeId" class="form-input" style="font-size: 0.85rem;">
+                            <option value="">Sin envase obligatorio</option>
+                            @foreach($returnableTypes as $rt)
+                                <option value="{{ $rt->id }}">{{ $rt->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <label class="form-label" style="font-size: 0.775rem;">Cant. por unidad</label>
+                        <input type="number" min="1" wire:model="quickProdReturnableQty" class="form-input" style="font-size: 0.85rem;">
+                    </div>
+                </div>
+            </div>
+
             <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
-                <button type="button" x-on:click="$dispatch('close-modal', 'quick-product-modal')" class="chip-btn" style="padding: 0.5rem 1rem;">
+                <button type="button" wire:loading.attr="disabled" x-on:click="$dispatch('close-modal', 'quick-product-modal')" class="chip-btn" style="padding: 0.5rem 1rem;">
                     Cancelar
                 </button>
-                <button type="submit" class="btn-primary" style="height: 38px; padding: 0 1.25rem;">
-                    Guardar y Agregar
+                <button type="submit" wire:loading.attr="disabled" wire:target="createQuickProduct" class="btn-primary" style="height: 38px; padding: 0 1.25rem;">
+                    <span wire:loading wire:target="createQuickProduct" class="spinner"></span>
+                    <span wire:loading.remove wire:target="createQuickProduct">Guardar y Agregar</span>
+                    <span wire:loading wire:target="createQuickProduct">CREANDO...</span>
                 </button>
             </div>
         </form>
@@ -420,11 +438,40 @@
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
-                <button type="button" x-on:click="$dispatch('close-modal', 'quick-prod-cat-modal')" class="chip-btn" style="padding: 0.5rem 1rem;">
+                <button type="button" wire:loading.attr="disabled" x-on:click="$dispatch('close-modal', 'quick-prod-cat-modal')" class="chip-btn" style="padding: 0.5rem 1rem;">
                     Cancelar
                 </button>
-                <button type="submit" class="btn-primary" style="height: 38px; padding: 0 1.25rem;">
-                    Guardar
+                <button type="submit" wire:loading.attr="disabled" wire:target="createQuickProductCat" class="btn-primary" style="height: 38px; padding: 0 1.25rem;">
+                    <span wire:loading wire:target="createQuickProductCat" class="spinner"></span>
+                    <span wire:loading.remove wire:target="createQuickProductCat">Guardar</span>
+                    <span wire:loading wire:target="createQuickProductCat">CREANDO...</span>
+                </button>
+            </div>
+        </form>
+    </x-ui.modal>
+
+    {{-- MODAL NUEVO TIPO DE ENVASE (DENTRO DE PRODUCTO RÁPIDO - Requerimiento 10) --}}
+    <x-ui.modal name="quick-returnable-type-modal" title="Nuevo Tipo de Envase" maxWidth="sm">
+        <form wire:submit.prevent="createQuickReturnableType" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <label class="form-label">Nombre del Envase *</label>
+                <input type="text" wire:model="quickReturnableName" class="form-input" placeholder="Ej. Taza, Botella de Vidrio" required>
+                @error('quickReturnableName') <span style="color: var(--danger-text); font-size: 0.775rem;">{{ $message }}</span> @enderror
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <label class="form-label">Orden</label>
+                <input type="number" min="0" wire:model="quickReturnableSortOrder" class="form-input" placeholder="0">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
+                <button type="button" wire:loading.attr="disabled" x-on:click="$dispatch('close-modal', 'quick-returnable-type-modal')" class="chip-btn" style="padding: 0.5rem 1rem;">
+                    Cancelar
+                </button>
+                <button type="submit" wire:loading.attr="disabled" wire:target="createQuickReturnableType" class="btn-primary" style="height: 38px; padding: 0 1.25rem;">
+                    <span wire:loading wire:target="createQuickReturnableType" class="spinner"></span>
+                    <span wire:loading.remove wire:target="createQuickReturnableType">Guardar Envase</span>
+                    <span wire:loading wire:target="createQuickReturnableType">CREANDO...</span>
                 </button>
             </div>
         </form>

@@ -15,8 +15,6 @@ class ManageProducts extends Component
     public string $categoryId = '';
     public string $activeFilter = '';
 
-    public ?string $successMessage = null;
-
     public function mount()
     {
         if (!auth()->user()->hasRole('admin')) {
@@ -43,7 +41,7 @@ class ManageProducts extends Component
     {
         $product = Product::findOrFail($productId);
         $product->update(['active' => !$product->active]);
-        $this->successMessage = "Estado del producto '{$product->name}' actualizado correctamente.";
+        $this->dispatch('notify-toast', type: 'success', title: 'Producto Actualizado', message: "Estado del producto '{$product->name}' actualizado correctamente.");
     }
 
     public function render()

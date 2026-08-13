@@ -14,9 +14,6 @@ class ManageCategories extends Component
     public ?Category $editingCategory = null;
     public bool $showModal = false;
 
-    public ?string $successMessage = null;
-    public ?string $errorMessage = null;
-
     public function mount()
     {
         if (!auth()->user()->hasRole('admin')) {
@@ -30,7 +27,6 @@ class ManageCategories extends Component
         $this->name = '';
         $this->sortOrder = Category::max('sort_order') + 1;
         $this->active = true;
-        $this->errorMessage = null;
         $this->showModal = true;
     }
 
@@ -41,7 +37,6 @@ class ManageCategories extends Component
         $this->name = $cat->name;
         $this->sortOrder = (int)$cat->sort_order;
         $this->active = (bool)$cat->active;
-        $this->errorMessage = null;
         $this->showModal = true;
     }
 
@@ -65,19 +60,19 @@ class ManageCategories extends Component
                     'sort_order' => $this->sortOrder,
                     'active' => $this->active,
                 ]);
-                $this->successMessage = "Categoría '{$this->name}' actualizada correctamente.";
+                $this->dispatch('notify-toast', type: 'success', title: 'Categoría Actualizada', message: "Categoría '{$this->name}' actualizada correctamente.");
             } else {
                 Category::create([
                     'name' => trim($this->name),
                     'sort_order' => $this->sortOrder,
                     'active' => $this->active,
                 ]);
-                $this->successMessage = "Categoría '{$this->name}' creada correctamente.";
+                $this->dispatch('notify-toast', type: 'success', title: 'Categoría Creada', message: "Categoría '{$this->name}' creada correctamente.");
             }
 
             $this->closeModal();
         } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage();
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'No se pudo guardar la categoría.');
         }
     }
 
@@ -85,7 +80,7 @@ class ManageCategories extends Component
     {
         $cat = Category::findOrFail($categoryId);
         $cat->update(['active' => !$cat->active]);
-        $this->successMessage = "Estado de categoría '{$cat->name}' actualizado correctamente.";
+        $this->dispatch('notify-toast', type: 'success', title: 'Categoría Actualizada', message: "Estado de categoría '{$cat->name}' actualizado correctamente.");
     }
 
     public function render()

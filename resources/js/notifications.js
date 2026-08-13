@@ -1,6 +1,6 @@
 /**
  * Operational Notification & Sound Engine for Pedidos Negocio
- * Synthesizes audio using Web Audio API (No external CDN dependencies)
+ * Synthesizes warm audio using Web Audio API (No external CDN dependencies)
  */
 
 class SoundEngine {
@@ -67,32 +67,51 @@ class SoundEngine {
         sessionStorage.setItem('processed_notif_events', JSON.stringify(arr));
     }
 
-    // Synthesize Kitchen Chime (Short double tone 880Hz -> 1046.5Hz)
+    // Warm Restaurant Service Bell (Fast attack, 3 warm harmonics 880Hz, 1320Hz, 1760Hz, 0.8s decay)
     playKitchenChime(volume = 0.8) {
         if (this.muted) return;
         const ctx = this.getAudioContext();
         if (!ctx || ctx.state !== 'running') return;
 
         const now = ctx.currentTime;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
+        const masterGain = ctx.createGain();
+        masterGain.gain.setValueAtTime(0, now);
+        masterGain.gain.linearRampToValueAtTime(volume, now + 0.02);
+        masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+        masterGain.connect(ctx.destination);
 
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, now); // A5
-        osc.frequency.setValueAtTime(1046.5, now + 0.15); // C6
+        // Fundamental A5 (880Hz)
+        const osc1 = ctx.createOscillator();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(880, now);
+        osc1.connect(masterGain);
+        osc1.start(now);
+        osc1.stop(now + 0.82);
 
-        gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(volume, now + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+        // 2nd Harmonic E6 (1320Hz)
+        const osc2 = ctx.createOscillator();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1320, now);
+        const g2 = ctx.createGain();
+        g2.gain.value = 0.4;
+        osc2.connect(g2);
+        g2.connect(masterGain);
+        osc2.start(now);
+        osc2.stop(now + 0.75);
 
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start(now);
-        osc.stop(now + 0.85);
+        // 3rd Harmonic A6 (1760Hz)
+        const osc3 = ctx.createOscillator();
+        osc3.type = 'triangle';
+        osc3.frequency.setValueAtTime(1760, now);
+        const g3 = ctx.createGain();
+        g3.gain.value = 0.2;
+        osc3.connect(g3);
+        g3.connect(masterGain);
+        osc3.start(now);
+        osc3.stop(now + 0.6);
     }
 
-    // Synthesize Delivery Chime (Double Ding: 523.25Hz -> 659.25Hz)
+    // Soft Ascending Delivery Chime (Two warm notes: C5 523.25Hz -> E5 659.25Hz)
     playDeliveryChime(volume = 0.8) {
         if (this.muted) return;
         const ctx = this.getAudioContext();
@@ -100,43 +119,42 @@ class SoundEngine {
 
         const now = ctx.currentTime;
 
-        // First Ding
+        // First Note (C5)
         const osc1 = ctx.createOscillator();
         const gain1 = ctx.createGain();
-        osc1.type = 'triangle';
-        osc1.frequency.setValueAtTime(523.25, now); // C5
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(523.25, now);
         gain1.gain.setValueAtTime(0, now);
-        gain1.gain.linearRampToValueAtTime(volume, now + 0.03);
-        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        gain1.gain.linearRampToValueAtTime(volume * 0.9, now + 0.03);
+        gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
         osc1.connect(gain1);
         gain1.connect(ctx.destination);
         osc1.start(now);
-        osc1.stop(now + 0.45);
+        osc1.stop(now + 0.48);
 
-        // Second Ding (after 0.25s)
+        // Second Note (E5) after 0.2s
         const osc2 = ctx.createOscillator();
         const gain2 = ctx.createGain();
-        osc2.type = 'triangle';
-        osc2.frequency.setValueAtTime(659.25, now + 0.25); // E5
-        gain2.gain.setValueAtTime(0, now + 0.25);
-        gain2.gain.linearRampToValueAtTime(volume, now + 0.28);
-        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(659.25, now + 0.2);
+        gain2.gain.setValueAtTime(0, now + 0.2);
+        gain2.gain.linearRampToValueAtTime(volume, now + 0.23);
+        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
         osc2.connect(gain2);
         gain2.connect(ctx.destination);
-        osc2.start(now + 0.25);
-        osc2.stop(now + 0.85);
+        osc2.start(now + 0.2);
+        osc2.stop(now + 0.9);
     }
 
     requestBrowserNotificationPermission() {
         if (!('Notification' in window)) {
-            alert('Su navegador no soporta notificaciones de escritorio.');
             return;
         }
 
         Notification.requestPermission().then(permission => {
             if (permission === 'granted') {
                 new Notification('Pedidos Negocio', {
-                    body: '¡Notificaciones del navegador activadas con éxito!',
+                    body: '¡Notificaciones del navegador activadas!',
                     icon: '/favicon.ico'
                 });
             }
@@ -161,7 +179,8 @@ class SoundEngine {
 
 window.soundEngine = new SoundEngine();
 
-// Toast configuration mapping
+// Toast configuration mapping according to exact requirement 1 durations:
+// success: 3500ms, info: 4500ms, warning: 6000ms, error: 8000ms, kitchen: 6000ms, delivery: 8000ms
 const TOAST_CONFIG = {
     success: { duration: 3500, icon: '✓', title: 'Éxito' },
     info: { duration: 4500, icon: 'ℹ', title: 'Información' },
@@ -281,8 +300,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.Echo) {
         window.Echo.private('orders.operations')
             .listen('OrderChanged', (event) => {
-                console.log('OrderChanged broadcast received:', event);
-
                 const { orderId, orderNumber, status, action, soundType, customerName, itemsSummary } = event;
 
                 if (window.soundEngine.isEventProcessed(orderId, action)) {

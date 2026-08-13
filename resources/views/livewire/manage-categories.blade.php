@@ -1,10 +1,4 @@
 <div style="max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem;">
-    @if($successMessage)
-        <div class="alert alert-success">
-            <span>{{ $successMessage }}</span>
-            <button wire:click="$set('successMessage', null)" class="close-alert">&times;</button>
-        </div>
-    @endif
 
     <div class="page-header" style="margin-bottom: 0;">
         <div>
@@ -92,12 +86,6 @@
                     <button type="button" wire:click="closeModal" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
                 </div>
 
-                @if($errorMessage)
-                    <div class="alert alert-danger">
-                        <span>{{ $errorMessage }}</span>
-                    </div>
-                @endif
-
                 <form wire:submit.prevent="save" style="display: flex; flex-direction: column; gap: 1.15rem; margin-top: 0.5rem;">
                     <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                         <label class="form-label">Nombre de Categoría *</label>
@@ -116,8 +104,10 @@
                         <label for="catActive" style="font-weight: 700; color: var(--text-main); font-size: 0.875rem;">Categoría Activa</label>
                     </div>
 
-                    <button type="submit" class="btn-primary" style="height: 44px; width: 100%; margin-top: 0.5rem;">
-                        {{ $editingCategory ? 'GUARDAR CAMBIOS' : 'CREAR CATEGORÍA' }}
+                    <button type="submit" wire:loading.attr="disabled" wire:target="save" class="btn-primary" style="height: 44px; width: 100%; margin-top: 0.5rem;">
+                        <span wire:loading wire:target="save" class="spinner"></span>
+                        <span wire:loading.remove wire:target="save">{{ $editingCategory ? 'GUARDAR CAMBIOS' : 'CREAR CATEGORÍA' }}</span>
+                        <span wire:loading wire:target="save">GUARDANDO...</span>
                     </button>
                 </form>
             </div>

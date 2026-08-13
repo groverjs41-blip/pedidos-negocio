@@ -1572,3 +1572,181 @@ body {
     cursor: pointer;
 }
 
+/* ========================================================
+   COLLAPSIBLE SIDEBAR & UNIFIED TOPBAR STYLES (Reqs 12 - 15)
+   ======================================================== */
+
+.topbar-unified {
+    height: 58px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.25rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.btn-toggle-sidebar {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 0.45rem;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 180ms var(--ease-out);
+}
+.btn-toggle-sidebar:hover {
+    background: var(--bg-card-hover);
+    color: var(--primary);
+    border-color: var(--border-hover);
+}
+
+.topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+}
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.sidebar {
+    transition: width 200ms var(--ease-out);
+}
+
+.sidebar.collapsed {
+    width: 72px;
+}
+
+.sidebar.collapsed .sidebar-brand {
+    justify-content: center;
+    padding: 1.25rem 0.5rem;
+}
+
+.sidebar.collapsed .sidebar-nav {
+    padding: 0.5rem 0.35rem;
+    align-items: center;
+}
+
+.sidebar.collapsed .nav-item {
+    justify-content: center;
+    padding: 0.75rem;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+}
+
+.sidebar.collapsed .user-profile {
+    justify-content: center;
+}
+
+.sidebar.collapsed .sidebar-footer {
+    padding: 0.75rem 0.35rem;
+    align-items: center;
+}
+
+.main-wrapper {
+    transition: margin-left 200ms var(--ease-out);
+}
+
+.main-wrapper.collapsed {
+    margin-left: 72px;
+}
+
+@media (max-width: 768px) {
+    .topbar-unified .btn-toggle-sidebar {
+        display: none;
+    }
+    .main-wrapper, .main-wrapper.collapsed {
+        margin-left: 0 !important;
+    }
+}
+
+/* ========================================================
+   KITCHEN & REPARTO MICRO-ANIMATIONS (Reqs 31 - 36)
+   ======================================================== */
+
+.kds-card {
+    animation: kdsCardEntrance 250ms var(--ease-out);
+}
+
+@keyframes kdsCardEntrance {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.kds-card.status-new {
+    border-left: 4px solid var(--info);
+    animation: kdsNewHighlight 1s ease-out, kdsCardEntrance 250ms var(--ease-out);
+}
+
+@keyframes kdsNewHighlight {
+    0% { background-color: rgba(77, 159, 255, 0.2); }
+    100% { background-color: var(--bg-card); }
+}
+
+.kds-card.status-preparing {
+    border-left: 4px solid var(--warning);
+    position: relative;
+}
+
+.kds-card.status-preparing::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--warning), transparent);
+    animation: shimmerPulse 2s infinite linear;
+}
+
+@keyframes shimmerPulse {
+    0% { background-position: -200px 0; }
+    100% { background-position: 200px 0; }
+}
+
+.timer-warning {
+    color: var(--warning-text) !important;
+    font-weight: 800;
+}
+
+.timer-delayed {
+    color: var(--danger-text) !important;
+    font-weight: 800;
+    animation: delayedBlink 1.5s infinite alternate;
+}
+
+@keyframes delayedBlink {
+    from { opacity: 0.8; }
+    to { opacity: 1; }
+}
+
+.card-marking-ready {
+    animation: markReadyAnim 350ms var(--ease-out) forwards !important;
+}
+
+@keyframes markReadyAnim {
+    0% { transform: scale(1); background-color: var(--bg-card); }
+    50% { transform: scale(1.02); background-color: rgba(34, 197, 94, 0.2); border-color: var(--success); }
+    100% { transform: translateX(100px); opacity: 0; }
+}
+
+

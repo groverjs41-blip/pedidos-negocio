@@ -12,9 +12,6 @@ use Livewire\Component;
 
 class Delivery extends Component
 {
-    public ?string $successMessage = null;
-    public ?string $errorMessage = null;
-
     // Post-delivery Returnables Prompt State
     public bool $showReturnablePrompt = false;
     public ?Order $promptOrder = null;
@@ -49,16 +46,15 @@ class Delivery extends Component
     {
         $order = Order::find($orderId);
         if (!$order) {
-            $this->errorMessage = 'El pedido no existe.';
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'El pedido no existe.');
             return;
         }
 
         try {
             $orderService->claimForDelivery($order, auth()->user());
-            $this->successMessage = "Pedido {$order->number} asignado a tus entregas.";
-            $this->errorMessage = null;
+            $this->dispatch('notify-toast', type: 'info', title: 'Pedido Tomado', message: "Pedido #{$order->number} asignado a tus entregas.");
         } catch (\Exception $e) {
-            $this->errorMessage = $e->getMessage();
+            $this->dispatch('notify-toast', type: 'error', title: 'Error de asignación', message: 'El pedido ya fue tomado o no se pudo asignar.');
         }
     }
 
@@ -66,14 +62,13 @@ class Delivery extends Component
     {
         $order = Order::find($orderId);
         if (!$order) {
-            $this->errorMessage = 'El pedido no existe.';
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'El pedido no existe.');
             return;
         }
 
         try {
             $orderService->markDelivered($order, auth()->user());
-            $this->successMessage = "Pedido {$order->number} marcado como entregado.";
-            $this->errorMessage = null;
+            $this->dispatch('notify-toast', type: 'success', title: 'Entregado', message: "Pedido #{$order->number} marcado como entregado.");
 
             // Prompt if order has a customer
             if ($order->customer_id) {
@@ -87,7 +82,7 @@ class Delivery extends Component
                 $this->showReturnablePrompt = true;
             }
         } catch (\Exception $e) {
-            $this->errorMessage = $e->getMessage();
+            $this->dispatch('notify-toast', type: 'error', title: 'Error operativo', message: 'No se pudo marcar la entrega del pedido.');
         }
     }
 
@@ -131,10 +126,10 @@ class Delivery extends Component
                 'Envases dejados en entrega del pedido ' . $this->promptOrder->number
             );
 
-            $this->successMessage = 'Envases dejados registrados correctamente para el cliente.';
+            $this->dispatch('notify-toast', type: 'success', title: 'Envases Registrados', message: 'Envases dejados registrados correctamente para el cliente.');
             $this->closePrompt();
         } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage();
+            $this->dispatch('notify-toast', type: 'error', title: 'Error de envases', message: 'No se pudo registrar la entrega de envases.');
         }
     }
 

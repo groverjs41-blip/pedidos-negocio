@@ -1,18 +1,4 @@
-<div wire:poll.15s class="delivery-layout" style="max-width: 700px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.75rem; width: 100%;">
-
-    @if($successMessage)
-        <div class="alert alert-success">
-            <span>{{ $successMessage }}</span>
-            <button wire:click="$set('successMessage', null)" class="close-alert">&times;</button>
-        </div>
-    @endif
-
-    @if($errorMessage)
-        <div class="alert alert-danger">
-            <span>{{ $errorMessage }}</span>
-            <button wire:click="$set('errorMessage', null)" class="close-alert">&times;</button>
-        </div>
-    @endif
+<div wire:poll.15s class="delivery-layout" style="max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.75rem; width: 100%;">
 
     <div class="page-header" style="margin-bottom: 0;">
         <div>
@@ -39,7 +25,7 @@
             @forelse($myDeliveries as $order)
                 <div class="card stagger-item" style="padding: 1.25rem; border-left: 4px solid var(--violet); display: flex; flex-direction: column; gap: 0.85rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
-                        <span style="font-size: 1.15rem; font-weight: 800; color: var(--text-main);">{{ $order->number }}</span>
+                        <span style="font-size: 1.15rem; font-weight: 800; color: var(--text-main);">#{{ $order->number }}</span>
                         <span style="font-size: 0.775rem; color: var(--text-muted);">Tomado: {{ $order->delivering_at->format('H:i') }}</span>
                     </div>
 
@@ -69,7 +55,7 @@
                         @endif
 
                         <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.2rem;">
-                            <x-ui.icon name="dollar" class="w-4 h-4 text-muted" />
+                            <x-ui.icon name="wallet" class="w-4 h-4 text-muted" />
                             <span style="color: var(--primary); font-weight: 800; font-size: 1.05rem;">
                                 A COBRAR: @money($order->total)
                             </span>
@@ -96,7 +82,7 @@
                             style="width: 100%; height: 50px; background: var(--success); color: #07110D; font-size: 0.95rem; font-weight: 800;">
                         <span wire:loading wire:target="markOrderDelivered({{ $order->id }})" class="spinner"></span>
                         <span wire:loading.remove wire:target="markOrderDelivered({{ $order->id }})">✓ MARCAR COMO ENTREGADO</span>
-                        <span wire:loading wire:target="markOrderDelivered({{ $order->id }})">Procesando...</span>
+                        <span wire:loading wire:target="markOrderDelivered({{ $order->id }})">CONFIRMANDO...</span>
                     </button>
                 </div>
             @empty
@@ -122,7 +108,7 @@
             @forelse($readyOrders as $order)
                 <div class="card stagger-item" style="padding: 1.15rem; display: flex; flex-direction: column; gap: 0.75rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
-                        <span style="font-size: 1.05rem; font-weight: 800; color: var(--text-main);">{{ $order->number }}</span>
+                        <span style="font-size: 1.05rem; font-weight: 800; color: var(--text-main);">#{{ $order->number }}</span>
                         <span style="font-size: 0.775rem; color: var(--text-muted);">Listo: {{ $order->ready_at->format('H:i') }}</span>
                     </div>
 
@@ -153,7 +139,7 @@
                             style="width: 100%; height: 48px; background: var(--info); color: #0E141B; font-size: 0.9rem; font-weight: 800;">
                         <span wire:loading wire:target="claimOrder({{ $order->id }})" class="spinner"></span>
                         <span wire:loading.remove wire:target="claimOrder({{ $order->id }})">TOMAR PEDIDO (REPARTIR)</span>
-                        <span wire:loading wire:target="claimOrder({{ $order->id }})">Procesando...</span>
+                        <span wire:loading wire:target="claimOrder({{ $order->id }})">TOMANDO...</span>
                     </button>
                 </div>
             @empty
@@ -176,7 +162,7 @@
                 </div>
 
                 <div style="font-size: 0.85rem; color: var(--text-muted);">
-                    Cliente: <strong>{{ $promptOrder->customer_name_snapshot }}</strong> (Pedido {{ $promptOrder->number }})
+                    Cliente: <strong>{{ $promptOrder->customer_name_snapshot }}</strong> (Pedido #{{ $promptOrder->number }})
                 </div>
 
                 <form wire:submit.prevent="registerLeftContainers" style="display: flex; flex-direction: column; gap: 1rem;">

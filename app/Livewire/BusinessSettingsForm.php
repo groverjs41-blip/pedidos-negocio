@@ -21,8 +21,6 @@ class BusinessSettingsForm extends Component
     public bool $kitchen_sound_enabled = true;
     public bool $delivery_sound_enabled = true;
 
-    public bool $saved = false;
-
     public function mount(BusinessSettingsService $settingsService): void
     {
         $settings = $settingsService->getSettings();
@@ -67,8 +65,7 @@ class BusinessSettingsForm extends Component
 
         $settingsService->updateSettings($validated);
 
-        $this->saved = true;
-        session()->flash('message', 'Configuración guardada correctamente.');
+        $this->dispatch('notify-toast', type: 'success', title: 'Configuración Guardada', message: 'Configuración del negocio guardada correctamente.');
     }
 
     public function render()
