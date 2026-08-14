@@ -71,14 +71,17 @@
 <body class="no-transitions" x-data="{ collapsed: localStorage.getItem('sidebar_collapsed') === 'true', currentTheme: localStorage.getItem('theme') || 'dark', showOperacionModal: false }" x-init="$watch('collapsed', value => localStorage.setItem('sidebar_collapsed', value))">
     {{-- GLOBAL TOP LOADING PROGRESS BAR FOR MOBILE, TABLET & DESKTOP --}}
     <div id="globalLoadingBar" class="global-loading-bar"></div>
-    @auth
-        @if(session('show_login_splash'))
+    @if(auth()->check())
+        @php
+            $showLoginSplash = session()->pull('show_login_splash', false);
+        @endphp
+
+        @if($showLoginSplash)
             @php
-                session()->forget('show_login_splash');
                 $splashSettings = app(\App\Services\BusinessSettingsService::class)->getSettings();
                 $splashBusinessName = $splashSettings->business_name ?? 'Pedidos Negocio';
             @endphp
-            <div id="appLoginSplash" class="app-login-splash" x-data="{ show: true }" x-init="setTimeout(() => show = false, 1400)" x-show="show" x-transition:leave="transition ease-in duration-300" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+            <div id="appLoginSplash" class="app-login-splash" aria-hidden="true">
                 <div class="splash-content">
                     <div class="splash-logo-wrap">
                         <div class="splash-icon-glow"></div>
@@ -86,10 +89,29 @@
                             <x-ui.icon name="bag" class="w-10 h-10" />
                         </div>
                     </div>
+
                     <h1 class="splash-title">{{ $splashBusinessName }}</h1>
                     <p class="splash-subtitle">Preparando tu jornada</p>
+
+                    <div class="splash-loading-line">
+                        <span></span>
+                    </div>
                 </div>
             </div>
+            <script>
+                (function () {
+                    const splash = document.getElementById('appLoginSplash');
+                    if (!splash) return;
+
+                    window.setTimeout(function () {
+                        splash.classList.add('splash-exit');
+                    }, 1250);
+
+                    window.setTimeout(function () {
+                        splash.remove();
+                    }, 1750);
+                })();
+            </script>
         @endif
         <div class="app-layout" :class="{ 'sidebar-collapsed': collapsed }">
             {{-- DESKTOP SIDEBAR (>=1024px) --}}
@@ -200,14 +222,6 @@
                                 <span class="nav-label" x-show="!collapsed">Cierre Diario</span>
                             </a>
                         @endif
-                    @endif
-
-                    @if(auth()->user()->hasRole('admin'))
-                        <span class="nav-section-header" x-show="!collapsed">SISTEMA</span>
-                        <a href="{{ url('/admin') }}" class="nav-item" :title="collapsed ? 'Auditoría Avanzada' : ''" style="color: var(--text-muted);">
-                            <x-ui.icon name="gear" />
-                            <span class="nav-label" x-show="!collapsed">Auditoría Avanzada</span>
-                        </a>
                     @endif
                 </nav>
 
@@ -361,7 +375,7 @@
         <main class="content-area page-fade-in">
             {{ $slot }}
         </main>
-    @endauth
+    @endif
 
     @livewireScripts
     

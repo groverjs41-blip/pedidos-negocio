@@ -94,20 +94,6 @@
             </div>
         </a>
 
-        {{-- Auditoría Avanzada (Filament) --}}
-        <a href="{{ url('/admin') }}" class="card" style="padding: 1.5rem; text-decoration: none; display: flex; flex-direction: column; gap: 0.85rem; border-color: rgba(255,255,255,0.08);">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-                <div class="header-icon-wrap" style="width: 48px; height: 48px; border-radius: 14px; background: rgba(255,255,255,0.05); color: var(--text-muted);">
-                    <x-ui.icon name="gear" class="w-6 h-6" />
-                </div>
-                <span class="badge" style="background: rgba(255, 255, 255, 0.08); color: var(--text-muted);">
-                    BACKOFFICE
-                </span>
-            </div>
-            <div>
-                <h3 style="font-weight: 800; font-size: 1.1rem; color: var(--text-main); margin-bottom: 0.25rem;">Auditoría Avanzada</h3>
-                <p style="font-size: 0.85rem; color: var(--text-muted);">Panel técnico de logs, pagos y auditoría Filament.</p>
-            </div>
         {{-- Configuración --}}
         <a href="{{ url('/gestion/configuracion') }}" class="card" style="padding: 1.5rem; text-decoration: none; display: flex; flex-direction: column; gap: 0.85rem;">
             <div style="display: flex; align-items: center; justify-content: space-between;">

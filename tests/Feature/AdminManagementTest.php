@@ -237,6 +237,6 @@ class AdminManagementTest extends TestCase
         $response->assertSee('/caja');
         $response->assertSee('/tazas');
         $response->assertSee('/cierre');
-        $response->assertSee('/admin');
+        $response->assertDontSee('/admin');
     }
 }

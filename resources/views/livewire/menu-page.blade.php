@@ -163,18 +163,6 @@
                 <span style="color: var(--text-muted);">&rarr;</span>
             </a>
 
-            <a href="{{ url('/admin') }}" class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 0.85rem;">
-                    <div class="header-icon-wrap" style="width: 40px; height: 40px; border-radius: 10px; background: rgba(255,255,255,0.05); color: var(--text-muted);">
-                        <x-ui.icon name="gear" class="w-5 h-5" />
-                    </div>
-                    <div>
-                        <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-main);">Auditoría Avanzada</div>
-                        <div style="font-size: 0.775rem; color: var(--text-muted);">Backoffice Filament</div>
-                    </div>
-                </div>
-                <span style="color: var(--text-muted);">&rarr;</span>
-            </a>
         @endif
     </div>
 </div>
