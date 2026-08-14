@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pedidos-negocio-cache-v3';
+const CACHE_NAME = 'pedidos-negocio-cache-v4';
 const STATIC_ASSETS = [
     '/offline.html',
     '/manifest.json',

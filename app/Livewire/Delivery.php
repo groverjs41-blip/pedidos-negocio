@@ -53,6 +53,7 @@ class Delivery extends Component
 
     /**
      * Polling fallback method to detect new ready orders and dispatch delivery sound events.
+     * Uses named arguments for Livewire 4.
      */
     public function refreshOperationalOrders(): void
     {
@@ -77,17 +78,18 @@ class Delivery extends Component
 
             foreach ($readyOrders as $order) {
                 if (in_array($order->id, $newIds)) {
-                    $this->dispatch('operational-fallback-event', [
-                        'orderId' => $order->id,
-                        'orderNumber' => ltrim($order->number, '#'),
-                        'action' => 'READY',
-                        'soundType' => 'delivery',
-                        'targetUserIds' => [$user->id],
-                        'soundUserIds' => $shouldSound ? [$user->id] : [],
-                        'browserUserIds' => $shouldBrowser ? [$user->id] : [],
-                        'originUserId' => null,
-                        'customerName' => $order->customer_name_snapshot ?? 'Cliente',
-                    ]);
+                    $this->dispatch(
+                        'operational-fallback-event',
+                        orderId: (string) $order->id,
+                        orderNumber: ltrim($order->number, '#'),
+                        action: 'READY',
+                        soundType: 'delivery',
+                        targetUserIds: [(int) $user->id],
+                        soundUserIds: $shouldSound ? [(int) $user->id] : [],
+                        browserUserIds: $shouldBrowser ? [(int) $user->id] : [],
+                        originUserId: null,
+                        customerName: $order->customer_name_snapshot ?? 'Cliente'
+                    );
                 }
             }
         }
@@ -123,7 +125,6 @@ class Delivery extends Component
             $orderService->markDelivered($order, auth()->user());
             $this->dispatch('notify-toast', type: 'success', title: 'Entregado', message: "Pedido #" . ltrim($order->number, '#') . " marcado como entregado.");
 
-            // Prompt if order has a customer
             if ($order->customer_id) {
                 $this->promptOrder = $order;
                 $this->batchToken = (string) Str::uuid();
@@ -132,7 +133,6 @@ class Delivery extends Component
                 foreach ($activeTypes as $t) {
                     $this->outQuantities[$t->id] = 0;
                 }
-                // Prefill with expected returnable plan snapshot
                 $orderPlans = $order->returnablePlans()->pluck('quantity', 'returnable_type_id')->toArray();
                 foreach ($orderPlans as $typeId => $planQty) {
                     if (isset($this->outQuantities[$typeId])) {

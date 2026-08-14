@@ -41,6 +41,7 @@ class Kitchen extends Component
 
     /**
      * Polling fallback method to detect new orders and dispatch operational sound events.
+     * Uses named arguments for Livewire 4.
      */
     public function refreshOperationalOrders(): void
     {
@@ -66,18 +67,19 @@ class Kitchen extends Component
             foreach ($currentOrders as $order) {
                 if (in_array($order->id, $newIds) && $order->status === OrderStatus::NEW) {
                     $itemsSummary = $order->items->map(fn($i) => "{$i->quantity}x {$i->product_name}")->implode(', ');
-                    $this->dispatch('operational-fallback-event', [
-                        'orderId' => $order->id,
-                        'orderNumber' => ltrim($order->number, '#'),
-                        'action' => 'ORDER_CREATED',
-                        'soundType' => 'kitchen',
-                        'targetUserIds' => [$user->id],
-                        'soundUserIds' => $shouldSound ? [$user->id] : [],
-                        'browserUserIds' => $shouldBrowser ? [$user->id] : [],
-                        'originUserId' => null,
-                        'customerName' => $order->customer_name_snapshot ?? 'Venta Mostrador',
-                        'itemsSummary' => $itemsSummary,
-                    ]);
+                    $this->dispatch(
+                        'operational-fallback-event',
+                        orderId: (string) $order->id,
+                        orderNumber: ltrim($order->number, '#'),
+                        action: 'ORDER_CREATED',
+                        soundType: 'kitchen',
+                        targetUserIds: [(int) $user->id],
+                        soundUserIds: $shouldSound ? [(int) $user->id] : [],
+                        browserUserIds: $shouldBrowser ? [(int) $user->id] : [],
+                        originUserId: null,
+                        customerName: $order->customer_name_snapshot ?? 'Venta Mostrador',
+                        itemsSummary: $itemsSummary
+                    );
                 }
             }
         }

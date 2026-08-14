@@ -5,6 +5,35 @@
 
 import { KITCHEN_BELL_WAV, DELIVERY_CHIME_WAV } from './audio_sounds.js';
 
+let livewireNotificationListenersRegistered = false;
+let echoChannel = null;
+
+/**
+ * Payload Normalizer for all events (Reverb, Livewire, CustomEvent)
+ */
+function normalizeOperationalPayload(payload) {
+    if (!payload) return payload;
+
+    if (payload.detail) {
+        payload = payload.detail;
+    }
+
+    if (Array.isArray(payload)) {
+        if (payload.length === 1 && typeof payload[0] === 'object') {
+            return payload[0];
+        }
+        if (payload.length > 1 && payload[0] && typeof payload[0] === 'object' && payload[0].orderId) {
+            return payload[0];
+        }
+    }
+
+    if (typeof payload === 'object' && !payload.orderId && payload[0]) {
+        return payload[0];
+    }
+
+    return payload;
+}
+
 class SoundEngine {
     constructor() {
         this.audioCtx = null;
@@ -294,15 +323,16 @@ class SoundEngine {
     /**
      * UNIFIED OPERATIONAL EVENT HANDLER (Reverb & Polling Fallback)
      * Enforces per-user notification preferences as sole authority:
-     * 1. Normalize IDs as Numbers.
-     * 2. Check if current user ID is in targetUserIds.
-     * 3. Check deduplication key (orderId:action).
-     * 4. Check if current user ID is in soundUserIds.
-     * 5. Check if current user ID is in browserUserIds.
-     * 6. Render floating toast (always if in targets), play sound if in sounds, send browser if in browsers.
+     * 1. Normalize payload.
+     * 2. Normalize IDs as Numbers.
+     * 3. Check if current user ID is in targetUserIds.
+     * 4. Check deduplication key (orderId:action).
+     * 5. Check if current user ID is in soundUserIds & browserUserIds.
+     * 6. Render floating toast, play sound, send browser notification.
      * 7. Mark event as processed for target user.
      */
-    handleOperationalEvent(event, source = 'reverb') {
+    handleOperationalEvent(rawEvent, source = 'reverb') {
+        const event = normalizeOperationalPayload(rawEvent);
         if (!event || !event.orderId || !event.action) return;
 
         const {
@@ -377,7 +407,7 @@ class SoundEngine {
             }
         }
         
-        // READY: Delivery sound & toast (NO screen path restriction, NO origin user restriction)
+        // READY: Delivery sound & toast
         else if (action === 'READY') {
             if (canPlaySound) {
                 this.playDeliveryChime();
@@ -469,10 +499,6 @@ class SoundEngine {
             if (readyToast) readyToast.remove();
         }
 
-        if (window.Livewire) {
-            window.Livewire.dispatch('order-changed-realtime', { orderId, action });
-        }
-
         this.markEventProcessed(orderId, action);
     }
 }
@@ -518,7 +544,7 @@ function createToastSvgIcon(type) {
 
 window.soundEngine = new SoundEngine();
 
-// Section 14: Test operational notification helper
+// Section 11 & 14: Test operational notification helper
 window.testOperationalNotification = function(action = 'READY') {
     const currentUserId = window.PedidosUser ? Number(window.PedidosUser.id) : 1;
     const testEvent = {
@@ -533,9 +559,24 @@ window.testOperationalNotification = function(action = 'READY') {
         browserUserIds: [],
         originUserId: null
     };
-    if (window.soundEngine) {
-        window.soundEngine.handleOperationalEvent(testEvent, 'test');
+    const normalized = normalizeOperationalPayload(testEvent);
+    if (window.soundEngine && normalized) {
+        window.soundEngine.handleOperationalEvent(normalized, 'test');
     }
+};
+
+// Section 12: Diagnostics helper
+window.notificationDiagnostics = function () {
+    return {
+        userId: window.PedidosUser?.id,
+        roles: window.PedidosUser?.roles,
+        soundMuted: window.soundEngine?.muted,
+        audioState: window.soundEngine?.audioCtx?.state ?? 'not-created',
+        echoState: window.Echo?.connector?.pusher?.connection?.state ?? 'unknown',
+        toastContainer: !!document.getElementById('toastNotificationContainer'),
+        livewire: !!window.Livewire,
+        livewireListeners: livewireNotificationListenersRegistered
+    };
 };
 
 const TOAST_CONFIG = {
@@ -673,25 +714,38 @@ document.addEventListener('pointerdown', unlockHandler, { passive: true });
 document.addEventListener('touchstart', unlockHandler, { passive: true });
 document.addEventListener('keydown', unlockHandler, { passive: true });
 
-document.addEventListener('livewire:init', () => {
-    if (window.Livewire) {
-        window.Livewire.on('notify-toast', (data) => {
-            const toastData = Array.isArray(data) ? data[0] : data;
-            window.showOperationalToast(toastData);
-        });
-
-        window.Livewire.on('operational-fallback-event', (data) => {
-            const eventData = Array.isArray(data) ? data[0] : data;
-            if (window.soundEngine) {
-                window.soundEngine.handleOperationalEvent(eventData, 'poll');
-            }
-        });
+// Section 1: Idempotent Livewire Listener Registration
+function registerLivewireNotificationListeners() {
+    if (livewireNotificationListenersRegistered || !window.Livewire) {
+        return;
     }
-});
 
-function initEchoListener() {
-    if (window._echoSubscribed || !window.Echo) return;
-    window._echoSubscribed = true;
+    livewireNotificationListenersRegistered = true;
+
+    window.Livewire.on('notify-toast', (payload) => {
+        const toastData = normalizeOperationalPayload(payload);
+        if (toastData) {
+            window.showOperationalToast(toastData);
+        }
+    });
+
+    window.Livewire.on('operational-fallback-event', (payload) => {
+        const eventData = normalizeOperationalPayload(payload);
+        if (eventData && window.soundEngine) {
+            window.soundEngine.handleOperationalEvent(eventData, 'poll');
+        }
+    });
+}
+
+registerLivewireNotificationListeners();
+document.addEventListener('livewire:init', registerLivewireNotificationListeners);
+document.addEventListener('livewire:navigated', registerLivewireNotificationListeners);
+document.addEventListener('DOMContentLoaded', registerLivewireNotificationListeners);
+
+// Section 7 & 8 & 9 & 10: Single Reverb Listener Instance
+function registerEchoListener() {
+    if (!window.Echo) return;
+    if (echoChannel) return;
 
     if (window.Echo.connector && window.Echo.connector.pusher) {
         const pusher = window.Echo.connector.pusher;
@@ -715,13 +769,24 @@ function initEchoListener() {
         });
     }
 
-    window.Echo.private('orders.operations')
-        .listen('OrderChanged', (event) => {
-            if (window.soundEngine) {
-                window.soundEngine.handleOperationalEvent(event, 'reverb');
-            }
-        });
+    echoChannel = window.Echo.private('orders.operations');
+    echoChannel.listen('OrderChanged', (event) => {
+        const normalized = normalizeOperationalPayload(event);
+
+        // Section 9: Realtime UI refresh FIRST (decoupled from notification preferences)
+        if (window.Livewire && normalized && normalized.orderId) {
+            window.Livewire.dispatch('order-changed-realtime', {
+                orderId: normalized.orderId,
+                action: normalized.action
+            });
+        }
+
+        // THEN handle operational toasts & sounds per notification preferences
+        if (window.soundEngine && normalized) {
+            window.soundEngine.handleOperationalEvent(normalized, 'reverb');
+        }
+    });
 }
 
-document.addEventListener('DOMContentLoaded', initEchoListener);
-document.addEventListener('livewire:navigated', initEchoListener);
+document.addEventListener('DOMContentLoaded', registerEchoListener);
+document.addEventListener('livewire:navigated', registerEchoListener);

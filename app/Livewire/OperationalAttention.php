@@ -33,6 +33,7 @@ class OperationalAttention extends Component
 
     /**
      * Global polling fallback respecting authenticated user's operational notification preferences.
+     * Uses named arguments for Livewire 4 dispatch.
      */
     public function refreshOperationalOrders(): void
     {
@@ -62,18 +63,19 @@ class OperationalAttention extends Component
                 foreach ($readyOrders as $order) {
                     if (in_array($order->id, $newReadyIds)) {
                         $itemsSummary = $order->items->map(fn($i) => "{$i->quantity}x {$i->product_name}")->implode(', ');
-                        $this->dispatch('operational-fallback-event', [
-                            'orderId' => $order->id,
-                            'orderNumber' => ltrim($order->number, '#'),
-                            'action' => 'READY',
-                            'soundType' => 'delivery',
-                            'targetUserIds' => [$user->id],
-                            'soundUserIds' => $shouldSound ? [$user->id] : [],
-                            'browserUserIds' => $shouldBrowser ? [$user->id] : [],
-                            'originUserId' => null,
-                            'customerName' => $order->customer_name_snapshot ?? 'Cliente',
-                            'itemsSummary' => $itemsSummary,
-                        ]);
+                        $this->dispatch(
+                            'operational-fallback-event',
+                            orderId: (string) $order->id,
+                            orderNumber: ltrim($order->number, '#'),
+                            action: 'READY',
+                            soundType: 'delivery',
+                            targetUserIds: [(int) $user->id],
+                            soundUserIds: $shouldSound ? [(int) $user->id] : [],
+                            browserUserIds: $shouldBrowser ? [(int) $user->id] : [],
+                            originUserId: null,
+                            customerName: $order->customer_name_snapshot ?? 'Cliente',
+                            itemsSummary: $itemsSummary
+                        );
                     }
                 }
             }
@@ -98,18 +100,19 @@ class OperationalAttention extends Component
                 foreach ($newOrders as $order) {
                     if (in_array($order->id, $newCreatedIds)) {
                         $itemsSummary = $order->items->map(fn($i) => "{$i->quantity}x {$i->product_name}")->implode(', ');
-                        $this->dispatch('operational-fallback-event', [
-                            'orderId' => $order->id,
-                            'orderNumber' => ltrim($order->number, '#'),
-                            'action' => 'ORDER_CREATED',
-                            'soundType' => 'kitchen',
-                            'targetUserIds' => [$user->id],
-                            'soundUserIds' => $shouldSound ? [$user->id] : [],
-                            'browserUserIds' => $shouldBrowser ? [$user->id] : [],
-                            'originUserId' => null,
-                            'customerName' => $order->customer_name_snapshot ?? 'Venta Mostrador',
-                            'itemsSummary' => $itemsSummary,
-                        ]);
+                        $this->dispatch(
+                            'operational-fallback-event',
+                            orderId: (string) $order->id,
+                            orderNumber: ltrim($order->number, '#'),
+                            action: 'ORDER_CREATED',
+                            soundType: 'kitchen',
+                            targetUserIds: [(int) $user->id],
+                            soundUserIds: $shouldSound ? [(int) $user->id] : [],
+                            browserUserIds: $shouldBrowser ? [(int) $user->id] : [],
+                            originUserId: null,
+                            customerName: $order->customer_name_snapshot ?? 'Venta Mostrador',
+                            itemsSummary: $itemsSummary
+                        );
                     }
                 }
             }
