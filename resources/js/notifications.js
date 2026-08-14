@@ -21,6 +21,8 @@ class SoundEngine {
         this.processedEvents = new Set(
             JSON.parse(sessionStorage.getItem('processed_notif_events') || '[]')
         );
+
+        document.addEventListener('DOMContentLoaded', () => this.updateSoundIconUI());
     }
 
     getAudioContext() {
@@ -61,7 +63,6 @@ class SoundEngine {
             } catch (e) {}
         }
 
-        // If there was a pending sound blocked before user interaction, play it once now
         if (this.pendingOperationalSound) {
             const sound = this.pendingOperationalSound;
             this.pendingOperationalSound = null;
@@ -79,11 +80,26 @@ class SoundEngine {
     toggleMute() {
         this.muted = !this.muted;
         localStorage.setItem('sound_muted', this.muted ? 'true' : 'false');
+        this.updateSoundIconUI();
         window.showOperationalToast({
             type: 'info',
             title: 'Configuración de Sonido',
             message: this.muted ? 'Sonidos silenciados' : 'Sonidos activados'
         });
+    }
+
+    updateSoundIconUI() {
+        const btn = document.getElementById('soundToggleBtn');
+        if (!btn) return;
+        if (this.muted) {
+            btn.classList.add('sound-muted-active');
+            btn.title = 'Sonido Silenciado (Clic para activar)';
+            btn.style.opacity = '0.5';
+        } else {
+            btn.classList.remove('sound-muted-active');
+            btn.title = 'Sonido Activo (Clic para silenciar)';
+            btn.style.opacity = '1.0';
+        }
     }
 
     isEventProcessed(orderId, action) {
@@ -119,7 +135,6 @@ class SoundEngine {
         });
     }
 
-    // Play Kitchen Bell (For NEW ORDER operational events)
     playKitchenChime() {
         if (this.muted) return;
         const settings = window.PedidosSoundSettings || {};
@@ -132,7 +147,6 @@ class SoundEngine {
         this.playWebAudioKitchenChime(vol);
     }
 
-    // Play Delivery Chime (For READY operational events)
     playDeliveryChime() {
         if (this.muted) return;
         const settings = window.PedidosSoundSettings || {};
@@ -171,7 +185,6 @@ class SoundEngine {
         }
     }
 
-    // Web Audio Synthesizer Engine: Kitchen Reception Bell (Warm single stroke + overtone, 0.70s)
     playWebAudioKitchenChime(vol = 1.0) {
         const ctx = this.getAudioContext();
         if (!ctx) {
@@ -190,14 +203,14 @@ class SoundEngine {
 
                 const osc1 = ctx.createOscillator();
                 osc1.type = 'sine';
-                osc1.frequency.setValueAtTime(880, now); // Fundamental A5
+                osc1.frequency.setValueAtTime(880, now);
                 osc1.connect(g);
                 osc1.start(now);
                 osc1.stop(now + 0.75);
 
                 const osc2 = ctx.createOscillator();
                 osc2.type = 'sine';
-                osc2.frequency.setValueAtTime(1318.5, now); // Overtone E6
+                osc2.frequency.setValueAtTime(1318.5, now);
                 osc2.connect(g);
                 osc2.start(now);
                 osc2.stop(now + 0.45);
@@ -213,7 +226,6 @@ class SoundEngine {
         }
     }
 
-    // Web Audio Synthesizer Engine: Delivery Chime (Two soft warm ascending notes, 0.75s)
     playWebAudioDeliveryChime(vol = 1.0) {
         const ctx = this.getAudioContext();
         if (!ctx) {
@@ -225,7 +237,6 @@ class SoundEngine {
             try {
                 const now = ctx.currentTime;
 
-                // Note 1: C5 (523.25Hz) warm soft tone
                 const g1 = ctx.createGain();
                 g1.gain.setValueAtTime(0, now);
                 g1.gain.linearRampToValueAtTime(0.45 * vol, now + 0.015);
@@ -239,7 +250,6 @@ class SoundEngine {
                 osc1.start(now);
                 osc1.stop(now + 0.48);
 
-                // Note 2: E5 (659.25Hz) soft ascending tone (starts at 0.18s)
                 const g2 = ctx.createGain();
                 g2.gain.setValueAtTime(0, now + 0.18);
                 g2.gain.linearRampToValueAtTime(0.55 * vol, now + 0.20);
@@ -283,13 +293,14 @@ class SoundEngine {
 
     /**
      * UNIFIED OPERATIONAL EVENT HANDLER (Reverb & Polling Fallback)
-     * Enforces per-user notification preferences:
-     * 1. Check if current user ID is in targetUserIds.
-     * 2. Check deduplication key (orderId:action).
-     * 3. Check if current user ID is in soundUserIds & suppress on origin user for READY action.
-     * 4. Check if current user ID is in browserUserIds.
-     * 5. Execute toast / sound / browser notification.
-     * 6. Mark event as processed for target user.
+     * Enforces per-user notification preferences as sole authority:
+     * 1. Normalize IDs as Numbers.
+     * 2. Check if current user ID is in targetUserIds.
+     * 3. Check deduplication key (orderId:action).
+     * 4. Check if current user ID is in soundUserIds.
+     * 5. Check if current user ID is in browserUserIds.
+     * 6. Render floating toast (always if in targets), play sound if in sounds, send browser if in browsers.
+     * 7. Mark event as processed for target user.
      */
     handleOperationalEvent(event, source = 'reverb') {
         if (!event || !event.orderId || !event.action) return;
@@ -298,49 +309,47 @@ class SoundEngine {
             orderId,
             orderNumber,
             action,
-            soundType,
             customerName,
             itemsSummary,
             targetRoles,
             targetUserIds,
             soundUserIds,
-            browserUserIds,
-            originUserId
+            browserUserIds
         } = event;
 
-        const currentUserId = window.PedidosUser ? window.PedidosUser.id : null;
+        const currentUserId = window.PedidosUser ? Number(window.PedidosUser.id) : null;
         const userRoles = (window.PedidosUser && Array.isArray(window.PedidosUser.roles)) ? window.PedidosUser.roles : [];
 
-        // Check if current user is targeted via targetUserIds array OR legacy targetRoles
-        let isTargetUser = false;
-        if (Array.isArray(targetUserIds)) {
-            isTargetUser = currentUserId !== null && targetUserIds.includes(Number(currentUserId));
-        } else if (Array.isArray(targetRoles)) {
-            isTargetUser = targetRoles.some(role => userRoles.includes(role));
+        if (!currentUserId) return;
+
+        // Section 6: Normalize IDs as numbers
+        const targets = Array.isArray(targetUserIds)
+            ? targetUserIds.map(Number)
+            : (Array.isArray(targetRoles) && targetRoles.some(role => userRoles.includes(role)) ? [currentUserId] : []);
+
+        const sounds = Array.isArray(soundUserIds)
+            ? soundUserIds.map(Number)
+            : [];
+
+        const browsers = Array.isArray(browserUserIds)
+            ? browserUserIds.map(Number)
+            : [];
+
+        // Section 7: If current user is not in targets, exit without processing
+        if (!targets.includes(currentUserId)) {
+            return;
         }
 
-        if (!isTargetUser) {
-            return; // Exit without marking as processed
-        }
-
-        // Deduplication key check
+        // Section 8: Deduplication check
         if (this.isEventProcessed(orderId, action)) {
             return;
         }
 
-        const path = window.location.pathname;
         const cleanNumber = ltrim(String(orderNumber), '#');
 
-        const shouldPlaySound = Array.isArray(soundUserIds)
-            ? soundUserIds.includes(Number(currentUserId))
-            : true;
-        const shouldSendBrowser = Array.isArray(browserUserIds)
-            ? browserUserIds.includes(Number(currentUserId))
-            : false;
-
-        // Section 22: Do NOT play READY sound on the origin browser that initiated the transition
-        const isOriginUser = originUserId && currentUserId && Number(originUserId) === Number(currentUserId);
-        const canPlaySound = shouldPlaySound && !(isOriginUser && action === 'READY');
+        // Section 5 & 13: Toast ALWAYS displays if user is in targets. Sound & Browser evaluate independently.
+        const canPlaySound = sounds.includes(currentUserId);
+        const canBrowser = browsers.includes(currentUserId);
 
         // ORDER_CREATED: Kitchen sound & toast
         if (action === 'ORDER_CREATED') {
@@ -359,7 +368,7 @@ class SoundEngine {
                 actionBtn: { text: 'VER', url: '/cocina' }
             });
 
-            if (shouldSendBrowser) {
+            if (canBrowser) {
                 this.showBrowserNotification(
                     'NUEVO PEDIDO',
                     `Pedido #${cleanNumber} (${customerName || 'Venta Mostrador'})`,
@@ -368,39 +377,37 @@ class SoundEngine {
             }
         }
         
-        // READY: Delivery sound & toast
+        // READY: Delivery sound & toast (NO screen path restriction, NO origin user restriction)
         else if (action === 'READY') {
-            if (!path.startsWith('/cocina')) {
-                if (canPlaySound) {
-                    this.playDeliveryChime();
-                }
+            if (canPlaySound) {
+                this.playDeliveryChime();
+            }
 
-                let readyUrl = '/reparto';
-                if (userRoles.includes('pedidos') || userRoles.includes('caja')) {
-                    if (!userRoles.includes('admin') && !userRoles.includes('reparto')) {
-                        readyUrl = '/pedidos';
-                    }
+            let readyUrl = '/reparto';
+            if (userRoles.includes('pedidos') || userRoles.includes('caja')) {
+                if (!userRoles.includes('admin') && !userRoles.includes('reparto')) {
+                    readyUrl = '/pedidos';
                 }
+            }
 
-                window.showOperationalToast({
-                    id: `order-${orderId}-ready`,
-                    title: 'PEDIDO LISTO',
-                    orderNumber: `#${cleanNumber}`,
-                    customerName: customerName || 'Cliente',
-                    message: 'Listo para recoger y entregar',
-                    url: readyUrl,
-                    type: 'delivery',
-                    actionBtn: { text: 'VER PEDIDO', url: readyUrl },
-                    glow: true
-                });
+            window.showOperationalToast({
+                id: `order-${orderId}-ready`,
+                title: 'PEDIDO LISTO',
+                orderNumber: `#${cleanNumber}`,
+                customerName: customerName || 'Cliente',
+                message: 'Listo para recoger y entregar',
+                url: readyUrl,
+                type: 'delivery',
+                actionBtn: { text: 'VER PEDIDO', url: readyUrl },
+                glow: true
+            });
 
-                if (shouldSendBrowser) {
-                    this.showBrowserNotification(
-                        'PEDIDO LISTO',
-                        `Pedido #${cleanNumber} (${customerName || 'Cliente'})`,
-                        readyUrl
-                    );
-                }
+            if (canBrowser) {
+                this.showBrowserNotification(
+                    'PEDIDO LISTO',
+                    `Pedido #${cleanNumber} (${customerName || 'Cliente'})`,
+                    readyUrl
+                );
             }
         }
 
@@ -421,7 +428,7 @@ class SoundEngine {
                 actionBtn: { text: 'VER EN CAJA', url: '/caja' }
             });
 
-            if (shouldSendBrowser) {
+            if (canBrowser) {
                 this.showBrowserNotification(
                     'PEDIDO ENTREGADO',
                     `Pedido #${cleanNumber} entregado`,
@@ -432,6 +439,10 @@ class SoundEngine {
 
         // CANCELLED: Toast
         else if (action === 'CANCELLED') {
+            if (canPlaySound) {
+                this.playDeliveryChime();
+            }
+
             window.showOperationalToast({
                 id: `order-${orderId}-cancelled`,
                 title: 'PEDIDO CANCELADO',
@@ -443,7 +454,7 @@ class SoundEngine {
                 actionBtn: { text: 'VER PEDIDOS', url: '/pedidos' }
             });
 
-            if (shouldSendBrowser) {
+            if (canBrowser) {
                 this.showBrowserNotification(
                     'PEDIDO CANCELADO',
                     `Pedido #${cleanNumber} cancelado`,
@@ -473,7 +484,6 @@ function ltrim(str, charlist) {
     return String(str).replace(re, '');
 }
 
-// Dynamic Vector SVG Icon Builder (NO EMOJIS)
 function createToastSvgIcon(type) {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 24 24');
@@ -508,7 +518,26 @@ function createToastSvgIcon(type) {
 
 window.soundEngine = new SoundEngine();
 
-// Toast configuration mapping with precise duration specs (kitchen: 6s, delivery: 8s)
+// Section 14: Test operational notification helper
+window.testOperationalNotification = function(action = 'READY') {
+    const currentUserId = window.PedidosUser ? Number(window.PedidosUser.id) : 1;
+    const testEvent = {
+        orderId: 'test-' + Date.now(),
+        orderNumber: '999',
+        action: action,
+        soundType: action === 'ORDER_CREATED' ? 'kitchen' : 'delivery',
+        customerName: 'Cliente Prueba',
+        itemsSummary: '1x Producto Prueba',
+        targetUserIds: [currentUserId],
+        soundUserIds: [currentUserId],
+        browserUserIds: [],
+        originUserId: null
+    };
+    if (window.soundEngine) {
+        window.soundEngine.handleOperationalEvent(testEvent, 'test');
+    }
+};
+
 const TOAST_CONFIG = {
     success: { duration: 3500, title: 'Éxito' },
     info: { duration: 4500, title: 'Información' },
@@ -518,7 +547,6 @@ const TOAST_CONFIG = {
     delivery: { duration: 8000, title: 'PEDIDO LISTO' }
 };
 
-// Global Floating Toast Dispatcher (DOM-based, no unescaped innerHTML injection)
 window.showOperationalToast = function ({ id, title, orderNumber, customerName, message, url, type = 'info', actionBtn = null, glow = false }) {
     const container = document.getElementById('toastNotificationContainer');
     if (!container) return;
@@ -543,7 +571,6 @@ window.showOperationalToast = function ({ id, title, orderNumber, customerName, 
     const toastContent = document.createElement('div');
     toastContent.className = 'toast-content';
 
-    // Header row: Vector Icon + Title + Close Button
     const header = document.createElement('div');
     header.className = 'toast-header';
 
@@ -571,7 +598,6 @@ window.showOperationalToast = function ({ id, title, orderNumber, customerName, 
 
     toastContent.appendChild(header);
 
-    // Optional Order Number & Customer Name lines
     if (orderNumber) {
         const numDiv = document.createElement('div');
         numDiv.style.fontSize = '0.85rem';
@@ -591,13 +617,11 @@ window.showOperationalToast = function ({ id, title, orderNumber, customerName, 
         toastContent.appendChild(custDiv);
     }
 
-    // Message paragraph
     const msgPara = document.createElement('p');
     msgPara.className = 'toast-message';
     msgPara.textContent = message || '';
     toastContent.appendChild(msgPara);
 
-    // Action button
     const btnTarget = actionBtn || (url ? { text: 'VER PEDIDO', url: url } : null);
     if (btnTarget) {
         if (btnTarget.onClick) {
@@ -619,7 +643,6 @@ window.showOperationalToast = function ({ id, title, orderNumber, customerName, 
         }
     }
 
-    // Progress bar
     const progressTrack = document.createElement('div');
     progressTrack.className = 'toast-progress-track';
 
@@ -641,7 +664,6 @@ window.showOperationalToast = function ({ id, title, orderNumber, customerName, 
     }, toastDuration);
 };
 
-// Continuous Interaction Listener for Audio Context Unlock
 const unlockHandler = () => {
     if (window.soundEngine) {
         window.soundEngine.unlockAudio();
@@ -651,7 +673,6 @@ document.addEventListener('pointerdown', unlockHandler, { passive: true });
 document.addEventListener('touchstart', unlockHandler, { passive: true });
 document.addEventListener('keydown', unlockHandler, { passive: true });
 
-// Listen for Livewire Toast Events & Polling Fallback Events
 document.addEventListener('livewire:init', () => {
     if (window.Livewire) {
         window.Livewire.on('notify-toast', (data) => {
@@ -668,12 +689,10 @@ document.addEventListener('livewire:init', () => {
     }
 });
 
-// Real-Time Echo Broadcast Listener & Reverb Connection Status Indicator
 function initEchoListener() {
     if (window._echoSubscribed || !window.Echo) return;
     window._echoSubscribed = true;
 
-    // Listen to Reverb connection states
     if (window.Echo.connector && window.Echo.connector.pusher) {
         const pusher = window.Echo.connector.pusher;
         pusher.connection.bind('state_change', (states) => {
@@ -696,7 +715,6 @@ function initEchoListener() {
         });
     }
 
-    // Subscribe to operations channel
     window.Echo.private('orders.operations')
         .listen('OrderChanged', (event) => {
             if (window.soundEngine) {
