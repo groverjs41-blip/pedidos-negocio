@@ -67,12 +67,12 @@ $maxWidthClass = [
         {{-- Central Modal Card (Responsive Desktop/Mobile Bottom-Sheet) --}}
         <div
             x-show="show"
-            x-transition:enter="transition ease-out duration-220"
-            x-transition:enter-start="opacity-0 scale-98 translateY(12px)"
-            x-transition:enter-end="opacity-100 scale-100 translateY(0)"
-            x-transition:leave="transition ease-in duration-180"
-            x-transition:leave-start="opacity-100 scale-100 translateY(0)"
-            x-transition:leave-end="opacity-0 scale-98 translateY(12px)"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95 translate-y-3"
+            x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+            x-transition:leave-end="opacity-0 scale-95 translate-y-3"
             style="position: relative; margin: 2rem auto; width: 100%; background: var(--bg-card, #0F172A); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); border-radius: var(--radius-lg, 16px); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6); overflow: hidden; color: var(--text-main, #F8FAFC);"
             class="{{ $maxWidthClass }}"
         >
