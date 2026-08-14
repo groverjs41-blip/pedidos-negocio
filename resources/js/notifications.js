@@ -406,7 +406,7 @@ class SoundEngine {
 
         // DELIVERED: Toast & optional sound
         else if (action === 'DELIVERED') {
-            if (canPlaySound && soundType === 'delivery') {
+            if (canPlaySound) {
                 this.playDeliveryChime();
             }
 

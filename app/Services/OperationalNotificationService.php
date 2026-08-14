@@ -121,7 +121,7 @@ class OperationalNotificationService
                 'title' => 'Pedido entregado',
                 'message' => "Pedido {$order->number} entregado",
                 'url' => '/caja',
-                'sound_type' => null,
+                'sound_type' => 'delivery',
             ],
             'CANCELLED' => [
                 'title' => 'Pedido cancelado',
