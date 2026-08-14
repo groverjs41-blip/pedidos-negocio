@@ -23,28 +23,28 @@
     </div>
 
     <script>
-        function toggleKdsFullscreen() {
+        window.toggleKdsFullscreen = window.toggleKdsFullscreen || function() {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(err => console.error(err));
             } else {
                 if (document.exitFullscreen) document.exitFullscreen();
             }
-        }
+        };
 
-        let wakeLockObj = null;
-        async function toggleKdsWakeLock() {
+        window.kdsWakeLockObj = window.kdsWakeLockObj || null;
+        window.toggleKdsWakeLock = window.toggleKdsWakeLock || async function() {
             if ('wakeLock' in navigator) {
                 try {
-                    if (!wakeLockObj) {
-                        wakeLockObj = await navigator.wakeLock.request('screen');
+                    if (!window.kdsWakeLockObj) {
+                        window.kdsWakeLockObj = await navigator.wakeLock.request('screen');
                         const btn = document.getElementById('wakeLockBtn');
                         if (btn) {
                             btn.style.background = 'rgba(39, 230, 164, 0.2)';
                             btn.style.color = 'var(--primary)';
                         }
                     } else {
-                        await wakeLockObj.release();
-                        wakeLockObj = null;
+                        await window.kdsWakeLockObj.release();
+                        window.kdsWakeLockObj = null;
                         const btn = document.getElementById('wakeLockBtn');
                         if (btn) {
                             btn.style.background = '';
@@ -57,7 +57,7 @@
             } else {
                 alert('Screen Wake Lock API no es soportada en este navegador.');
             }
-        }
+        };
     </script>
 
     {{-- Active orders --}}

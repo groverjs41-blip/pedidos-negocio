@@ -78,7 +78,7 @@
                 $splashSettings = app(\App\Services\BusinessSettingsService::class)->getSettings();
                 $splashBusinessName = $splashSettings->business_name ?? 'Pedidos Negocio';
             @endphp
-            <div id="appLoginSplash" class="app-login-splash" x-data="{ show: true }" x-init="setTimeout(() => { show = false; setTimeout(() => $el.remove(), 400); }, 1400)" x-show="show" x-transition:leave="transition ease-in duration-300" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+            <div id="appLoginSplash" class="app-login-splash" x-data="{ show: true }" x-init="setTimeout(() => show = false, 1400)" x-show="show" x-transition:leave="transition ease-in duration-300" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
                 <div class="splash-content">
                     <div class="splash-logo-wrap">
                         <div class="splash-icon-glow"></div>
