@@ -148,7 +148,7 @@
                         @php
                             $kitchenCount = \App\Models\Order::whereIn('status', [\App\Enums\OrderStatus::NEW, \App\Enums\OrderStatus::PREPARING])->count();
                         @endphp
-                        <a href="{{ url('/cocina') }}" wire:navigate class="nav-item {{ request()->is('cocina') ? 'active' : '' }}" :title="collapsed ? 'Cocina (' . $kitchenCount . ')' : ''">
+                        <a href="{{ url('/cocina') }}" wire:navigate class="nav-item {{ request()->is('cocina') ? 'active' : '' }}" :title="collapsed ? 'Cocina ({{ $kitchenCount }})' : ''">
                             <x-ui.icon name="chef" />
                             <span class="nav-label" x-show="!collapsed">Cocina</span>
                             @if($kitchenCount > 0)
@@ -161,7 +161,7 @@
                         @php
                             $deliveryCount = \App\Models\Order::where('status', \App\Enums\OrderStatus::READY)->count();
                         @endphp
-                        <a href="{{ url('/reparto') }}" wire:navigate class="nav-item {{ request()->is('reparto') ? 'active' : '' }}" :title="collapsed ? 'Reparto (' . $deliveryCount . ' LISTOS)' : ''">
+                        <a href="{{ url('/reparto') }}" wire:navigate class="nav-item {{ request()->is('reparto') ? 'active' : '' }}" :title="collapsed ? 'Reparto ({{ $deliveryCount }} LISTOS)' : ''">
                             <x-ui.icon name="truck" />
                             <span class="nav-label" x-show="!collapsed">Reparto</span>
                             @if($deliveryCount > 0)
