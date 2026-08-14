@@ -9,18 +9,42 @@
     {{-- Blocking Pre-render Script for Theme & Sidebar State to Eliminate Flash of Unstyled Content (FOUC) --}}
     <script>
         (function() {
+            window.applySavedTheme = function () {
+                const theme = localStorage.getItem('theme') || 'dark';
+                const html = document.documentElement;
+
+                html.classList.toggle('dark', theme === 'dark');
+                html.classList.toggle('light', theme === 'light');
+
+                if (document.body && window.Alpine) {
+                    try {
+                        const data = Alpine.$data(document.body);
+                        if (data) {
+                            data.currentTheme = theme;
+                        }
+                    } catch (e) {}
+                }
+
+                return theme;
+            };
+
             var isCollapsed = localStorage.getItem('sidebar_collapsed') === 'true';
             if (isCollapsed) {
                 document.documentElement.classList.add('sidebar-collapsed-preload');
             }
-            var savedTheme = localStorage.getItem('theme') || 'dark';
-            if (savedTheme === 'light') {
-                document.documentElement.classList.add('light');
-                document.documentElement.classList.remove('dark');
-            } else {
-                document.documentElement.classList.add('dark');
-                document.documentElement.classList.remove('light');
-            }
+
+            window.applySavedTheme();
+
+            // Observe attribute changes on <html> to instantly catch Livewire SPA DOM morphing
+            var themeObserver = new MutationObserver(function(mutations) {
+                for (var i = 0; i < mutations.length; i++) {
+                    if (mutations[i].attributeName === 'class') {
+                        window.applySavedTheme();
+                        break;
+                    }
+                }
+            });
+            themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         })();
     </script>
     
@@ -48,6 +72,25 @@
     {{-- GLOBAL TOP LOADING PROGRESS BAR FOR MOBILE, TABLET & DESKTOP --}}
     <div id="globalLoadingBar" class="global-loading-bar"></div>
     @auth
+        @if(session('show_login_splash'))
+            @php
+                session()->forget('show_login_splash');
+                $splashSettings = app(\App\Services\BusinessSettingsService::class)->getSettings();
+                $splashBusinessName = $splashSettings->business_name ?? 'Pedidos Negocio';
+            @endphp
+            <div id="appLoginSplash" class="app-login-splash" x-data="{ show: true }" x-init="setTimeout(() => { show = false; setTimeout(() => $el.remove(), 400); }, 1400)" x-show="show" x-transition:leave="transition ease-in duration-300" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+                <div class="splash-content">
+                    <div class="splash-logo-wrap">
+                        <div class="splash-icon-glow"></div>
+                        <div class="splash-icon">
+                            <x-ui.icon name="bag" class="w-10 h-10" />
+                        </div>
+                    </div>
+                    <h1 class="splash-title">{{ $splashBusinessName }}</h1>
+                    <p class="splash-subtitle">Preparando tu jornada</p>
+                </div>
+            </div>
+        @endif
         <div class="app-layout" :class="{ 'sidebar-collapsed': collapsed }">
             {{-- DESKTOP SIDEBAR (>=1024px) --}}
             <aside class="sidebar hidden lg:flex" :class="{ 'collapsed': collapsed }">
@@ -344,22 +387,18 @@
             deliveryEnabled: {{ $bSettings->delivery_sound_enabled ? 'true' : 'false' }}
         };
 
-        function toggleTheme() {
-            const isDark = document.documentElement.classList.contains('dark');
-            const newTheme = isDark ? 'light' : 'dark';
-            if (newTheme === 'light') {
-                document.documentElement.classList.add('light');
-                document.documentElement.classList.remove('dark');
-            } else {
-                document.documentElement.classList.add('dark');
-                document.documentElement.classList.remove('light');
-            }
-            localStorage.setItem('theme', newTheme);
-            if (window.Alpine) {
-                const bodyData = Alpine.$data(document.body);
-                if (bodyData) bodyData.currentTheme = newTheme;
-            }
-        }
+        window.toggleTheme = function () {
+            const current = localStorage.getItem('theme') || 'dark';
+            const next = current === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('theme', next);
+            if (window.applySavedTheme) window.applySavedTheme();
+        };
+
+        ['DOMContentLoaded', 'livewire:navigated', 'pageshow'].forEach(function(evt) {
+            document.addEventListener(evt, function() {
+                if (window.applySavedTheme) window.applySavedTheme();
+            });
+        });
 
         document.addEventListener('livewire:init', () => {
             const bar = document.getElementById('globalLoadingBar');

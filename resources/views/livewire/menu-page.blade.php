@@ -36,7 +36,7 @@
         </div>
 
         @if(auth()->user()->hasRole('pedidos') || auth()->user()->hasRole('admin'))
-            <a href="{{ url('/pedidos/nuevo') }}" class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
+            <a href="{{ url('/pedidos/nuevo') }}" wire:navigate class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 0.85rem;">
                     <div class="header-icon-wrap mint" style="width: 40px; height: 40px; border-radius: 10px;">
                         <x-ui.icon name="plus" class="w-5 h-5" />
@@ -49,7 +49,7 @@
                 <span style="color: var(--text-muted);">&rarr;</span>
             </a>
 
-            <a href="{{ url('/pedidos') }}" class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
+            <a href="{{ url('/pedidos') }}" wire:navigate class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 0.85rem;">
                     <div class="header-icon-wrap blue" style="width: 40px; height: 40px; border-radius: 10px;">
                         <x-ui.icon name="list" class="w-5 h-5" />
@@ -64,7 +64,7 @@
         @endif
 
         @if(auth()->user()->hasRole('cocina') || auth()->user()->hasRole('admin'))
-            <a href="{{ url('/cocina') }}" class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
+            <a href="{{ url('/cocina') }}" wire:navigate class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 0.85rem;">
                     <div class="header-icon-wrap warning" style="width: 40px; height: 40px; border-radius: 10px;">
                         <x-ui.icon name="chef" class="w-5 h-5" />
@@ -79,7 +79,7 @@
         @endif
 
         @if(auth()->user()->hasRole('reparto') || auth()->user()->hasRole('admin'))
-            <a href="{{ url('/reparto') }}" class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
+            <a href="{{ url('/reparto') }}" wire:navigate class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 0.85rem;">
                     <div class="header-icon-wrap violet" style="width: 40px; height: 40px; border-radius: 10px;">
                         <x-ui.icon name="truck" class="w-5 h-5" />
@@ -94,7 +94,7 @@
         @endif
 
         @if(auth()->user()->hasRole('caja') || auth()->user()->hasRole('admin'))
-            <a href="{{ url('/caja') }}" class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
+            <a href="{{ url('/caja') }}" wire:navigate class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 0.85rem;">
                     <div class="header-icon-wrap mint" style="width: 40px; height: 40px; border-radius: 10px;">
                         <x-ui.icon name="dollar" class="w-5 h-5" />
@@ -107,7 +107,7 @@
                 <span style="color: var(--text-muted);">&rarr;</span>
             </a>
 
-            <a href="{{ url('/cierre') }}" class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
+            <a href="{{ url('/cierre') }}" wire:navigate class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 0.85rem;">
                     <div class="header-icon-wrap warning" style="width: 40px; height: 40px; border-radius: 10px;">
                         <x-ui.icon name="dollar" class="w-5 h-5" />
@@ -122,7 +122,7 @@
         @endif
 
         @if(auth()->user()->hasRole('caja') || auth()->user()->hasRole('reparto') || auth()->user()->hasRole('admin'))
-            <a href="{{ url('/tazas') }}" class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
+            <a href="{{ url('/tazas') }}" wire:navigate class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 0.85rem;">
                     <div class="header-icon-wrap violet" style="width: 40px; height: 40px; border-radius: 10px;">
                         <x-ui.icon name="check" class="w-5 h-5" />
@@ -137,7 +137,7 @@
         @endif
 
         @if(auth()->user()->hasRole('admin'))
-            <a href="{{ url('/gestion') }}" class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
+            <a href="{{ url('/gestion') }}" wire:navigate class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 0.85rem;">
                     <div class="header-icon-wrap mint" style="width: 40px; height: 40px; border-radius: 10px;">
                         <x-ui.icon name="gear" class="w-5 h-5" />
@@ -150,7 +150,7 @@
                 <span style="color: var(--text-muted);">&rarr;</span>
             </a>
 
-            <a href="{{ url('/gestion/configuracion') }}" class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
+            <a href="{{ url('/gestion/configuracion') }}" wire:navigate class="card" style="padding: 1rem 1.25rem; text-decoration: none; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 0.85rem;">
                     <div class="header-icon-wrap violet" style="width: 40px; height: 40px; border-radius: 10px;">
                         <x-ui.icon name="gear" class="w-5 h-5" />

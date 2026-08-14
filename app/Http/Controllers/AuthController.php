@@ -44,9 +44,7 @@ class AuthController extends Controller
 
             $request->session()->forget('url.intended');
 
-            if ($user->hasRole('admin')) {
-                return redirect('/inicio');
-            }
+            $request->session()->put('show_login_splash', true);
 
             return redirect('/inicio');
         }

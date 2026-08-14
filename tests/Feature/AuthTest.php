@@ -105,6 +105,7 @@ class AuthTest extends TestCase
         ]);
 
         $response->assertRedirect('/inicio');
+        $response->assertSessionHas('show_login_splash', true);
         $this->assertAuthenticatedAs($user);
     }
 
@@ -125,6 +126,7 @@ class AuthTest extends TestCase
         ]);
 
         $response->assertRedirect('/inicio');
+        $response->assertSessionHas('show_login_splash', true);
         $this->assertAuthenticatedAs($user);
     }
 
@@ -144,6 +146,7 @@ class AuthTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('email');
+        $response->assertSessionMissing('show_login_splash');
         $this->assertGuest();
     }
 
@@ -164,6 +167,7 @@ class AuthTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('email');
+        $response->assertSessionMissing('show_login_splash');
         $this->assertGuest();
     }
 
