@@ -2,10 +2,28 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{{ $title ?? 'Pedidos Negocio' }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
+    @if(config('app.debug'))
+    <script>
+        window.findHorizontalOverflow = function () {
+            return [...document.querySelectorAll('*')]
+                .filter(el => {
+                    const r = el.getBoundingClientRect();
+                    return r.right > document.documentElement.clientWidth + 1 || r.left < -1;
+                })
+                .map(el => ({
+                    tag: el.tagName,
+                    class: el.className,
+                    id: el.id,
+                    rect: el.getBoundingClientRect().toJSON()
+                }));
+        };
+    </script>
+    @endif
+
     {{-- Blocking Pre-render Script for Theme & Sidebar State to Eliminate Flash of Unstyled Content (FOUC) --}}
     <script>
         (function() {

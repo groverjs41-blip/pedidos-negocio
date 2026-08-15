@@ -86,7 +86,7 @@ $maxWidthClass = [
                         data-close="true"
                         x-on:click="handleClose()"
                         :disabled="isSaving"
-                        style="background: transparent; border: none; color: var(--text-muted, #94A3B8); font-size: 1.5rem; line-height: 1; cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 8px; transition: background 0.2s;"
+                        style="background: transparent; border: none; color: var(--text-muted, #94A3B8); font-size: 1.5rem; line-height: 1; cursor: pointer; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; touch-action: manipulation; border-radius: 8px; transition: background 0.2s;"
                         onmouseover="this.style.background='rgba(255,255,255,0.1)'"
                         onmouseout="this.style.background='transparent'"
                     >&times;</button>
