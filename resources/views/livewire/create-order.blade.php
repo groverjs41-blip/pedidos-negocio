@@ -146,7 +146,14 @@
             {{-- 3. Products Grid --}}
             <div class="products-grid">
                 @forelse($categoryProducts as $prod)
-                    <div wire:click="addToCart({{ $prod->id }})" class="product-card stagger-item">
+                    <div wire:key="product-{{ $prod->id }}" class="product-card stagger-item">
+                        <button
+                            type="button"
+                            wire:click="addToCart({{ $prod->id }})"
+                            class="product-card-hit-target"
+                            aria-label="Agregar {{ $prod->name }} al pedido"
+                        ></button>
+
                         @if(isset($cart[$prod->id]))
                             <div class="qty-badge-pulse">{{ $cart[$prod->id]['quantity'] }}</div>
                         @endif
@@ -168,9 +175,9 @@
                             @endif
                             <div class="product-card-footer">
                                 <span class="product-price">@money($prod->price)</span>
-                                <button type="button" class="btn-add-product" title="Agregar al pedido">
+                                <span class="btn-add-product" aria-hidden="true">
                                     +
-                                </button>
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -187,7 +194,7 @@
         </div>
 
         {{-- MOBILE BACKDROP FOR CART SHEET --}}
-        <div x-show="mobileCartOpen" @click="mobileCartOpen = false" x-transition.opacity class="lg:hidden" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 99994; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"></div>
+        <div x-show="mobileCartOpen" @click="mobileCartOpen = false" x-transition.opacity class="lg:hidden" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 99994; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);" x-cloak></div>
 
         {{-- RIGHT PANEL (30% Sticky Cart Panel) --}}
         <div class="pos-right" :class="{ 'mobile-cart-open': mobileCartOpen }">
