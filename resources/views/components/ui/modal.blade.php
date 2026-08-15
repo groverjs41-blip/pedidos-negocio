@@ -76,7 +76,7 @@ $maxWidthClass = [
             x-transition:leave-start="opacity-100 scale-100 translate-y-0"
             x-transition:leave-end="opacity-0 scale-95 translate-y-3"
             style="position: relative; margin: 2rem auto; width: 100%; background: var(--bg-card, #0F172A); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); border-radius: var(--radius-lg, 16px); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6); overflow: hidden; color: var(--text-main, #F8FAFC);"
-            class="ui-modal-card {{ $maxWidthClass }}"
+            class="{{ $maxWidthClass }}"
         >
             @if($title)
                 <div style="display: flex; align-items: center; justify-content: space-between; padding: 1.15rem 1.5rem; border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.1)); background: rgba(255, 255, 255, 0.02);">
