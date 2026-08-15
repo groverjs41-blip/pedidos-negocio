@@ -189,20 +189,6 @@
         {{-- MOBILE BACKDROP FOR CART SHEET --}}
         <div x-show="mobileCartOpen" @click="mobileCartOpen = false" x-transition.opacity class="lg:hidden" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 99994; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"></div>
 
-        {{-- FLOATING CART BAR FOR MOBILE (<=1023px) --}}
-        <div class="mobile-cart-float-bar lg:hidden" style="position: fixed; bottom: calc(64px + env(safe-area-inset-bottom)); left: 12px; right: 12px; z-index: 99990;">
-            <button type="button" @click="mobileCartOpen = !mobileCartOpen" style="width: 100%; height: 50px; background: var(--primary); color: var(--primary-text); border: none; border-radius: 14px; font-weight: 800; font-size: 0.9rem; display: flex; align-items: center; justify-content: space-between; padding: 0 1.25rem; box-shadow: 0 10px 25px rgba(39,230,164,0.35);">
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <x-ui.icon name="bag" class="w-5 h-5" />
-                    <span>VER PEDIDO</span>
-                    @if(count($cart) > 0)
-                        <span style="background: rgba(0,0,0,0.25); padding: 2px 8px; border-radius: 99px; font-size: 0.8rem;">{{ count($cart) }}</span>
-                    @endif
-                </div>
-                <span>@money($this->cartTotal)</span>
-            </button>
-        </div>
-
         {{-- RIGHT PANEL (30% Sticky Cart Panel) --}}
         <div class="pos-right" :class="{ 'mobile-cart-open': mobileCartOpen }">
             <div class="cart-panel">
