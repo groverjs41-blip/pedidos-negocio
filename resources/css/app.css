@@ -130,6 +130,18 @@ body {
     outline-offset: 2px;
 }
 
+[x-cloak] {
+    display: none !important;
+}
+
+.modal-backdrop-wrap {
+    pointer-events: none;
+}
+
+.modal-backdrop-wrap.modal-is-open {
+    pointer-events: auto;
+}
+
 /* Page entrance animation */
 .page-fade-in {
     animation: pageFadeInUp 240ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -2293,9 +2305,9 @@ main, .content-area, .card, .modal-content, form {
     /* Bottom Sheet Modals */
     .modal-backdrop-wrap {
         padding: 0 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: flex-end !important;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
     }
 
     .ui-modal-card {
