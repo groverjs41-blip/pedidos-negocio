@@ -2189,6 +2189,28 @@ main, .content-area, .card, .modal-content, form {
         pointer-events: auto !important;
     }
 
+    .pos-right .cart-panel {
+        display: flex !important;
+        flex-direction: column !important;
+        max-height: calc(85dvh - 32px) !important;
+        height: 100% !important;
+        overflow: hidden !important;
+        padding: 1.25rem 1.25rem 0.5rem 1.25rem !important;
+    }
+
+    .pos-right .cart-items-list {
+        flex-grow: 1 !important;
+        overflow-y: auto !important;
+        max-height: 40dvh !important;
+    }
+
+    .pos-right .cart-footer {
+        margin-top: auto !important;
+        flex-shrink: 0 !important;
+        padding-top: 0.75rem !important;
+        background: var(--bg-card, #0F172A) !important;
+    }
+
     .products-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 0.65rem !important;

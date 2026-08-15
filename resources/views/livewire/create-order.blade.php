@@ -213,7 +213,7 @@
                             <span style="font-size: 0.775rem; color: var(--primary); font-weight: 600; margin-left: 0.5rem;">{{ $selectedCustomerName }}</span>
                         @endif
                     </div>
-                    <button type="button" @click="mobileCartOpen = false" class="md:hidden text-slate-400 hover:text-white font-bold text-xl leading-none">&times;</button>
+                    <button type="button" @click="mobileCartOpen = false" class="lg:hidden text-slate-400 hover:text-white font-bold text-xl leading-none">&times;</button>
                 </div>
 
                 <div class="cart-items-list">
@@ -282,7 +282,7 @@
 
     {{-- MOBILE FLOATING CART BAR --}}
     @if(count($cart) > 0)
-        <div class="mobile-cart-float-bar">
+        <div class="mobile-cart-float-bar lg:hidden">
             <div>
                 <div class="mobile-cart-float-qty">{{ count($cart) }} {{ count($cart) === 1 ? 'producto' : 'productos' }}</div>
                 <div class="mobile-cart-float-total">@money($this->cartTotal)</div>
@@ -292,71 +292,6 @@
             </button>
         </div>
     @endif
-
-    {{-- MOBILE BOTTOM SHEET MODAL --}}
-    <div class="bottom-sheet-overlay" x-show="mobileCartOpen" x-transition.opacity @click.self="mobileCartOpen = false" style="display: none;">
-        <div class="bottom-sheet-content" x-show="mobileCartOpen" x-transition.scale.95>
-            <div class="bottom-sheet-handle"></div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
-                <span style="font-weight: 800; font-size: 1.1rem; color: var(--text-main);">Tu Pedido</span>
-                <button type="button" @click="mobileCartOpen = false" style="background: transparent; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer;">
-                    &times;
-                </button>
-            </div>
-
-            <div style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; max-height: 40vh;">
-                @foreach($cart as $item)
-                    <div class="cart-item-row">
-                        <div class="cart-item-info">
-                            <span class="cart-item-title">{{ $item['name'] }}</span>
-                            <span class="cart-item-price">@money($item['price']) c/u</span>
-                        </div>
-                        <div class="cart-item-controls">
-                            <button type="button" wire:click="decrementQty({{ $item['id'] }})" class="qty-control-btn">-</button>
-                            <span class="qty-value">{{ $item['quantity'] }}</span>
-                            <button type="button" wire:click="incrementQty({{ $item['id'] }})" class="qty-control-btn">+</button>
-                            <button type="button" wire:click="removeFromCart({{ $item['id'] }})" class="btn-remove-item">
-                                <x-ui.icon name="trash" class="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                <label class="form-label" style="font-size: 0.8rem;">Notas del Pedido</label>
-                <textarea
-                    wire:model="notes"
-                    rows="2"
-                    class="form-input"
-                    placeholder="Notas adicionales..."
-                    style="resize: none; font-size: 0.825rem; height: 50px;"
-                ></textarea>
-            </div>
-
-            <div style="border-top: 1px solid var(--border); padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
-                <div class="cart-total-row">
-                    <span class="cart-total-label">TOTAL</span>
-                    <span class="cart-total-value">@money($this->cartTotal)</span>
-                </div>
-
-                <button
-                    type="button"
-                    wire:click="submitOrder"
-                    wire:loading.attr="disabled"
-                    wire:target="submitOrder"
-                    wire:offline.attr="disabled"
-                    class="btn-submit-order"
-                    @click="mobileCartOpen = false"
-                >
-                    <span wire:loading wire:target="submitOrder" class="spinner"></span>
-                    <span wire:loading.remove wire:target="submitOrder">ENVIAR A COCINA →</span>
-                    <span wire:loading wire:target="submitOrder">ENVIANDO...</span>
-                </button>
-            </div>
-        </div>
-    </div>
 
     {{-- MODAL CLIENTE RÁPIDO --}}
     <x-ui.modal name="quick-customer-modal" title="Nuevo Cliente Rápido" maxWidth="md">
