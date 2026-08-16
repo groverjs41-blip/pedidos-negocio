@@ -32,6 +32,7 @@ class Order extends Model
         'ready_at',
         'delivering_at',
         'delivered_at',
+        'direct_returnables_resolved_at',
         'cancelled_at',
     ];
 
@@ -52,6 +53,7 @@ class Order extends Model
             'ready_at' => 'datetime',
             'delivering_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'direct_returnables_resolved_at' => 'datetime',
             'cancelled_at' => 'datetime',
         ];
     }

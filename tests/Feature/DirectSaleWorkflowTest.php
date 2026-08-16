@@ -233,8 +233,11 @@ class DirectSaleWorkflowTest extends TestCase
 
         $this->assertNotNull($component->get('activeDirectOrderId'));
 
-        // Reset component state manually for step 2
-        $component->call('resetOrderForm');
+        // Complete order 1 so state resets
+        $component->call('startDirectPreparing')
+            ->call('markDirectDelivered')
+            ->set('directPaymentAmount', '35.00')
+            ->call('submitDirectPayment');
 
         // 2. Registered Customer + DIRECT
         $customer = Customer::create(['name' => 'Juan Cliente', 'phone' => '77777777', 'active' => true]);
@@ -449,6 +452,8 @@ class DirectSaleWorkflowTest extends TestCase
             'movement_type' => 'OUT',
         ]);
 
+        $this->assertNotNull(Order::find($orderId)->direct_returnables_resolved_at);
+
         // Call a second time - assert no duplicates created
         $component->call('recordDirectReturnables');
         $this->assertEquals(
@@ -569,7 +574,7 @@ class DirectSaleWorkflowTest extends TestCase
         $this->assertNotNull($comp3->get('activeDirectOrderId'));
     }
 
-    public function test_mandatory_returnables_resolution_before_closing_direct_sale(): void
+    public function test_skip_direct_returnables_persists_resolution_timestamp(): void
     {
         $returnableType = ReturnableType::create(['name' => 'Sifón de Vidrio', 'sort_order' => 1, 'active' => true]);
         ProductReturnableRequirement::create([
@@ -578,7 +583,7 @@ class DirectSaleWorkflowTest extends TestCase
             'quantity' => 1,
         ]);
 
-        $customer = Customer::create(['name' => 'Cliente Con Retornable', 'phone' => '66666666', 'active' => true]);
+        $customer = Customer::create(['name' => 'Cliente Skip', 'phone' => '66666666', 'active' => true]);
 
         $component = Livewire::actingAs($this->user)
             ->test(\App\Livewire\CreateOrder::class)
@@ -595,14 +600,139 @@ class DirectSaleWorkflowTest extends TestCase
             ->call('submitDirectPayment')
             ->assertDispatched('notify-toast', type: 'warning', title: 'Envases Pendientes');
 
-        // Order remains active because returnables are unresolved
-        $this->assertEquals($orderId, $component->get('activeDirectOrderId'));
+        $this->assertNull(Order::find($orderId)->direct_returnables_resolved_at);
 
-        // Option B: User explicitly chooses "Continuar sin dejar envases"
+        // Explicit skip
         $component->call('skipDirectReturnables')
+            ->assertDispatched('notify-toast', type: 'info', title: 'Sin Envases');
+
+        $this->assertNotNull(Order::find($orderId)->direct_returnables_resolved_at);
+        $this->assertNull($component->get('activeDirectOrderId'));
+
+        // Re-mount component: should NOT recover completed order
+        $remount = Livewire::actingAs($this->user)->test(\App\Livewire\CreateOrder::class);
+        $this->assertNull($remount->get('activeDirectOrderId'));
+    }
+
+    public function test_skip_direct_returnables_with_partial_payment(): void
+    {
+        $returnableType = ReturnableType::create(['name' => 'Botella', 'sort_order' => 1, 'active' => true]);
+        ProductReturnableRequirement::create([
+            'product_id' => $this->product->id,
+            'returnable_type_id' => $returnableType->id,
+            'quantity' => 1,
+        ]);
+
+        $customer = Customer::create(['name' => 'Cliente Parcial', 'phone' => '55555555', 'active' => true]);
+
+        $comp = Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->call('selectCustomer', $customer->id)
+            ->call('setServiceMode', 'DIRECT')
+            ->call('addToCart', $this->product->id)
+            ->call('submitOrder');
+
+        $orderId = $comp->get('activeDirectOrderId');
+
+        $comp->call('startDirectPreparing')
+            ->call('markDirectDelivered')
+            ->set('directPaymentAmount', '15.00')
+            ->call('submitDirectPayment');
+
+        // Confirm skip returnables
+        $comp->call('skipDirectReturnables');
+        $this->assertNotNull(Order::find($orderId)->direct_returnables_resolved_at);
+
+        // Remount component: recovers order because balance > 0
+        $remount = Livewire::actingAs($this->user)->test(\App\Livewire\CreateOrder::class);
+        $this->assertEquals($orderId, $remount->get('activeDirectOrderId'));
+        $this->assertTrue($remount->get('directReturnablesHandled'));
+
+        // Pay remaining balance (20.00): sale closes without asking for returnables again
+        $remount->set('directPaymentAmount', '20.00')
+            ->call('submitDirectPayment')
             ->assertDispatched('notify-toast', type: 'success', title: 'Venta Completada');
 
-        $this->assertNull($component->get('activeDirectOrderId'));
+        $this->assertNull($remount->get('activeDirectOrderId'));
+    }
+
+    public function test_invalid_skip_direct_returnables(): void
+    {
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+        $order = $orderService->createOrder([
+            'service_mode' => ServiceMode::DIRECT,
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 1],
+            ],
+        ], $this->user);
+
+        // NEW status skip attempt
+        Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->set('activeDirectOrderId', $order->id)
+            ->call('skipDirectReturnables')
+            ->assertDispatched('notify-toast', type: 'error', title: 'Acción no válida');
+
+        // PREPARING status skip attempt
+        $orderService->startDirectPreparing($order, $this->user);
+
+        Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->set('activeDirectOrderId', $order->id)
+            ->call('skipDirectReturnables')
+            ->assertDispatched('notify-toast', type: 'error', title: 'Acción no válida');
+
+        $this->assertNull($order->fresh()->direct_returnables_resolved_at);
+    }
+
+    public function test_order_service_prevents_simultaneous_direct_orders_for_same_user(): void
+    {
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+
+        $order1 = $orderService->createOrder([
+            'service_mode' => ServiceMode::DIRECT,
+            'submission_token' => (string) \Illuminate\Support\Str::uuid(),
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 1],
+            ],
+        ], $this->user);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Ya existe una venta en puesto activa para este usuario.');
+
+        $orderService->createOrder([
+            'service_mode' => ServiceMode::DIRECT,
+            'submission_token' => (string) \Illuminate\Support\Str::uuid(),
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 1],
+            ],
+        ], $this->user);
+    }
+
+    public function test_active_direct_order_does_not_block_kitchen_order_creation(): void
+    {
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+
+        $directOrder = $orderService->createOrder([
+            'service_mode' => ServiceMode::DIRECT,
+            'submission_token' => (string) \Illuminate\Support\Str::uuid(),
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 1],
+            ],
+        ], $this->user);
+
+        $kitchenOrder = $orderService->createOrder([
+            'service_mode' => ServiceMode::KITCHEN,
+            'submission_token' => (string) \Illuminate\Support\Str::uuid(),
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 1],
+            ],
+        ], $this->user);
+
+        $this->assertEquals(ServiceMode::KITCHEN, $kitchenOrder->service_mode);
     }
 
     public function test_direct_order_broadcasts_order_changed_without_kitchen_sound_or_notification(): void

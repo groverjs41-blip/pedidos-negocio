@@ -82,9 +82,8 @@ class CreateOrder extends Component
                     foreach ($activeDirect->returnablePlans as $plan) {
                         $this->directReturnableQuantities[$plan->returnable_type_id] = $plan->quantity;
                     }
-                    $this->directReturnableBatchToken = (string) Str::uuid();
-                    $this->directReturnablesRecorded = $activeDirect->returnableMovements()->where('movement_type', 'OUT')->exists();
-                    $this->directReturnablesHandled = $this->directReturnablesRecorded;
+                    $this->directReturnablesRecorded = !is_null($activeDirect->direct_returnables_resolved_at) || $activeDirect->returnableMovements()->where('movement_type', 'OUT')->exists();
+                    $this->directReturnablesHandled = !is_null($activeDirect->direct_returnables_resolved_at) || $this->directReturnablesRecorded;
                 }
             }
         }
@@ -505,31 +504,7 @@ class CreateOrder extends Component
 
     public function findActiveDirectOrderForUser(int $userId): ?Order
     {
-        $candidates = Order::where('created_by', $userId)
-            ->where('service_mode', \App\Enums\ServiceMode::DIRECT)
-            ->whereIn('status', [\App\Enums\OrderStatus::NEW, \App\Enums\OrderStatus::PREPARING, \App\Enums\OrderStatus::DELIVERED])
-            ->with(['items', 'paymentAllocations', 'returnablePlans.returnableType', 'returnableMovements'])
-            ->orderBy('id', 'desc')
-            ->get();
-
-        foreach ($candidates as $ord) {
-            if (in_array($ord->status, [\App\Enums\OrderStatus::NEW, \App\Enums\OrderStatus::PREPARING])) {
-                return $ord;
-            }
-
-            if ($ord->status === \App\Enums\OrderStatus::DELIVERED) {
-                $hasBalance = bccomp($ord->outstandingBalance(), '0.00', 2) > 0;
-                $needsReturnables = $ord->customer_id 
-                    && $ord->returnablePlans->count() > 0 
-                    && !$ord->returnableMovements()->where('movement_type', 'OUT')->exists();
-
-                if ($hasBalance || $needsReturnables) {
-                    return $ord;
-                }
-            }
-        }
-
-        return null;
+        return app(OrderService::class)->findActiveDirectOrderForUser($userId);
     }
 
     protected function ensureNoActiveDirectSale(string $action = 'realizar esta acción'): bool
@@ -669,8 +644,8 @@ class CreateOrder extends Component
                     $this->directReturnableQuantities[$plan->returnable_type_id] = $plan->quantity;
                 }
                 $this->directReturnableBatchToken = (string) Str::uuid();
-                $this->directReturnablesRecorded = false;
-                $this->directReturnablesHandled = false;
+                $this->directReturnablesRecorded = !is_null($freshOrder->direct_returnables_resolved_at);
+                $this->directReturnablesHandled = !is_null($freshOrder->direct_returnables_resolved_at);
             } else {
                 $this->directReturnablesHandled = true;
             }
@@ -686,7 +661,12 @@ class CreateOrder extends Component
         $order = $this->activeDirectOrder;
         if (!$order || !$order->customer_id) return;
 
-        if ($this->directReturnablesRecorded || $order->returnableMovements()->where('movement_type', 'OUT')->exists()) {
+        if ($order->service_mode !== \App\Enums\ServiceMode::DIRECT || $order->status !== \App\Enums\OrderStatus::DELIVERED) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Acción no válida', message: 'Solo se pueden registrar envases en ventas en puesto entregadas.');
+            return;
+        }
+
+        if (!is_null($order->direct_returnables_resolved_at) || $this->directReturnablesRecorded || $order->returnableMovements()->where('movement_type', 'OUT')->exists()) {
             $this->directReturnablesRecorded = true;
             $this->directReturnablesHandled = true;
             $this->dispatch('notify-toast', type: 'info', title: 'Envases Registrados', message: 'Los envases ya fueron registrados previamente.');
@@ -711,15 +691,7 @@ class CreateOrder extends Component
         }
 
         if (empty($items)) {
-            $this->directReturnablesRecorded = true;
-            $this->directReturnablesHandled = true;
-            $this->dispatch('notify-toast', type: 'info', title: 'Sin Envases', message: 'Se continuó sin registrar envases dejados al cliente.');
-
-            if (bccomp($order->outstandingBalance(), '0.00', 2) === 0) {
-                $this->dispatch('notify-toast', type: 'success', title: 'Venta Completada', message: "Venta completada para el pedido #{$order->number}.");
-                $this->resetOrderForm();
-                $this->dispatch('order-submitted-success');
-            }
+            $this->dispatch('notify-toast', type: 'warning', title: 'Sin Cantidades', message: "No hay cantidades de envases. Usa 'Continuar sin dejar envases' si corresponde.");
             return;
         }
 
@@ -733,6 +705,8 @@ class CreateOrder extends Component
                 $order,
                 'Envases entregados en venta en puesto'
             );
+
+            $order->update(['direct_returnables_resolved_at' => now()]);
 
             $this->directReturnablesRecorded = true;
             $this->directReturnablesHandled = true;
@@ -751,7 +725,21 @@ class CreateOrder extends Component
     public function skipDirectReturnables(): void
     {
         $order = $this->activeDirectOrder;
-        if (!$order) return;
+        if (!$order) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'No hay una venta en puesto activa.');
+            return;
+        }
+
+        if ($order->service_mode !== \App\Enums\ServiceMode::DIRECT 
+            || $order->status !== \App\Enums\OrderStatus::DELIVERED 
+            || !$order->customer_id 
+            || $order->returnablePlans->count() === 0 
+            || !is_null($order->direct_returnables_resolved_at)) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Acción no válida', message: 'No se puede omitir envases para este pedido.');
+            return;
+        }
+
+        $order->update(['direct_returnables_resolved_at' => now()]);
 
         $this->directReturnablesHandled = true;
         $this->dispatch('notify-toast', type: 'info', title: 'Sin Envases', message: 'Se continuó sin dejar envases.');
@@ -796,6 +784,7 @@ class CreateOrder extends Component
 
             $needsReturnablesResolution = $freshOrder->customer_id 
                 && $freshOrder->returnablePlans->count() > 0 
+                && is_null($freshOrder->direct_returnables_resolved_at)
                 && !$freshOrder->returnableMovements()->where('movement_type', 'OUT')->exists()
                 && !$this->directReturnablesRecorded
                 && !$this->directReturnablesHandled;

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\OrderStatus;
+use App\Enums\ServiceMode;
 use App\Events\OrderChanged;
 use App\Models\Category;
 use App\Models\Customer;
@@ -52,6 +53,18 @@ class OrderService
                     $existing = Order::where('submission_token', $data['submission_token'])->lockForUpdate()->first();
                     if ($existing) {
                         return $existing;
+                    }
+                }
+
+                $requestedMode = isset($data['service_mode'])
+                    ? ($data['service_mode'] instanceof ServiceMode ? $data['service_mode'] : ServiceMode::tryFrom($data['service_mode']))
+                    : ServiceMode::KITCHEN;
+
+                if ($requestedMode === ServiceMode::DIRECT) {
+                    User::where('id', $creator->id)->lockForUpdate()->first();
+                    $activeDirect = $this->findActiveDirectOrderForUser($creator);
+                    if ($activeDirect) {
+                        throw new \InvalidArgumentException('Ya existe una venta en puesto activa para este usuario.');
                     }
                 }
 
@@ -585,5 +598,40 @@ class OrderService
             ->update(['last_number' => $next]);
 
         return $next;
+    }
+
+    /**
+     * Find active direct order for a user (NEW, PREPARING, or DELIVERED requiring payment or returnables resolution).
+     */
+    public function findActiveDirectOrderForUser(User|int $user): ?Order
+    {
+        $userId = $user instanceof User ? $user->id : $user;
+
+        $candidates = Order::where('created_by', $userId)
+            ->where('service_mode', ServiceMode::DIRECT)
+            ->whereIn('status', [OrderStatus::NEW, OrderStatus::PREPARING, OrderStatus::DELIVERED])
+            ->with(['items', 'paymentAllocations', 'returnablePlans.returnableType', 'returnableMovements'])
+            ->orderBy('id', 'desc')
+            ->get();
+
+        foreach ($candidates as $ord) {
+            if (in_array($ord->status, [OrderStatus::NEW, OrderStatus::PREPARING])) {
+                return $ord;
+            }
+
+            if ($ord->status === OrderStatus::DELIVERED) {
+                $hasBalance = bccomp($ord->outstandingBalance(), '0.00', 2) > 0;
+                $needsReturnables = $ord->customer_id 
+                    && $ord->returnablePlans->count() > 0 
+                    && is_null($ord->direct_returnables_resolved_at)
+                    && !$ord->returnableMovements()->where('movement_type', 'OUT')->exists();
+
+                if ($hasBalance || $needsReturnables) {
+                    return $ord;
+                }
+            }
+        }
+
+        return null;
     }
 }
