@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Category;
 use App\Models\Customer;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductReturnableRequirement;
 use App\Models\ReturnableType;
@@ -439,8 +440,29 @@ class CreateOrder extends Component
         return $total;
     }
 
+    public string $serviceMode = 'KITCHEN';
+
+    // Direct Counter Sale Active Order & Payment State
+    public ?int $activeDirectOrderId = null;
+    public string $directPaymentMethod = 'CASH';
+    public string $directPaymentReference = '';
+    public string $directPaymentAmount = '';
+
+    public function setServiceMode(string $mode): void
+    {
+        if (in_array($mode, ['KITCHEN', 'DIRECT'])) {
+            $this->serviceMode = $mode;
+        }
+    }
+
+    public function getActiveDirectOrderProperty(): ?Order
+    {
+        if (!$this->activeDirectOrderId) return null;
+        return Order::with(['items', 'paymentAllocations'])->find($this->activeDirectOrderId);
+    }
+
     /**
-     * Submit order to the Kitchen.
+     * Submit order to Kitchen or register Direct Sale.
      */
     public function submitOrder(OrderService $orderService): void
     {
@@ -468,27 +490,104 @@ class CreateOrder extends Component
                 'customer_id' => $this->selectedCustomerId,
                 'notes' => $this->notes,
                 'items' => $items,
+                'service_mode' => $this->serviceMode,
             ], auth()->user());
 
-            $this->dispatch('notify-toast', type: 'success', title: 'Pedido Enviado', message: "Pedido #{$order->number} enviado a cocina correctamente.");
+            if ($this->serviceMode === 'DIRECT') {
+                $this->activeDirectOrderId = $order->id;
+                $this->directPaymentAmount = (string) $order->total;
+                $this->directPaymentMethod = \App\Enums\PaymentMethod::CASH->value;
+                $this->directPaymentReference = '';
+                $this->dispatch('notify-toast', type: 'success', title: 'Venta en Puesto', message: "Pedido #{$order->number} registrado.");
+            } else {
+                $this->dispatch('notify-toast', type: 'success', title: 'Pedido Enviado', message: "Pedido #{$order->number} enviado a cocina correctamente.");
 
-            // Reset state completely
-            $this->selectedCustomerId = null;
-            $this->selectedCustomerName = '';
-            $this->selectedCustomerPhone = '';
-            $this->selectedCustomerAddress = '';
-            $this->searchQuery = '';
-            $this->productSearch = '';
-            $this->cart = [];
-            $this->notes = '';
-
-            $this->generateSubmissionToken();
-            $this->dispatch('focus-search-customer');
+                // Reset state completely and close mobile cart
+                $this->resetOrderForm();
+                $this->dispatch('order-submitted-success');
+            }
 
         } catch (\InvalidArgumentException $e) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error al enviar', message: $e->getMessage());
         } catch (\Exception $e) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error del sistema', message: 'Error al crear el pedido. Verifique los datos ingresados.');
         }
+    }
+
+    public function startDirectPreparing(OrderService $orderService): void
+    {
+        $order = $this->activeDirectOrder;
+        if (!$order) return;
+
+        try {
+            $orderService->startPreparing($order, auth()->user());
+            $this->dispatch('notify-toast', type: 'info', title: 'En Preparación', message: "Pedido #{$order->number} en preparación.");
+        } catch (\Exception $e) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: $e->getMessage());
+        }
+    }
+
+    public function markDirectDelivered(OrderService $orderService): void
+    {
+        $order = $this->activeDirectOrder;
+        if (!$order) return;
+
+        try {
+            $orderService->markDirectDelivered($order, auth()->user());
+            $this->directPaymentAmount = (string) $order->fresh()->outstandingBalance();
+            $this->dispatch('notify-toast', type: 'success', title: 'Entregado', message: "Pedido #{$order->number} marcado como entregado.");
+        } catch (\Exception $e) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: $e->getMessage());
+        }
+    }
+
+    public function submitDirectPayment(\App\Services\PaymentService $paymentService): void
+    {
+        $order = $this->activeDirectOrder;
+        if (!$order) return;
+
+        try {
+            $paymentMethodEnum = \App\Enums\PaymentMethod::tryFrom($this->directPaymentMethod) ?? \App\Enums\PaymentMethod::CASH;
+            $paymentToken = (string) Str::uuid();
+
+            $paymentService->recordOrderPayment(
+                $order,
+                $this->directPaymentAmount,
+                $paymentMethodEnum,
+                trim($this->directPaymentReference) ?: null,
+                'Cobro de venta en puesto',
+                auth()->user(),
+                $paymentToken
+            );
+
+            $this->dispatch('notify-toast', type: 'success', title: 'Venta Completada', message: "Cobro registrado para el pedido #{$order->number}.");
+
+            $this->resetOrderForm();
+            $this->dispatch('order-submitted-success');
+        } catch (\InvalidArgumentException $e) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error en cobro', message: $e->getMessage());
+        } catch (\Exception $e) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'No se pudo registrar el pago.');
+        }
+    }
+
+    public function resetOrderForm(): void
+    {
+        $this->selectedCustomerId = null;
+        $this->selectedCustomerName = '';
+        $this->selectedCustomerPhone = '';
+        $this->selectedCustomerAddress = '';
+        $this->searchQuery = '';
+        $this->productSearch = '';
+        $this->cart = [];
+        $this->notes = '';
+        $this->serviceMode = 'KITCHEN';
+        $this->activeDirectOrderId = null;
+        $this->directPaymentAmount = '';
+        $this->directPaymentReference = '';
+        $this->directPaymentMethod = \App\Enums\PaymentMethod::CASH->value;
+
+        $this->generateSubmissionToken();
+        $this->dispatch('focus-search-customer');
     }
 }

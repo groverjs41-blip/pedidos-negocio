@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\OrderStatus;
+use App\Enums\ServiceMode;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,6 +21,7 @@ class Order extends Model
         'customer_phone_snapshot',
         'delivery_address_snapshot',
         'status',
+        'service_mode',
         'subtotal',
         'total',
         'notes',
@@ -42,6 +44,7 @@ class Order extends Model
     {
         return [
             'status' => OrderStatus::class,
+            'service_mode' => ServiceMode::class,
             'subtotal' => 'decimal:2',
             'total' => 'decimal:2',
             'ordered_at' => 'datetime',

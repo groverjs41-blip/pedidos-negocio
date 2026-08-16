@@ -105,6 +105,11 @@ class OrderService
                 }
 
                 // 4. Create Order
+                $serviceMode = $data['service_mode'] ?? \App\Enums\ServiceMode::KITCHEN;
+                if (is_string($serviceMode)) {
+                    $serviceMode = \App\Enums\ServiceMode::from($serviceMode);
+                }
+
                 $order = Order::create([
                     'number' => $numberString,
                     'submission_token' => $data['submission_token'] ?? null,
@@ -113,6 +118,7 @@ class OrderService
                     'customer_phone_snapshot' => $customer?->phone,
                     'delivery_address_snapshot' => $customer?->address,
                     'status' => OrderStatus::NEW,
+                    'service_mode' => $serviceMode,
                     'subtotal' => $subtotal,
                     'total' => $subtotal,
                     'notes' => $data['notes'] ?? null,
@@ -307,6 +313,10 @@ class OrderService
         DB::transaction(function () use ($order, $user) {
             $lockedOrder = Order::where('id', $order->id)->lockForUpdate()->firstOrFail();
 
+            if ($lockedOrder->service_mode === \App\Enums\ServiceMode::DIRECT) {
+                throw new \Exception('Los pedidos en puesto no pueden pasar al estado Listo.');
+            }
+
             if ($lockedOrder->status !== OrderStatus::PREPARING) {
                 throw new \Exception('Solo se pueden marcar listos pedidos en estado "Preparando".');
             }
@@ -339,6 +349,10 @@ class OrderService
         DB::transaction(function () use ($order, $user) {
             $lockedOrder = Order::where('id', $order->id)->lockForUpdate()->firstOrFail();
 
+            if ($lockedOrder->service_mode === \App\Enums\ServiceMode::DIRECT) {
+                throw new \Exception('Los pedidos en puesto no pueden pasar al estado En reparto.');
+            }
+
             if ($lockedOrder->status !== OrderStatus::READY) {
                 throw new \Exception('Este pedido ya fue tomado por otro repartidor.');
             }
@@ -360,6 +374,42 @@ class OrderService
 
         $order->refresh();
         $this->notifyAndBroadcast($order, 'DELIVERING', $previousStatus->value);
+    }
+
+    /**
+     * Mark a DIRECT order as delivered (PREPARING -> DELIVERED).
+     */
+    public function markDirectDelivered(Order $order, User $user): void
+    {
+        $previousStatus = $order->status;
+
+        DB::transaction(function () use ($order, $user) {
+            $lockedOrder = Order::where('id', $order->id)->lockForUpdate()->firstOrFail();
+
+            if ($lockedOrder->service_mode !== \App\Enums\ServiceMode::DIRECT) {
+                throw new \Exception('Esta función solo es para ventas en puesto.');
+            }
+
+            if ($lockedOrder->status !== OrderStatus::PREPARING) {
+                throw new \Exception('El pedido en puesto debe estar en preparación para marcarse como entregado.');
+            }
+
+            $lockedOrder->update([
+                'status' => OrderStatus::DELIVERED,
+                'delivered_at' => now(),
+            ]);
+
+            OrderStatusHistory::create([
+                'order_id' => $lockedOrder->id,
+                'from_status' => OrderStatus::PREPARING,
+                'to_status' => OrderStatus::DELIVERED,
+                'user_id' => $user->id,
+                'notes' => 'Venta en puesto entregada.',
+            ]);
+        });
+
+        $order->refresh();
+        $this->notifyAndBroadcast($order, 'DELIVERED', $previousStatus->value);
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Enums\OrderStatus;
+use App\Enums\ServiceMode;
 use App\Models\Order;
 use App\Services\OrderService;
 use Livewire\Component;
@@ -13,7 +14,8 @@ class Kitchen extends Component
 
     public function mount(): void
     {
-        $this->knownOrderIds = Order::whereIn('status', [OrderStatus::NEW, OrderStatus::PREPARING])
+        $this->knownOrderIds = Order::where('service_mode', ServiceMode::KITCHEN)
+            ->whereIn('status', [OrderStatus::NEW, OrderStatus::PREPARING])
             ->pluck('id')
             ->toArray();
     }
@@ -33,7 +35,8 @@ class Kitchen extends Component
      */
     public function getOrdersProperty()
     {
-        return Order::whereIn('status', [OrderStatus::NEW, OrderStatus::PREPARING])
+        return Order::where('service_mode', ServiceMode::KITCHEN)
+            ->whereIn('status', [OrderStatus::NEW, OrderStatus::PREPARING])
             ->with(['items', 'returnablePlans.returnableType'])
             ->orderBy('ordered_at', 'asc')
             ->get();
@@ -52,7 +55,8 @@ class Kitchen extends Component
         $prefService = app(\App\Services\OperationalNotificationPreferenceService::class);
         $shouldReceive = $prefService->shouldReceiveInApp($user, 'ORDER_CREATED');
 
-        $currentOrders = Order::whereIn('status', [OrderStatus::NEW, OrderStatus::PREPARING])
+        $currentOrders = Order::where('service_mode', ServiceMode::KITCHEN)
+            ->whereIn('status', [OrderStatus::NEW, OrderStatus::PREPARING])
             ->with(['items'])
             ->orderBy('ordered_at', 'asc')
             ->get();

@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Enums\OrderStatus;
+use App\Enums\ServiceMode;
 use App\Models\Order;
 use App\Models\ReturnableType;
 use App\Services\OrderService;
@@ -22,7 +23,8 @@ class Delivery extends Component
 
     public function mount(): void
     {
-        $this->knownReadyOrderIds = Order::where('status', OrderStatus::READY)
+        $this->knownReadyOrderIds = Order::where('service_mode', ServiceMode::KITCHEN)
+            ->where('status', OrderStatus::READY)
             ->pluck('id')
             ->toArray();
     }
@@ -36,7 +38,8 @@ class Delivery extends Component
 
     public function getReadyOrdersProperty()
     {
-        return Order::where('status', OrderStatus::READY)
+        return Order::where('service_mode', ServiceMode::KITCHEN)
+            ->where('status', OrderStatus::READY)
             ->with(['items', 'returnablePlans.returnableType'])
             ->orderBy('ready_at', 'asc')
             ->get();
@@ -44,7 +47,8 @@ class Delivery extends Component
 
     public function getMyDeliveriesProperty()
     {
-        return Order::where('status', OrderStatus::DELIVERING)
+        return Order::where('service_mode', ServiceMode::KITCHEN)
+            ->where('status', OrderStatus::DELIVERING)
             ->where('delivery_user_id', auth()->id())
             ->with(['items', 'returnablePlans.returnableType'])
             ->orderBy('delivering_at', 'asc')
@@ -64,7 +68,8 @@ class Delivery extends Component
         $prefService = app(\App\Services\OperationalNotificationPreferenceService::class);
         $shouldReceive = $prefService->shouldReceiveInApp($user, 'READY');
 
-        $readyOrders = Order::where('status', OrderStatus::READY)
+        $readyOrders = Order::where('service_mode', ServiceMode::KITCHEN)
+            ->where('status', OrderStatus::READY)
             ->with(['items'])
             ->orderBy('ready_at', 'asc')
             ->get();

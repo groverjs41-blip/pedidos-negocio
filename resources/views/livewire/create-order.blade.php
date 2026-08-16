@@ -1,4 +1,4 @@
-<div class="pos-layout" x-data="{ mobileCartOpen: false }">
+<div class="pos-layout" x-data="{ mobileCartOpen: false }" @order-submitted-success.window="mobileCartOpen = false">
     {{-- Offline status warning (kept persistent as per rule 2) --}}
     <div wire:offline class="alert alert-danger">
         <x-ui.icon name="alert" class="w-4 h-4" />
@@ -198,78 +198,221 @@
 
         {{-- RIGHT PANEL (30% Sticky Cart Panel) --}}
         <div class="pos-right" :class="{ 'mobile-cart-open': mobileCartOpen }">
-            <div class="cart-panel">
-                <div class="cart-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <span>Tu Pedido</span>
-                        @if($selectedCustomerName)
-                            <span style="font-size: 0.775rem; color: var(--primary); font-weight: 600; margin-left: 0.5rem;">{{ $selectedCustomerName }}</span>
-                        @endif
+            @if($this->activeDirectOrder)
+                @php $directOrder = $this->activeDirectOrder; @endphp
+                <div class="cart-panel" style="border: 2px solid var(--primary); background: var(--bg-card);">
+                    <div class="cart-header" style="background: rgba(16, 185, 129, 0.15); border-bottom: 1px solid var(--primary-border); padding: 0.85rem 1rem; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 800; color: var(--primary); display: block;">
+                                ⚡ VENTA EN PUESTO
+                            </span>
+                            <span style="font-size: 1.1rem; font-weight: 800; color: var(--text-main);">
+                                Pedido #{{ $directOrder->number }}
+                            </span>
+                        </div>
+                        <button type="button" @click="mobileCartOpen = false" class="lg:hidden text-slate-400 hover:text-white font-bold text-xl leading-none">&times;</button>
                     </div>
-                    <button type="button" @click="mobileCartOpen = false" class="lg:hidden text-slate-400 hover:text-white font-bold text-xl leading-none">&times;</button>
-                </div>
 
-                <div class="cart-items-list">
-                    @forelse($cart as $item)
-                        <div class="cart-item-row">
-                            <div class="cart-item-info">
-                                <span class="cart-item-title">{{ $item['name'] }}</span>
-                                <span class="cart-item-price">@money($item['price']) c/u</span>
+                    <div style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem; flex-grow: 1; overflow-y: auto;">
+                        {{-- Order Summary --}}
+                        <div style="background: var(--bg-surface); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border);">
+                            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem;">
+                                CLIENTE: {{ $directOrder->customer_name_snapshot ?? 'Venta Mostrador' }}
                             </div>
-                            <div class="cart-item-controls">
-                                <button type="button" wire:click="decrementQty({{ $item['id'] }})" class="qty-control-btn">-</button>
-                                <span class="qty-value">{{ $item['quantity'] }}</span>
-                                <button type="button" wire:click="incrementQty({{ $item['id'] }})" class="qty-control-btn">+</button>
-                                <button type="button" wire:click="removeFromCart({{ $item['id'] }})" class="btn-remove-item">
-                                    <x-ui.icon name="trash" class="w-4 h-4" />
+                            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                @foreach($directOrder->items as $i)
+                                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-main);">
+                                        <span>{{ $i->quantity }}x {{ $i->product_name }}</span>
+                                        <span style="font-weight: 600;">@money($i->line_total)</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                            <div style="border-top: 1px dashed var(--border); margin-top: 0.5rem; padding-top: 0.5rem; display: flex; justify-content: space-between; font-weight: 800; font-size: 1rem; color: var(--primary);">
+                                <span>TOTAL</span>
+                                <span>@money($directOrder->total)</span>
+                            </div>
+                        </div>
+
+                        {{-- Stepper Actions --}}
+                        @if($directOrder->status === \App\Enums\OrderStatus::NEW)
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                <div style="font-size: 0.8rem; font-weight: 700; color: var(--warning-text); text-align: center;">
+                                    Estado actual: NUEVO
+                                </div>
+                                <button
+                                    type="button"
+                                    wire:click="startDirectPreparing"
+                                    wire:loading.attr="disabled"
+                                    class="btn-primary"
+                                    style="height: 44px; font-weight: 800; font-size: 0.95rem;"
+                                >
+                                    <span wire:loading wire:target="startDirectPreparing" class="spinner"></span>
+                                    <span wire:loading.remove wire:target="startDirectPreparing">🍳 PREPARAR →</span>
                                 </button>
                             </div>
-                        </div>
-                    @empty
-                        <div style="margin: auto 0;">
-                            <x-ui.empty-state
-                                title="Tu pedido está vacío"
-                                description="Selecciona productos del menú para comenzar."
-                                icon="bag"
-                            />
-                        </div>
-                    @endforelse
-                </div>
+                        @elseif($directOrder->status === \App\Enums\OrderStatus::PREPARING)
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                <div style="font-size: 0.8rem; font-weight: 700; color: var(--warning-text); text-align: center;">
+                                    Estado actual: EN PREPARACIÓN
+                                </div>
+                                <button
+                                    type="button"
+                                    wire:click="markDirectDelivered"
+                                    wire:loading.attr="disabled"
+                                    class="btn-primary"
+                                    style="height: 44px; font-weight: 800; font-size: 0.95rem; background: #059669;"
+                                >
+                                    <span wire:loading wire:target="markDirectDelivered" class="spinner"></span>
+                                    <span wire:loading.remove wire:target="markDirectDelivered">📦 ENTREGAR →</span>
+                                </button>
+                            </div>
+                        @elseif($directOrder->status === \App\Enums\OrderStatus::DELIVERED)
+                            {{-- Payment Form --}}
+                            <div style="display: flex; flex-direction: column; gap: 0.85rem; background: var(--bg-surface); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border);">
+                                <div style="font-size: 0.85rem; font-weight: 800; color: var(--text-main); text-align: center; text-transform: uppercase;">
+                                    💳 COBRO DE VENTA EN PUESTO
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 700;">
+                                    <span>Saldo Pendiente:</span>
+                                    <span style="color: var(--danger-text);">@money($directOrder->outstandingBalance())</span>
+                                </div>
 
-                {{-- Notes --}}
-                <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                    <label class="form-label" style="font-size: 0.775rem;">Notas del Pedido</label>
-                    <textarea
-                        wire:model="notes"
-                        rows="2"
-                        class="form-input"
-                        placeholder="Ej. Sin cebolla, salsa extra..."
-                        style="resize: none; font-size: 0.825rem; height: 60px; padding: 8px 10px;"
-                    ></textarea>
-                </div>
+                                <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                    <label class="form-label" style="font-size: 0.775rem;">Método de Pago</label>
+                                    <select wire:model="directPaymentMethod" class="form-input" style="height: 38px; font-size: 0.85rem;">
+                                        <option value="CASH">Efectivo</option>
+                                        <option value="QR">QR</option>
+                                        <option value="TRANSFER">Transferencia</option>
+                                        <option value="CARD">Tarjeta</option>
+                                        <option value="OTHER">Otro</option>
+                                    </select>
+                                </div>
 
-                {{-- Cart Footer & Total --}}
-                <div class="cart-footer">
-                    <div class="cart-total-row">
-                        <span class="cart-total-label">TOTAL</span>
-                        <span class="cart-total-value">@money($this->cartTotal)</span>
+                                <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                    <label class="form-label" style="font-size: 0.775rem;">Monto a cobrar</label>
+                                    <input type="number" step="0.01" wire:model="directPaymentAmount" class="form-input" style="height: 38px; font-size: 0.85rem; font-weight: 700;">
+                                </div>
+
+                                <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                    <label class="form-label" style="font-size: 0.775rem;">Referencia (Opcional)</label>
+                                    <input type="text" wire:model="directPaymentReference" class="form-input" placeholder="Nro de comprobante..." style="height: 38px; font-size: 0.85rem;">
+                                </div>
+
+                                <button
+                                    type="button"
+                                    wire:click="submitDirectPayment"
+                                    wire:loading.attr="disabled"
+                                    class="btn-primary"
+                                    style="height: 44px; font-weight: 800; font-size: 0.95rem; background: var(--primary);"
+                                >
+                                    <span wire:loading wire:target="submitDirectPayment" class="spinner"></span>
+                                    <span wire:loading.remove wire:target="submitDirectPayment">💵 COBRAR @money($directPaymentAmount ?: '0.00')</span>
+                                </button>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @else
+                <div class="cart-panel">
+                    <div class="cart-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span>Tu Pedido</span>
+                            @if($selectedCustomerName)
+                                <span style="font-size: 0.775rem; color: var(--primary); font-weight: 600; margin-left: 0.5rem;">{{ $selectedCustomerName }}</span>
+                            @endif
+                        </div>
+                        <button type="button" @click="mobileCartOpen = false" class="lg:hidden text-slate-400 hover:text-white font-bold text-xl leading-none">&times;</button>
                     </div>
 
-                    <button
-                        type="button"
-                        wire:click="submitOrder"
-                        wire:loading.attr="disabled"
-                        wire:target="submitOrder"
-                        wire:offline.attr="disabled"
-                        class="btn-submit-order"
-                        @if(empty($selectedCustomerName) || empty($cart)) disabled @endif
-                    >
-                        <span wire:loading wire:target="submitOrder" class="spinner"></span>
-                        <span wire:loading.remove wire:target="submitOrder">ENVIAR A COCINA →</span>
-                        <span wire:loading wire:target="submitOrder">ENVIANDO...</span>
-                    </button>
+                    <div class="cart-items-list">
+                        @forelse($cart as $item)
+                            <div class="cart-item-row">
+                                <div class="cart-item-info">
+                                    <span class="cart-item-title">{{ $item['name'] }}</span>
+                                    <span class="cart-item-price">@money($item['price']) c/u</span>
+                                </div>
+                                <div class="cart-item-controls">
+                                    <button type="button" wire:click="decrementQty({{ $item['id'] }})" class="qty-control-btn">-</button>
+                                    <span class="qty-value">{{ $item['quantity'] }}</span>
+                                    <button type="button" wire:click="incrementQty({{ $item['id'] }})" class="qty-control-btn">+</button>
+                                    <button type="button" wire:click="removeFromCart({{ $item['id'] }})" class="btn-remove-item">
+                                        <x-ui.icon name="trash" class="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        @empty
+                            <div style="margin: auto 0;">
+                                <x-ui.empty-state
+                                    title="Tu pedido está vacío"
+                                    description="Selecciona productos del menú para comenzar."
+                                    icon="bag"
+                                />
+                            </div>
+                        @endforelse
+                    </div>
+
+                    {{-- Service Mode Selector --}}
+                    <div class="service-mode-selector" style="margin-bottom: 0.5rem;">
+                        <label class="form-label" style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">
+                            TIPO DE ATENCIÓN
+                        </label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; background: var(--bg-surface); padding: 4px; border-radius: var(--radius-md); border: 1px solid var(--border);">
+                            <button
+                                type="button"
+                                wire:click="setServiceMode('KITCHEN')"
+                                class="chip-btn {{ $serviceMode === 'KITCHEN' ? 'active' : '' }}"
+                                style="justify-content: center; font-weight: 700; height: 36px; font-size: 0.8rem;"
+                            >
+                                🍳 Enviar a cocina
+                            </button>
+                            <button
+                                type="button"
+                                wire:click="setServiceMode('DIRECT')"
+                                class="chip-btn {{ $serviceMode === 'DIRECT' ? 'active' : '' }}"
+                                style="justify-content: center; font-weight: 700; height: 36px; font-size: 0.8rem;"
+                            >
+                                ⚡ Venta en puesto
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- Notes --}}
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <label class="form-label" style="font-size: 0.775rem;">Notas del Pedido</label>
+                        <textarea
+                            wire:model="notes"
+                            rows="2"
+                            class="form-input"
+                            placeholder="Ej. Sin cebolla, salsa extra..."
+                            style="resize: none; font-size: 0.825rem; height: 50px; padding: 6px 10px;"
+                        ></textarea>
+                    </div>
+
+                    {{-- Cart Footer & Total --}}
+                    <div class="cart-footer">
+                        <div class="cart-total-row">
+                            <span class="cart-total-label">TOTAL</span>
+                            <span class="cart-total-value">@money($this->cartTotal)</span>
+                        </div>
+
+                        <button
+                            type="button"
+                            wire:click="submitOrder"
+                            wire:loading.attr="disabled"
+                            wire:target="submitOrder"
+                            wire:offline.attr="disabled"
+                            class="btn-submit-order"
+                            @if(empty($selectedCustomerName) || empty($cart)) disabled @endif
+                        >
+                            <span wire:loading wire:target="submitOrder" class="spinner"></span>
+                            <span wire:loading.remove wire:target="submitOrder">
+                                {{ $serviceMode === 'DIRECT' ? 'INICIAR VENTA EN PUESTO →' : 'ENVIAR A COCINA →' }}
+                            </span>
+                            <span wire:loading wire:target="submitOrder">PROCESANDO...</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
+            @endif
         </div>
     </div>
 
