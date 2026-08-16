@@ -23,6 +23,21 @@ class OperationalNotificationService
     {
         $order->loadMissing('items');
 
+        if ($order->service_mode === \App\Enums\ServiceMode::DIRECT && in_array($action, ['ORDER_CREATED', 'PREPARING'])) {
+            event(new OrderChanged(
+                order: $order,
+                previousStatus: $previousStatus,
+                action: $action,
+                soundType: null,
+                targetRoles: [],
+                targetUserIds: [],
+                soundUserIds: [],
+                browserUserIds: [],
+                originUserId: auth()->id()
+            ));
+            return;
+        }
+
         $config = $this->getNotificationConfig($order, $action);
         if (!$config) {
             return;
@@ -84,10 +99,6 @@ class OperationalNotificationService
      */
     private function getNotificationConfig(Order $order, string $action): ?array
     {
-        if ($order->service_mode === \App\Enums\ServiceMode::DIRECT && in_array($action, ['ORDER_CREATED', 'PREPARING'])) {
-            return null;
-        }
-
         $customer = $order->customer_name_snapshot ?? 'Venta Mostrador';
 
         $items = [];

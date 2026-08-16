@@ -77,7 +77,7 @@
                                         <span style="font-size: 0.775rem; color: var(--warning-text); font-weight: 700;">
                                             📦 ENVASES POR RECOGER: 
                                             @foreach($this->selectedCustomerReturnables as $index => $item)
-                                                {{ $item['outstanding'] }}x {{ $item['type']->name }}{{ $index < count($this->selectedCustomerReturnables) - 1 ? ', ' : '' }}
+                                                {{ $item['balance'] ?? $item['outstanding'] ?? 0 }}x {{ ($item['returnable_type'] ?? $item['type'])->name }}{{ $index < count($this->selectedCustomerReturnables) - 1 ? ', ' : '' }}
                                             @endforeach
                                         </span>
                                         <button type="button" wire:click="openReturnModal" class="px-2 py-0.5 text-xs font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-all">
@@ -284,6 +284,10 @@
                                         <div style="font-size: 0.8rem; font-weight: 700; color: var(--primary);">
                                             ✓ Envases registrados para este pedido
                                         </div>
+                                    @elseif($directReturnablesHandled)
+                                        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">
+                                            ✓ Se continuó sin dejar envases
+                                        </div>
                                     @else
                                         @foreach($directOrder->returnablePlans as $plan)
                                             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;">
@@ -297,16 +301,27 @@
                                                 />
                                             </div>
                                         @endforeach
-                                        <button
-                                            type="button"
-                                            wire:click="recordDirectReturnables"
-                                            wire:loading.attr="disabled"
-                                            class="chip-btn"
-                                            style="justify-content: center; font-weight: 700; background: var(--bg-card); height: 36px; margin-top: 4px;"
-                                        >
-                                            <span wire:loading wire:target="recordDirectReturnables" class="spinner"></span>
-                                            <span wire:loading.remove wire:target="recordDirectReturnables">📦 Registrar Envases</span>
-                                        </button>
+                                        <div style="display: flex; gap: 0.5rem; margin-top: 4px;">
+                                            <button
+                                                type="button"
+                                                wire:click="recordDirectReturnables"
+                                                wire:loading.attr="disabled"
+                                                class="chip-btn"
+                                                style="flex: 1; justify-content: center; font-weight: 700; background: var(--bg-card); height: 36px;"
+                                            >
+                                                <span wire:loading wire:target="recordDirectReturnables" class="spinner"></span>
+                                                <span wire:loading.remove wire:target="recordDirectReturnables">📦 Registrar Envases</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                wire:click="skipDirectReturnables"
+                                                wire:loading.attr="disabled"
+                                                class="chip-btn"
+                                                style="justify-content: center; font-weight: 600; background: transparent; border: 1px solid var(--border); color: var(--text-muted); height: 36px; font-size: 0.75rem;"
+                                            >
+                                                Continuar sin dejar envases
+                                            </button>
+                                        </div>
                                     @endif
                                 </div>
                             @endif
@@ -648,16 +663,17 @@
                         @foreach($this->selectedCustomerReturnables as $item)
                             <div style="background: var(--bg-surface); padding: 0.75rem 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
                                 <div>
-                                    <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">{{ $item['type']->name }}</div>
-                                    <div style="font-size: 0.75rem; color: var(--warning-text);">Pendientes: {{ $item['outstanding'] }}</div>
+                                    <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">{{ ($item['returnable_type'] ?? $item['type'])->name }}</div>
+                                    <div style="font-size: 0.75rem; color: var(--warning-text);">Pendientes: {{ $item['balance'] ?? $item['outstanding'] ?? 0 }}</div>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                                     <input
                                         type="number"
                                         min="0"
-                                        max="{{ $item['outstanding'] }}"
-                                        wire:model="returnQuantities.{{ $item['type']->id }}"
-                                        style="width: 75px; text-align: center; height: 38px; border-radius: var(--radius-sm); background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); font-weight: 700;"
+                                        max="{{ $item['balance'] ?? $item['outstanding'] ?? 999 }}"
+                                        wire:model="returnQuantities.{{ ($item['returnable_type'] ?? $item['type'])->id }}"
+                                        style="width: 70px; height: 36px; text-align: center;"
+                                        class="form-input"
                                     />
                                 </div>
                             </div>

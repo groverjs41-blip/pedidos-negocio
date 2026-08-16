@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Enums\ServiceMode;
+use App\Events\OrderChanged;
 use App\Models\Category;
 use App\Models\Customer;
 use App\Models\Order;
@@ -18,6 +19,7 @@ use App\Models\UserOperationalNotificationPreference;
 use App\Services\OrderService;
 use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -355,8 +357,8 @@ class DirectSaleWorkflowTest extends TestCase
         UserOperationalNotificationPreference::create([
             'user_id' => $this->user->id,
             'event_type' => 'ORDER_CREATED',
-            'in_app' => true,
-            'sound' => true,
+            'in_app_enabled' => true,
+            'sound_enabled' => true,
         ]);
 
         /** @var OrderService $orderService */
@@ -386,8 +388,8 @@ class DirectSaleWorkflowTest extends TestCase
         UserOperationalNotificationPreference::create([
             'user_id' => $this->user->id,
             'event_type' => 'ORDER_CREATED',
-            'in_app' => true,
-            'sound' => true,
+            'in_app_enabled' => true,
+            'sound_enabled' => true,
         ]);
 
         /** @var OrderService $orderService */
@@ -411,57 +413,69 @@ class DirectSaleWorkflowTest extends TestCase
         ProductReturnableRequirement::create([
             'product_id' => $this->product->id,
             'returnable_type_id' => $returnableType->id,
-            'quantity_required' => 1,
+            'quantity' => 1,
         ]);
 
         $customer = Customer::create(['name' => 'Cliente Envases', 'phone' => '88888888', 'active' => true]);
 
-        /** @var OrderService $orderService */
-        $orderService = app(OrderService::class);
-        $order = $orderService->createOrder([
-            'customer_id' => $customer->id,
-            'service_mode' => ServiceMode::DIRECT,
-            'items' => [
-                ['product_id' => $this->product->id, 'quantity' => 2],
-            ],
-        ], $this->user);
-
-        $orderService->startDirectPreparing($order, $this->user);
-        $orderService->markDirectDelivered($order, $this->user);
-
-        Livewire::actingAs($this->user)
+        // Real Livewire flow for registered customer
+        $component = Livewire::actingAs($this->user)
             ->test(\App\Livewire\CreateOrder::class)
-            ->set('activeDirectOrderId', $order->id)
-            ->call('markDirectDelivered')
-            ->set('directReturnableQuantities', [$returnableType->id => 2])
-            ->call('recordDirectReturnables')
+            ->call('selectCustomer', $customer->id)
+            ->call('setServiceMode', 'DIRECT')
+            ->call('addToCart', $this->product->id)
+            ->call('addToCart', $this->product->id)
+            ->call('submitOrder');
+
+        $orderId = $component->get('activeDirectOrderId');
+        $this->assertNotNull($orderId);
+
+        $component->call('startDirectPreparing')
+            ->call('markDirectDelivered');
+
+        // Check prefill quantity using plan quantity (2)
+        $quantities = $component->get('directReturnableQuantities');
+        $this->assertEquals(2, $quantities[$returnableType->id] ?? null);
+
+        // Record returnables
+        $component->call('recordDirectReturnables')
             ->assertDispatched('notify-toast');
 
         $this->assertDatabaseHas('returnable_movements', [
             'customer_id' => $customer->id,
-            'order_id' => $order->id,
+            'order_id' => $orderId,
             'returnable_type_id' => $returnableType->id,
             'quantity' => 2,
+            'movement_type' => 'OUT',
         ]);
 
+        // Call a second time - assert no duplicates created
+        $component->call('recordDirectReturnables');
+        $this->assertEquals(
+            1,
+            \App\Models\ReturnableMovement::where('order_id', $orderId)->count()
+        );
+
+        // Complete first order with payment so it's closed
+        $component->set('directPaymentAmount', '70.00')
+            ->call('submitDirectPayment');
+        $this->assertNull($component->get('activeDirectOrderId'));
+
         // Counter Sale (no customer) direct sale does not record returnable debt
-        $counterOrder = $orderService->createOrder([
-            'service_mode' => ServiceMode::DIRECT,
-            'items' => [
-                ['product_id' => $this->product->id, 'quantity' => 1],
-            ],
-        ], $this->user);
-
-        $orderService->startDirectPreparing($counterOrder, $this->user);
-        $orderService->markDirectDelivered($counterOrder, $this->user);
-
-        Livewire::actingAs($this->user)
+        $counterComp = Livewire::actingAs($this->user)
             ->test(\App\Livewire\CreateOrder::class)
-            ->set('activeDirectOrderId', $counterOrder->id)
+            ->call('selectCounterSale')
+            ->call('setServiceMode', 'DIRECT')
+            ->call('addToCart', $this->product->id)
+            ->call('submitOrder');
+
+        $counterOrderId = $counterComp->get('activeDirectOrderId');
+        $counterComp->call('startDirectPreparing')
+            ->call('markDirectDelivered')
             ->call('recordDirectReturnables');
 
         $this->assertDatabaseMissing('returnable_movements', [
-            'order_id' => $counterOrder->id,
+            'order_id' => $counterOrderId,
         ]);
     }
 
@@ -504,5 +518,115 @@ class DirectSaleWorkflowTest extends TestCase
             ->set('activeDirectOrderId', $order->id)
             ->call('submitOrder')
             ->assertDispatched('notify-toast');
+    }
+
+    public function test_recovery_of_active_direct_sale_on_page_reload_or_remount(): void
+    {
+        // 1. Create active DIRECT order via Livewire
+        $comp1 = Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->call('selectCounterSale')
+            ->call('setServiceMode', 'DIRECT')
+            ->call('addToCart', $this->product->id)
+            ->call('submitOrder');
+
+        $activeId = $comp1->get('activeDirectOrderId');
+        $this->assertNotNull($activeId);
+
+        // 2. Simulate page reload / new Livewire mount for same user
+        $comp2 = Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class);
+
+        $this->assertEquals($activeId, $comp2->get('activeDirectOrderId'));
+
+        // 3. Server prevents starting a second DIRECT order while first is active
+        $comp2->call('selectCounterSale')
+            ->call('setServiceMode', 'DIRECT')
+            ->call('addToCart', $this->product->id)
+            ->call('submitOrder')
+            ->assertDispatched('notify-toast', type: 'warning', title: 'Venta en Puesto en Curso');
+
+        // 4. Transition & complete first order
+        $comp2->call('startDirectPreparing')
+            ->call('markDirectDelivered')
+            ->set('directPaymentAmount', '35.00')
+            ->call('submitDirectPayment');
+
+        $this->assertNull($comp2->get('activeDirectOrderId'));
+
+        // 5. Fresh instance can now start a new DIRECT order
+        $comp3 = Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class);
+
+        $this->assertNull($comp3->get('activeDirectOrderId'));
+
+        $comp3->call('selectCounterSale')
+            ->call('setServiceMode', 'DIRECT')
+            ->call('addToCart', $this->product->id)
+            ->call('submitOrder')
+            ->assertHasNoErrors();
+
+        $this->assertNotNull($comp3->get('activeDirectOrderId'));
+    }
+
+    public function test_mandatory_returnables_resolution_before_closing_direct_sale(): void
+    {
+        $returnableType = ReturnableType::create(['name' => 'Sifón de Vidrio', 'sort_order' => 1, 'active' => true]);
+        ProductReturnableRequirement::create([
+            'product_id' => $this->product->id,
+            'returnable_type_id' => $returnableType->id,
+            'quantity' => 1,
+        ]);
+
+        $customer = Customer::create(['name' => 'Cliente Con Retornable', 'phone' => '66666666', 'active' => true]);
+
+        $component = Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->call('selectCustomer', $customer->id)
+            ->call('setServiceMode', 'DIRECT')
+            ->call('addToCart', $this->product->id)
+            ->call('submitOrder');
+
+        $orderId = $component->get('activeDirectOrderId');
+
+        $component->call('startDirectPreparing')
+            ->call('markDirectDelivered')
+            ->set('directPaymentAmount', '35.00')
+            ->call('submitDirectPayment')
+            ->assertDispatched('notify-toast', type: 'warning', title: 'Envases Pendientes');
+
+        // Order remains active because returnables are unresolved
+        $this->assertEquals($orderId, $component->get('activeDirectOrderId'));
+
+        // Option B: User explicitly chooses "Continuar sin dejar envases"
+        $component->call('skipDirectReturnables')
+            ->assertDispatched('notify-toast', type: 'success', title: 'Venta Completada');
+
+        $this->assertNull($component->get('activeDirectOrderId'));
+    }
+
+    public function test_direct_order_broadcasts_order_changed_without_kitchen_sound_or_notification(): void
+    {
+        Event::fake([OrderChanged::class]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+        $orderService->createOrder([
+            'service_mode' => ServiceMode::DIRECT,
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 1],
+            ],
+        ], $this->user);
+
+        // Event OrderChanged was dispatched
+        Event::assertDispatched(OrderChanged::class, function ($event) {
+            return $event->soundType === null && empty($event->targetUserIds);
+        });
+
+        // Database notifications table does not have kitchen notifications
+        $this->assertDatabaseMissing('notifications', [
+            'notifiable_id' => $this->user->id,
+            'data->url' => '/cocina',
+        ]);
     }
 }

@@ -69,6 +69,25 @@ class CreateOrder extends Component
                 $this->selectCustomer($cust->id);
             }
         }
+
+        if (auth()->check()) {
+            $activeDirect = $this->findActiveDirectOrderForUser(auth()->id());
+            if ($activeDirect) {
+                $this->activeDirectOrderId = $activeDirect->id;
+                $this->serviceMode = 'DIRECT';
+                $this->directPaymentAmount = (string) $activeDirect->outstandingBalance();
+
+                if ($activeDirect->status === \App\Enums\OrderStatus::DELIVERED && $activeDirect->customer_id && $activeDirect->returnablePlans->count() > 0) {
+                    $this->directReturnableQuantities = [];
+                    foreach ($activeDirect->returnablePlans as $plan) {
+                        $this->directReturnableQuantities[$plan->returnable_type_id] = $plan->quantity;
+                    }
+                    $this->directReturnableBatchToken = (string) Str::uuid();
+                    $this->directReturnablesRecorded = $activeDirect->returnableMovements()->where('movement_type', 'OUT')->exists();
+                    $this->directReturnablesHandled = $this->directReturnablesRecorded;
+                }
+            }
+        }
     }
 
     /**
@@ -482,6 +501,36 @@ class CreateOrder extends Component
     public array $directReturnableQuantities = [];
     public string $directReturnableBatchToken = '';
     public bool $directReturnablesRecorded = false;
+    public bool $directReturnablesHandled = false;
+
+    public function findActiveDirectOrderForUser(int $userId): ?Order
+    {
+        $candidates = Order::where('created_by', $userId)
+            ->where('service_mode', \App\Enums\ServiceMode::DIRECT)
+            ->whereIn('status', [\App\Enums\OrderStatus::NEW, \App\Enums\OrderStatus::PREPARING, \App\Enums\OrderStatus::DELIVERED])
+            ->with(['items', 'paymentAllocations', 'returnablePlans.returnableType', 'returnableMovements'])
+            ->orderBy('id', 'desc')
+            ->get();
+
+        foreach ($candidates as $ord) {
+            if (in_array($ord->status, [\App\Enums\OrderStatus::NEW, \App\Enums\OrderStatus::PREPARING])) {
+                return $ord;
+            }
+
+            if ($ord->status === \App\Enums\OrderStatus::DELIVERED) {
+                $hasBalance = bccomp($ord->outstandingBalance(), '0.00', 2) > 0;
+                $needsReturnables = $ord->customer_id 
+                    && $ord->returnablePlans->count() > 0 
+                    && !$ord->returnableMovements()->where('movement_type', 'OUT')->exists();
+
+                if ($hasBalance || $needsReturnables) {
+                    return $ord;
+                }
+            }
+        }
+
+        return null;
+    }
 
     protected function ensureNoActiveDirectSale(string $action = 'realizar esta acción'): bool
     {
@@ -519,6 +568,15 @@ class CreateOrder extends Component
             return;
         }
 
+        if ($this->serviceMode === 'DIRECT' && auth()->check()) {
+            $existingDirect = $this->findActiveDirectOrderForUser(auth()->id());
+            if ($existingDirect) {
+                $this->activeDirectOrderId = $existingDirect->id;
+                $this->dispatch('notify-toast', type: 'warning', title: 'Venta en Puesto en Curso', message: "Ya tienes una venta en puesto activa (#{$existingDirect->number}). Debes completarla antes de iniciar otra.");
+                return;
+            }
+        }
+
         if (empty($this->selectedCustomerName)) {
             $this->dispatch('notify-toast', type: 'warning', title: 'Cliente Requerido', message: 'Debe seleccionar un cliente o venta mostrador.');
             return;
@@ -554,6 +612,7 @@ class CreateOrder extends Component
                 $this->directReturnableQuantities = [];
                 $this->directReturnableBatchToken = (string) Str::uuid();
                 $this->directReturnablesRecorded = false;
+                $this->directReturnablesHandled = false;
                 $this->dispatch('notify-toast', type: 'success', title: 'Venta en Puesto', message: "Pedido #{$order->number} registrado.");
             } else {
                 $this->dispatch('notify-toast', type: 'success', title: 'Pedido Enviado', message: "Pedido #{$order->number} enviado a cocina correctamente.");
@@ -607,10 +666,13 @@ class CreateOrder extends Component
             $this->directReturnableQuantities = [];
             if ($freshOrder->customer_id && $freshOrder->returnablePlans->count() > 0) {
                 foreach ($freshOrder->returnablePlans as $plan) {
-                    $this->directReturnableQuantities[$plan->returnable_type_id] = $plan->expected_quantity;
+                    $this->directReturnableQuantities[$plan->returnable_type_id] = $plan->quantity;
                 }
                 $this->directReturnableBatchToken = (string) Str::uuid();
                 $this->directReturnablesRecorded = false;
+                $this->directReturnablesHandled = false;
+            } else {
+                $this->directReturnablesHandled = true;
             }
 
             $this->dispatch('notify-toast', type: 'success', title: 'Entregado', message: "Pedido #{$freshOrder->number} marcado como entregado.");
@@ -626,7 +688,14 @@ class CreateOrder extends Component
 
         if ($this->directReturnablesRecorded || $order->returnableMovements()->where('movement_type', 'OUT')->exists()) {
             $this->directReturnablesRecorded = true;
+            $this->directReturnablesHandled = true;
             $this->dispatch('notify-toast', type: 'info', title: 'Envases Registrados', message: 'Los envases ya fueron registrados previamente.');
+
+            if (bccomp($order->outstandingBalance(), '0.00', 2) === 0) {
+                $this->dispatch('notify-toast', type: 'success', title: 'Venta Completada', message: "Venta completada para el pedido #{$order->number}.");
+                $this->resetOrderForm();
+                $this->dispatch('order-submitted-success');
+            }
             return;
         }
 
@@ -643,7 +712,14 @@ class CreateOrder extends Component
 
         if (empty($items)) {
             $this->directReturnablesRecorded = true;
+            $this->directReturnablesHandled = true;
             $this->dispatch('notify-toast', type: 'info', title: 'Sin Envases', message: 'Se continuó sin registrar envases dejados al cliente.');
+
+            if (bccomp($order->outstandingBalance(), '0.00', 2) === 0) {
+                $this->dispatch('notify-toast', type: 'success', title: 'Venta Completada', message: "Venta completada para el pedido #{$order->number}.");
+                $this->resetOrderForm();
+                $this->dispatch('order-submitted-success');
+            }
             return;
         }
 
@@ -659,9 +735,31 @@ class CreateOrder extends Component
             );
 
             $this->directReturnablesRecorded = true;
+            $this->directReturnablesHandled = true;
             $this->dispatch('notify-toast', type: 'success', title: 'Envases Registrados', message: 'Salidas de envases registradas correctamente.');
+
+            if (bccomp($order->outstandingBalance(), '0.00', 2) === 0) {
+                $this->dispatch('notify-toast', type: 'success', title: 'Venta Completada', message: "Venta completada para el pedido #{$order->number}.");
+                $this->resetOrderForm();
+                $this->dispatch('order-submitted-success');
+            }
         } catch (\Exception $e) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error en envases', message: $e->getMessage());
+        }
+    }
+
+    public function skipDirectReturnables(): void
+    {
+        $order = $this->activeDirectOrder;
+        if (!$order) return;
+
+        $this->directReturnablesHandled = true;
+        $this->dispatch('notify-toast', type: 'info', title: 'Sin Envases', message: 'Se continuó sin dejar envases.');
+
+        if (bccomp($order->outstandingBalance(), '0.00', 2) === 0) {
+            $this->dispatch('notify-toast', type: 'success', title: 'Venta Completada', message: "Venta completada para el pedido #{$order->number}.");
+            $this->resetOrderForm();
+            $this->dispatch('order-submitted-success');
         }
     }
 
@@ -693,13 +791,22 @@ class CreateOrder extends Component
                 $paymentToken
             );
 
-            $freshOrder = $order->fresh(['paymentAllocations']);
+            $freshOrder = $order->fresh(['paymentAllocations', 'returnablePlans', 'returnableMovements']);
             $newBalance = $freshOrder->outstandingBalance();
+
+            $needsReturnablesResolution = $freshOrder->customer_id 
+                && $freshOrder->returnablePlans->count() > 0 
+                && !$freshOrder->returnableMovements()->where('movement_type', 'OUT')->exists()
+                && !$this->directReturnablesRecorded
+                && !$this->directReturnablesHandled;
 
             if (bccomp($newBalance, '0.00', 2) > 0) {
                 $this->directPaymentAmount = $newBalance;
                 $this->directPaymentReference = '';
                 $this->dispatch('notify-toast', type: 'info', title: 'Pago Registrado', message: "Pago registrado. Saldo pendiente: Bs {$newBalance}");
+            } elseif ($needsReturnablesResolution) {
+                $this->directPaymentAmount = '0.00';
+                $this->dispatch('notify-toast', type: 'warning', title: 'Envases Pendientes', message: "El pago fue completado. Debe registrar los envases o confirmar 'Continuar sin dejar envases' para cerrar la venta.");
             } else {
                 $this->dispatch('notify-toast', type: 'success', title: 'Venta Completada', message: "Venta completada para el pedido #{$freshOrder->number}.");
 
@@ -731,6 +838,7 @@ class CreateOrder extends Component
         $this->directReturnableQuantities = [];
         $this->directReturnableBatchToken = '';
         $this->directReturnablesRecorded = false;
+        $this->directReturnablesHandled = false;
 
         $this->generateSubmissionToken();
         $this->dispatch('focus-search-customer');
