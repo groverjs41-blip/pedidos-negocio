@@ -16,7 +16,7 @@ class ResetTrainingDataCommand extends Command
      */
     protected $signature = 'training:reset
                             {--with-customers : Eliminar también los clientes}
-                            {--force : Forzar la ejecución sin confirmación}';
+                            {--force : Permitir la ejecución en entorno de producción}';
 
     /**
      * The console command description.
@@ -59,11 +59,9 @@ class ResetTrainingDataCommand extends Command
             $this->info('Nota: Los clientes (customers) SE CONSERVARÁN. Usa --with-customers si deseas eliminarlos.');
         }
 
-        if (!$force) {
-            if (!$this->confirm('Esta acción eliminará los datos de capacitación. ¿Deseas continuar?')) {
-                $this->info('Operación cancelada.');
-                return 0;
-            }
+        if (!$this->confirm('Esta acción eliminará los datos de capacitación. ¿Deseas continuar?')) {
+            $this->info('Operación cancelada.');
+            return 0;
         }
 
         $deletedCounts = [];

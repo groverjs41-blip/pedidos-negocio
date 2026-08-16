@@ -8,6 +8,7 @@ use App\Models\DailyClosure;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\ReturnableType;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\BusinessSettingsService;
@@ -29,7 +30,7 @@ class ResetTrainingDataCommandTest extends TestCase
 
     public function test_reset_command_clears_operational_data_and_preserves_master_data(): void
     {
-        // 1. Setup Master Data (Must remain)
+        // 1. Setup Master Data & Settings (Must remain)
         $admin = User::factory()->create();
         $admin->assignRole('admin');
 
@@ -41,10 +42,33 @@ class ResetTrainingDataCommandTest extends TestCase
             'active' => true,
         ]);
 
+        $returnableType = ReturnableType::create([
+            'name' => 'Sifón 1L',
+            'sort_order' => 1,
+            'active' => true,
+        ]);
+
         /** @var BusinessSettingsService $settingsService */
         $settingsService = app(BusinessSettingsService::class);
         $settingsService->updateSettings([
             'business_name' => 'Mi Negocio Test',
+        ]);
+
+        DB::table('user_preferences')->insert([
+            'user_id' => $admin->id,
+            'sound_enabled' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('user_operational_notification_preferences')->insert([
+            'user_id' => $admin->id,
+            'event_type' => 'ORDER_CREATED',
+            'in_app_enabled' => true,
+            'sound_enabled' => true,
+            'browser_enabled' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         $customer = Customer::create([
@@ -55,7 +79,6 @@ class ResetTrainingDataCommandTest extends TestCase
         // 2. Setup Operational Data (Must be deleted)
         $order = Order::create([
             'number' => 'PED-0001',
-            'daily_number' => 1,
             'customer_id' => $customer->id,
             'created_by' => $admin->id,
             'status' => \App\Enums\OrderStatus::DELIVERED,
@@ -82,6 +105,27 @@ class ResetTrainingDataCommandTest extends TestCase
             'to_status' => \App\Enums\OrderStatus::DELIVERED->value,
             'user_id' => $admin->id,
             'created_at' => now(),
+        ]);
+
+        DB::table('order_returnable_plans')->insert([
+            'order_id' => $order->id,
+            'returnable_type_id' => $returnableType->id,
+            'quantity' => 2,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('returnable_movements')->insert([
+            'batch_token' => (string) \Illuminate\Support\Str::uuid(),
+            'customer_id' => $customer->id,
+            'order_id' => $order->id,
+            'returnable_type_id' => $returnableType->id,
+            'movement_type' => 'DELIVERED',
+            'quantity' => 2,
+            'occurred_at' => now(),
+            'user_id' => $admin->id,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         $payment = Payment::create([
@@ -133,7 +177,8 @@ class ResetTrainingDataCommandTest extends TestCase
         ]);
 
         // 3. Run Command without --with-customers
-        $this->artisan('training:reset', ['--force' => true])
+        $this->artisan('training:reset')
+            ->expectsConfirmation('Esta acción eliminará los datos de capacitación. ¿Deseas continuar?', 'yes')
             ->assertExitCode(0)
             ->expectsOutputToContain('Datos de capacitación reiniciados con éxito.');
 
@@ -141,6 +186,8 @@ class ResetTrainingDataCommandTest extends TestCase
         $this->assertDatabaseCount('orders', 0);
         $this->assertDatabaseCount('order_items', 0);
         $this->assertDatabaseCount('order_status_histories', 0);
+        $this->assertDatabaseCount('order_returnable_plans', 0);
+        $this->assertDatabaseCount('returnable_movements', 0);
         $this->assertDatabaseCount('payments', 0);
         $this->assertDatabaseCount('payment_allocations', 0);
         $this->assertDatabaseCount('collection_visits', 0);
@@ -148,23 +195,27 @@ class ResetTrainingDataCommandTest extends TestCase
         $this->assertDatabaseCount('order_daily_counters', 0);
         $this->assertDatabaseCount('notifications', 0);
 
-        // 5. Assert Master Data & Customer remain
+        // 5. Assert Master Data & Settings & Customer remain
         $this->assertDatabaseCount('users', 1);
         $this->assertDatabaseCount('roles', 5);
         $this->assertDatabaseCount('categories', 1);
         $this->assertDatabaseCount('products', 1);
+        $this->assertDatabaseCount('returnable_types', 1);
         $this->assertDatabaseCount('business_settings', 1);
+        $this->assertDatabaseCount('user_preferences', 1);
+        $this->assertDatabaseCount('user_operational_notification_preferences', 1);
         $this->assertDatabaseCount('customers', 1);
     }
 
     public function test_reset_command_deletes_customers_when_with_customers_option_is_passed(): void
     {
-        $customer = Customer::create([
+        Customer::create([
             'name' => 'Cliente Borrable',
             'phone' => '71111111',
         ]);
 
-        $this->artisan('training:reset', ['--with-customers' => true, '--force' => true])
+        $this->artisan('training:reset', ['--with-customers' => true])
+            ->expectsConfirmation('Esta acción eliminará los datos de capacitación. ¿Deseas continuar?', 'yes')
             ->assertExitCode(0);
 
         $this->assertDatabaseCount('customers', 0);
@@ -177,5 +228,37 @@ class ResetTrainingDataCommandTest extends TestCase
         $this->artisan('training:reset')
             ->assertExitCode(1)
             ->expectsOutputToContain('El comando debe ejecutarse con --force en entorno de producción.');
+    }
+
+    public function test_reset_command_in_production_with_force_prompts_confirmation_and_executes_on_yes(): void
+    {
+        $this->app['config']->set('app.env', 'production');
+
+        Customer::create([
+            'name' => 'Cliente Prod Test',
+            'phone' => '72222222',
+        ]);
+
+        $this->artisan('training:reset', ['--force' => true, '--with-customers' => true])
+            ->expectsConfirmation('Esta acción eliminará los datos de capacitación. ¿Deseas continuar?', 'yes')
+            ->assertExitCode(0)
+            ->expectsOutputToContain('Datos de capacitación reiniciados con éxito.');
+
+        $this->assertDatabaseCount('customers', 0);
+    }
+
+    public function test_reset_command_does_not_delete_data_and_exits_when_confirmation_is_declined(): void
+    {
+        Customer::create([
+            'name' => 'Cliente Protegido',
+            'phone' => '73333333',
+        ]);
+
+        $this->artisan('training:reset', ['--with-customers' => true])
+            ->expectsConfirmation('Esta acción eliminará los datos de capacitación. ¿Deseas continuar?', 'no')
+            ->assertExitCode(0)
+            ->expectsOutputToContain('Operación cancelada.');
+
+        $this->assertDatabaseCount('customers', 1);
     }
 }
