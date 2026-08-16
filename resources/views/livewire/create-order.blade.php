@@ -20,6 +20,13 @@
                 </div>
             </div>
 
+            @if($this->activeDirectOrder)
+                <div class="alert alert-warning" style="margin-bottom: 0.75rem; background: rgba(245, 158, 11, 0.15); border: 1px solid var(--warning-border); border-radius: var(--radius-md); padding: 0.75rem 1rem; color: var(--warning-text); font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                    <x-ui.icon name="alert" class="w-5 h-5" />
+                    <span>⚡ VENTA EN PUESTO EN CURSO (Pedido #{{ $this->activeDirectOrder->number }}). Completa la venta actual para realizar otras operaciones.</span>
+                </div>
+            @endif
+
             {{-- 1. Compact Customer Selector Bar --}}
             <div class="customer-bar">
                 @if(!$selectedCustomerName)
@@ -267,6 +274,43 @@
                                 </button>
                             </div>
                         @elseif($directOrder->status === \App\Enums\OrderStatus::DELIVERED)
+                            {{-- Envases Retornables Sección --}}
+                            @if($directOrder->customer_id && count($directOrder->returnablePlans) > 0)
+                                <div style="background: var(--bg-surface); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.5rem;">
+                                    <div style="font-size: 0.8rem; font-weight: 800; color: var(--warning-text); text-transform: uppercase;">
+                                        📦 ENVASES ENTREGADOS AL CLIENTE
+                                    </div>
+                                    @if($directReturnablesRecorded || $directOrder->returnableMovements()->where('movement_type', 'OUT')->exists())
+                                        <div style="font-size: 0.8rem; font-weight: 700; color: var(--primary);">
+                                            ✓ Envases registrados para este pedido
+                                        </div>
+                                    @else
+                                        @foreach($directOrder->returnablePlans as $plan)
+                                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;">
+                                                <span>{{ $plan->returnableType->name }}</span>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    wire:model="directReturnableQuantities.{{ $plan->returnable_type_id }}"
+                                                    style="width: 70px; height: 34px; text-align: center;"
+                                                    class="form-input"
+                                                />
+                                            </div>
+                                        @endforeach
+                                        <button
+                                            type="button"
+                                            wire:click="recordDirectReturnables"
+                                            wire:loading.attr="disabled"
+                                            class="chip-btn"
+                                            style="justify-content: center; font-weight: 700; background: var(--bg-card); height: 36px; margin-top: 4px;"
+                                        >
+                                            <span wire:loading wire:target="recordDirectReturnables" class="spinner"></span>
+                                            <span wire:loading.remove wire:target="recordDirectReturnables">📦 Registrar Envases</span>
+                                        </button>
+                                    @endif
+                                </div>
+                            @endif
+
                             {{-- Payment Form --}}
                             <div style="display: flex; flex-direction: column; gap: 0.85rem; background: var(--bg-surface); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border);">
                                 <div style="font-size: 0.85rem; font-weight: 800; color: var(--text-main); text-align: center; text-transform: uppercase;">

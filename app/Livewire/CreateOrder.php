@@ -102,6 +102,10 @@ class CreateOrder extends Component
      */
     public function selectCustomer(int $id): void
     {
+        if ($this->ensureNoActiveDirectSale('cambiar de cliente')) {
+            return;
+        }
+
         $customer = Customer::where('id', $id)->where('active', true)->first();
         if ($customer) {
             $this->selectedCustomerId = $customer->id;
@@ -119,6 +123,10 @@ class CreateOrder extends Component
      */
     public function selectCounterSale(): void
     {
+        if ($this->ensureNoActiveDirectSale('cambiar de cliente')) {
+            return;
+        }
+
         $this->selectedCustomerId = null;
         $this->selectedCustomerName = 'Venta Mostrador';
         $this->selectedCustomerPhone = '';
@@ -213,6 +221,10 @@ class CreateOrder extends Component
      */
     public function clearCustomer(): void
     {
+        if ($this->ensureNoActiveDirectSale('cambiar de cliente')) {
+            return;
+        }
+
         $this->selectedCustomerId = null;
         $this->selectedCustomerName = '';
         $this->selectedCustomerPhone = '';
@@ -382,6 +394,11 @@ class CreateOrder extends Component
      */
     public function addToCart(int $productId): void
     {
+        if ($this->activeDirectOrderId !== null) {
+            $this->dispatch('notify-toast', type: 'warning', title: 'Venta en Puesto en Curso', message: 'Hay una venta en puesto activa. Debes completarla antes de modificar el carrito.');
+            return;
+        }
+
         $product = Product::where('id', $productId)->where('active', true)->first();
         if (!$product) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'El producto no está disponible.');
@@ -407,6 +424,11 @@ class CreateOrder extends Component
 
     public function incrementQty(int $productId): void
     {
+        if ($this->activeDirectOrderId !== null) {
+            $this->dispatch('notify-toast', type: 'warning', title: 'Venta en Puesto en Curso', message: 'Hay una venta en puesto activa. Debes completarla antes de modificar el carrito.');
+            return;
+        }
+
         if (isset($this->cart[$productId])) {
             $this->cart[$productId]['quantity']++;
         }
@@ -414,6 +436,11 @@ class CreateOrder extends Component
 
     public function decrementQty(int $productId): void
     {
+        if ($this->activeDirectOrderId !== null) {
+            $this->dispatch('notify-toast', type: 'warning', title: 'Venta en Puesto en Curso', message: 'Hay una venta en puesto activa. Debes completarla antes de modificar el carrito.');
+            return;
+        }
+
         if (isset($this->cart[$productId])) {
             $this->cart[$productId]['quantity']--;
             if ($this->cart[$productId]['quantity'] <= 0) {
@@ -424,6 +451,11 @@ class CreateOrder extends Component
 
     public function removeFromCart(int $productId): void
     {
+        if ($this->activeDirectOrderId !== null) {
+            $this->dispatch('notify-toast', type: 'warning', title: 'Venta en Puesto en Curso', message: 'Hay una venta en puesto activa. Debes completarla antes de modificar el carrito.');
+            return;
+        }
+
         unset($this->cart[$productId]);
     }
 
@@ -442,14 +474,30 @@ class CreateOrder extends Component
 
     public string $serviceMode = 'KITCHEN';
 
-    // Direct Counter Sale Active Order & Payment State
+    // Direct Counter Sale Active Order, Payment & Returnables State
     public ?int $activeDirectOrderId = null;
     public string $directPaymentMethod = 'CASH';
     public string $directPaymentReference = '';
     public string $directPaymentAmount = '';
+    public array $directReturnableQuantities = [];
+    public string $directReturnableBatchToken = '';
+    public bool $directReturnablesRecorded = false;
+
+    protected function ensureNoActiveDirectSale(string $action = 'realizar esta acción'): bool
+    {
+        if ($this->activeDirectOrderId !== null) {
+            $this->dispatch('notify-toast', type: 'warning', title: 'Venta en Puesto en Curso', message: "Hay una venta en puesto activa. Debes completarla antes de {$action}.");
+            return true;
+        }
+        return false;
+    }
 
     public function setServiceMode(string $mode): void
     {
+        if ($this->ensureNoActiveDirectSale('cambiar el tipo de atención')) {
+            return;
+        }
+
         if (in_array($mode, ['KITCHEN', 'DIRECT'])) {
             $this->serviceMode = $mode;
         }
@@ -458,7 +506,7 @@ class CreateOrder extends Component
     public function getActiveDirectOrderProperty(): ?Order
     {
         if (!$this->activeDirectOrderId) return null;
-        return Order::with(['items', 'paymentAllocations'])->find($this->activeDirectOrderId);
+        return Order::with(['items', 'paymentAllocations', 'returnablePlans.returnableType', 'returnableMovements'])->find($this->activeDirectOrderId);
     }
 
     /**
@@ -466,6 +514,11 @@ class CreateOrder extends Component
      */
     public function submitOrder(OrderService $orderService): void
     {
+        if ($this->activeDirectOrderId !== null) {
+            $this->dispatch('notify-toast', type: 'warning', title: 'Venta en Puesto en Curso', message: 'Hay una venta en puesto activa. Debes completarla antes de iniciar otro pedido.');
+            return;
+        }
+
         if (empty($this->selectedCustomerName)) {
             $this->dispatch('notify-toast', type: 'warning', title: 'Cliente Requerido', message: 'Debe seleccionar un cliente o venta mostrador.');
             return;
@@ -498,6 +551,9 @@ class CreateOrder extends Component
                 $this->directPaymentAmount = (string) $order->total;
                 $this->directPaymentMethod = \App\Enums\PaymentMethod::CASH->value;
                 $this->directPaymentReference = '';
+                $this->directReturnableQuantities = [];
+                $this->directReturnableBatchToken = (string) Str::uuid();
+                $this->directReturnablesRecorded = false;
                 $this->dispatch('notify-toast', type: 'success', title: 'Venta en Puesto', message: "Pedido #{$order->number} registrado.");
             } else {
                 $this->dispatch('notify-toast', type: 'success', title: 'Pedido Enviado', message: "Pedido #{$order->number} enviado a cocina correctamente.");
@@ -519,8 +575,13 @@ class CreateOrder extends Component
         $order = $this->activeDirectOrder;
         if (!$order) return;
 
+        if ($order->service_mode !== \App\Enums\ServiceMode::DIRECT || $order->status !== \App\Enums\OrderStatus::NEW) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'Solo se pueden empezar ventas en puesto en estado Nuevo.');
+            return;
+        }
+
         try {
-            $orderService->startPreparing($order, auth()->user());
+            $orderService->startDirectPreparing($order, auth()->user());
             $this->dispatch('notify-toast', type: 'info', title: 'En Preparación', message: "Pedido #{$order->number} en preparación.");
         } catch (\Exception $e) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error', message: $e->getMessage());
@@ -532,19 +593,91 @@ class CreateOrder extends Component
         $order = $this->activeDirectOrder;
         if (!$order) return;
 
+        if ($order->service_mode !== \App\Enums\ServiceMode::DIRECT || $order->status !== \App\Enums\OrderStatus::PREPARING) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'Solo se pueden entregar ventas en puesto en preparación.');
+            return;
+        }
+
         try {
             $orderService->markDirectDelivered($order, auth()->user());
-            $this->directPaymentAmount = (string) $order->fresh()->outstandingBalance();
-            $this->dispatch('notify-toast', type: 'success', title: 'Entregado', message: "Pedido #{$order->number} marcado como entregado.");
+            $freshOrder = $order->fresh(['returnablePlans.returnableType']);
+            $this->directPaymentAmount = (string) $freshOrder->outstandingBalance();
+
+            // Prefill returnable quantities if customer exists and order has returnable plans
+            $this->directReturnableQuantities = [];
+            if ($freshOrder->customer_id && $freshOrder->returnablePlans->count() > 0) {
+                foreach ($freshOrder->returnablePlans as $plan) {
+                    $this->directReturnableQuantities[$plan->returnable_type_id] = $plan->expected_quantity;
+                }
+                $this->directReturnableBatchToken = (string) Str::uuid();
+                $this->directReturnablesRecorded = false;
+            }
+
+            $this->dispatch('notify-toast', type: 'success', title: 'Entregado', message: "Pedido #{$freshOrder->number} marcado como entregado.");
         } catch (\Exception $e) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error', message: $e->getMessage());
+        }
+    }
+
+    public function recordDirectReturnables(\App\Services\ReturnableService $returnableService): void
+    {
+        $order = $this->activeDirectOrder;
+        if (!$order || !$order->customer_id) return;
+
+        if ($this->directReturnablesRecorded || $order->returnableMovements()->where('movement_type', 'OUT')->exists()) {
+            $this->directReturnablesRecorded = true;
+            $this->dispatch('notify-toast', type: 'info', title: 'Envases Registrados', message: 'Los envases ya fueron registrados previamente.');
+            return;
+        }
+
+        $items = [];
+        foreach ($this->directReturnableQuantities as $typeId => $qty) {
+            $q = (int) $qty;
+            if ($q > 0) {
+                $items[] = [
+                    'returnable_type_id' => (int) $typeId,
+                    'quantity' => $q,
+                ];
+            }
+        }
+
+        if (empty($items)) {
+            $this->directReturnablesRecorded = true;
+            $this->dispatch('notify-toast', type: 'info', title: 'Sin Envases', message: 'Se continuó sin registrar envases dejados al cliente.');
+            return;
+        }
+
+        try {
+            $customer = Customer::find($order->customer_id);
+            $returnableService->recordOutBatch(
+                $customer,
+                $items,
+                auth()->user(),
+                $this->directReturnableBatchToken,
+                $order,
+                'Envases entregados en venta en puesto'
+            );
+
+            $this->directReturnablesRecorded = true;
+            $this->dispatch('notify-toast', type: 'success', title: 'Envases Registrados', message: 'Salidas de envases registradas correctamente.');
+        } catch (\Exception $e) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error en envases', message: $e->getMessage());
         }
     }
 
     public function submitDirectPayment(\App\Services\PaymentService $paymentService): void
     {
         $order = $this->activeDirectOrder;
-        if (!$order) return;
+        if (!$order) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'No hay una venta en puesto activa.');
+            return;
+        }
+
+        // Server-side strict validation
+        if ($order->service_mode !== \App\Enums\ServiceMode::DIRECT || $order->status !== \App\Enums\OrderStatus::DELIVERED) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Cobro no permitido', message: 'Solo se pueden registrar cobros en pedidos de venta en puesto en estado Entregado.');
+            return;
+        }
 
         try {
             $paymentMethodEnum = \App\Enums\PaymentMethod::tryFrom($this->directPaymentMethod) ?? \App\Enums\PaymentMethod::CASH;
@@ -560,10 +693,19 @@ class CreateOrder extends Component
                 $paymentToken
             );
 
-            $this->dispatch('notify-toast', type: 'success', title: 'Venta Completada', message: "Cobro registrado para el pedido #{$order->number}.");
+            $freshOrder = $order->fresh(['paymentAllocations']);
+            $newBalance = $freshOrder->outstandingBalance();
 
-            $this->resetOrderForm();
-            $this->dispatch('order-submitted-success');
+            if (bccomp($newBalance, '0.00', 2) > 0) {
+                $this->directPaymentAmount = $newBalance;
+                $this->directPaymentReference = '';
+                $this->dispatch('notify-toast', type: 'info', title: 'Pago Registrado', message: "Pago registrado. Saldo pendiente: Bs {$newBalance}");
+            } else {
+                $this->dispatch('notify-toast', type: 'success', title: 'Venta Completada', message: "Venta completada para el pedido #{$freshOrder->number}.");
+
+                $this->resetOrderForm();
+                $this->dispatch('order-submitted-success');
+            }
         } catch (\InvalidArgumentException $e) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error en cobro', message: $e->getMessage());
         } catch (\Exception $e) {
@@ -586,6 +728,9 @@ class CreateOrder extends Component
         $this->directPaymentAmount = '';
         $this->directPaymentReference = '';
         $this->directPaymentMethod = \App\Enums\PaymentMethod::CASH->value;
+        $this->directReturnableQuantities = [];
+        $this->directReturnableBatchToken = '';
+        $this->directReturnablesRecorded = false;
 
         $this->generateSubmissionToken();
         $this->dispatch('focus-search-customer');

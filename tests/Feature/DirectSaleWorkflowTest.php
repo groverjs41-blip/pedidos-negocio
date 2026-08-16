@@ -10,8 +10,11 @@ use App\Models\Category;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductReturnableRequirement;
+use App\Models\ReturnableType;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\UserOperationalNotificationPreference;
 use App\Services\OrderService;
 use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -95,7 +98,7 @@ class DirectSaleWorkflowTest extends TestCase
             ->assertDontSee($directOrder->number);
 
         // 2. Transition to PREPARING
-        $orderService->startPreparing($directOrder, $this->user);
+        $orderService->startDirectPreparing($directOrder, $this->user);
 
         // 3. Transition to DELIVERED
         $orderService->markDirectDelivered($directOrder, $this->user);
@@ -120,7 +123,7 @@ class DirectSaleWorkflowTest extends TestCase
         $this->assertEquals(OrderStatus::NEW, $order->status);
 
         // Transition NEW -> PREPARING
-        $orderService->startPreparing($order, $this->user);
+        $orderService->startDirectPreparing($order, $this->user);
         $this->assertEquals(OrderStatus::PREPARING, $order->fresh()->status);
 
         // Transition PREPARING -> DELIVERED
@@ -149,7 +152,7 @@ class DirectSaleWorkflowTest extends TestCase
             ],
         ], $this->user);
 
-        $orderService->startPreparing($order, $this->user);
+        $orderService->startDirectPreparing($order, $this->user);
 
         // Attempt markReady on DIRECT order
         $this->expectException(\Exception::class);
@@ -184,7 +187,7 @@ class DirectSaleWorkflowTest extends TestCase
             ],
         ], $this->user);
 
-        $orderService->startPreparing($order, $this->user);
+        $orderService->startDirectPreparing($order, $this->user);
         $orderService->markDirectDelivered($order, $this->user);
 
         /** @var PaymentService $paymentService */
@@ -228,6 +231,9 @@ class DirectSaleWorkflowTest extends TestCase
 
         $this->assertNotNull($component->get('activeDirectOrderId'));
 
+        // Reset component state manually for step 2
+        $component->call('resetOrderForm');
+
         // 2. Registered Customer + DIRECT
         $customer = Customer::create(['name' => 'Juan Cliente', 'phone' => '77777777', 'active' => true]);
 
@@ -250,5 +256,253 @@ class DirectSaleWorkflowTest extends TestCase
             ->call('submitOrder')
             ->assertDispatched('order-submitted-success')
             ->assertSet('cart', []);
+    }
+
+    public function test_partial_payment_does_not_close_sale_and_second_payment_completes_it(): void
+    {
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+        $order = $orderService->createOrder([
+            'service_mode' => ServiceMode::DIRECT,
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 2], // Total 70.00
+            ],
+        ], $this->user);
+
+        $orderService->startDirectPreparing($order, $this->user);
+        $orderService->markDirectDelivered($order, $this->user);
+
+        $component = Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->set('activeDirectOrderId', $order->id)
+            ->set('directPaymentAmount', '40.00')
+            ->set('directPaymentMethod', 'CASH')
+            ->call('submitDirectPayment')
+            ->assertDispatched('notify-toast', type: 'info', title: 'Pago Registrado', message: 'Pago registrado. Saldo pendiente: Bs 30.00')
+            ->assertSet('activeDirectOrderId', $order->id)
+            ->assertSet('directPaymentAmount', '30.00');
+
+        $this->assertEquals(PaymentStatus::PARTIAL, $order->fresh()->paymentStatus());
+
+        // Second payment of remaining 30.00 completes sale
+        $component->set('directPaymentAmount', '30.00')
+            ->set('directPaymentMethod', 'QR')
+            ->call('submitDirectPayment')
+            ->assertDispatched('notify-toast', type: 'success', title: 'Venta Completada', message: "Venta completada para el pedido #{$order->number}.")
+            ->assertSet('activeDirectOrderId', null);
+
+        $this->assertEquals(PaymentStatus::PAID, $order->fresh()->paymentStatus());
+    }
+
+    public function test_cannot_pay_direct_order_if_status_is_new_or_preparing(): void
+    {
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+        $order = $orderService->createOrder([
+            'service_mode' => ServiceMode::DIRECT,
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 1],
+            ],
+        ], $this->user);
+
+        // 1. Try paying NEW order
+        Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->set('activeDirectOrderId', $order->id)
+            ->set('directPaymentAmount', '35.00')
+            ->call('submitDirectPayment')
+            ->assertDispatched('notify-toast', type: 'error', title: 'Cobro no permitido', message: 'Solo se pueden registrar cobros en pedidos de venta en puesto en estado Entregado.');
+
+        // 2. Try paying PREPARING order
+        $orderService->startDirectPreparing($order, $this->user);
+
+        Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->set('activeDirectOrderId', $order->id)
+            ->set('directPaymentAmount', '35.00')
+            ->call('submitDirectPayment')
+            ->assertDispatched('notify-toast', type: 'error', title: 'Cobro no permitido', message: 'Solo se pueden registrar cobros en pedidos de venta en puesto en estado Entregado.');
+
+        // 3. Deliver order and pay DELIVERED order
+        $orderService->markDirectDelivered($order, $this->user);
+
+        Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->set('activeDirectOrderId', $order->id)
+            ->set('directPaymentAmount', '35.00')
+            ->call('submitDirectPayment')
+            ->assertDispatched('notify-toast', type: 'success', title: 'Venta Completada', message: "Venta completada para el pedido #{$order->number}.");
+    }
+
+    public function test_start_direct_preparing_rejects_kitchen_orders(): void
+    {
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+        $kitchenOrder = $orderService->createOrder([
+            'service_mode' => ServiceMode::KITCHEN,
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 1],
+            ],
+        ], $this->user);
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Esta función solo es para ventas en puesto.');
+        $orderService->startDirectPreparing($kitchenOrder, $this->user);
+    }
+
+    public function test_direct_order_does_not_dispatch_kitchen_notifications(): void
+    {
+        UserOperationalNotificationPreference::create([
+            'user_id' => $this->user->id,
+            'event_type' => 'ORDER_CREATED',
+            'in_app' => true,
+            'sound' => true,
+        ]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+        $directOrder = $orderService->createOrder([
+            'service_mode' => ServiceMode::DIRECT,
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 1],
+            ],
+        ], $this->user);
+
+        // Assert NO database notification created for user pointing to /cocina
+        $this->assertDatabaseMissing('notifications', [
+            'notifiable_id' => $this->user->id,
+            'data->url' => '/cocina',
+        ]);
+
+        $orderService->startDirectPreparing($directOrder, $this->user);
+        $this->assertDatabaseMissing('notifications', [
+            'notifiable_id' => $this->user->id,
+            'data->url' => '/cocina',
+        ]);
+    }
+
+    public function test_kitchen_order_dispatches_kitchen_notifications(): void
+    {
+        UserOperationalNotificationPreference::create([
+            'user_id' => $this->user->id,
+            'event_type' => 'ORDER_CREATED',
+            'in_app' => true,
+            'sound' => true,
+        ]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+        $kitchenOrder = $orderService->createOrder([
+            'service_mode' => ServiceMode::KITCHEN,
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 1],
+            ],
+        ], $this->user);
+
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $this->user->id,
+            'data->url' => '/cocina',
+        ]);
+    }
+
+    public function test_direct_order_returnables_recorded_correctly_and_counter_sale_bypasses_debt(): void
+    {
+        $returnableType = ReturnableType::create(['name' => 'Sifón de Vidrio', 'sort_order' => 1, 'active' => true]);
+        ProductReturnableRequirement::create([
+            'product_id' => $this->product->id,
+            'returnable_type_id' => $returnableType->id,
+            'quantity_required' => 1,
+        ]);
+
+        $customer = Customer::create(['name' => 'Cliente Envases', 'phone' => '88888888', 'active' => true]);
+
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+        $order = $orderService->createOrder([
+            'customer_id' => $customer->id,
+            'service_mode' => ServiceMode::DIRECT,
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 2],
+            ],
+        ], $this->user);
+
+        $orderService->startDirectPreparing($order, $this->user);
+        $orderService->markDirectDelivered($order, $this->user);
+
+        Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->set('activeDirectOrderId', $order->id)
+            ->call('markDirectDelivered')
+            ->set('directReturnableQuantities', [$returnableType->id => 2])
+            ->call('recordDirectReturnables')
+            ->assertDispatched('notify-toast');
+
+        $this->assertDatabaseHas('returnable_movements', [
+            'customer_id' => $customer->id,
+            'order_id' => $order->id,
+            'returnable_type_id' => $returnableType->id,
+            'quantity' => 2,
+        ]);
+
+        // Counter Sale (no customer) direct sale does not record returnable debt
+        $counterOrder = $orderService->createOrder([
+            'service_mode' => ServiceMode::DIRECT,
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 1],
+            ],
+        ], $this->user);
+
+        $orderService->startDirectPreparing($counterOrder, $this->user);
+        $orderService->markDirectDelivered($counterOrder, $this->user);
+
+        Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->set('activeDirectOrderId', $counterOrder->id)
+            ->call('recordDirectReturnables');
+
+        $this->assertDatabaseMissing('returnable_movements', [
+            'order_id' => $counterOrder->id,
+        ]);
+    }
+
+    public function test_cart_cannot_be_modified_while_direct_sale_is_active(): void
+    {
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
+        $order = $orderService->createOrder([
+            'service_mode' => ServiceMode::DIRECT,
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 1],
+            ],
+        ], $this->user);
+
+        // 1. addToCart blocked
+        $c1 = Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->set('activeDirectOrderId', $order->id)
+            ->call('addToCart', $this->product->id)
+            ->assertDispatched('notify-toast');
+        $this->assertEmpty($c1->get('cart'));
+
+        // 2. selectCounterSale blocked
+        Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->set('activeDirectOrderId', $order->id)
+            ->call('selectCounterSale')
+            ->assertDispatched('notify-toast');
+
+        // 3. setServiceMode blocked
+        Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->set('activeDirectOrderId', $order->id)
+            ->call('setServiceMode', 'DIRECT')
+            ->assertDispatched('notify-toast');
+
+        // 4. submitOrder blocked
+        Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->set('activeDirectOrderId', $order->id)
+            ->call('submitOrder')
+            ->assertDispatched('notify-toast');
     }
 }

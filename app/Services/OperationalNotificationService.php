@@ -84,6 +84,10 @@ class OperationalNotificationService
      */
     private function getNotificationConfig(Order $order, string $action): ?array
     {
+        if ($order->service_mode === \App\Enums\ServiceMode::DIRECT && in_array($action, ['ORDER_CREATED', 'PREPARING'])) {
+            return null;
+        }
+
         $customer = $order->customer_name_snapshot ?? 'Venta Mostrador';
 
         $items = [];

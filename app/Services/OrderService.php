@@ -281,6 +281,10 @@ class OrderService
         DB::transaction(function () use ($order, $user) {
             $lockedOrder = Order::where('id', $order->id)->lockForUpdate()->firstOrFail();
             
+            if ($lockedOrder->service_mode === \App\Enums\ServiceMode::DIRECT) {
+                throw new \Exception('Los pedidos en puesto deben procesarse desde la pantalla de toma de pedidos.');
+            }
+
             if ($lockedOrder->status !== OrderStatus::NEW) {
                 throw new \Exception('Solo se pueden empezar pedidos con estado "Nuevo".');
             }
@@ -296,6 +300,42 @@ class OrderService
                 'to_status' => OrderStatus::PREPARING,
                 'user_id' => $user->id,
                 'notes' => 'Comenzó la preparación en cocina.',
+            ]);
+        });
+
+        $order->refresh();
+        $this->notifyAndBroadcast($order, 'PREPARING', $previousStatus->value);
+    }
+
+    /**
+     * Start preparing a DIRECT order.
+     */
+    public function startDirectPreparing(Order $order, User $user): void
+    {
+        $previousStatus = $order->status;
+
+        DB::transaction(function () use ($order, $user) {
+            $lockedOrder = Order::where('id', $order->id)->lockForUpdate()->firstOrFail();
+
+            if ($lockedOrder->service_mode !== \App\Enums\ServiceMode::DIRECT) {
+                throw new \Exception('Esta función solo es para ventas en puesto.');
+            }
+
+            if ($lockedOrder->status !== OrderStatus::NEW) {
+                throw new \Exception('Solo se pueden empezar a preparar ventas en puesto con estado "Nuevo".');
+            }
+
+            $lockedOrder->update([
+                'status' => OrderStatus::PREPARING,
+                'preparing_at' => now(),
+            ]);
+
+            OrderStatusHistory::create([
+                'order_id' => $lockedOrder->id,
+                'from_status' => OrderStatus::NEW,
+                'to_status' => OrderStatus::PREPARING,
+                'user_id' => $user->id,
+                'notes' => 'Comenzó la preparación en puesto.',
             ]);
         });
 
