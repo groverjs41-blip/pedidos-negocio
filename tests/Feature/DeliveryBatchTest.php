@@ -526,4 +526,46 @@ class DeliveryBatchTest extends TestCase
         $comp->call('markOrderDelivered', $order2->id);
         $this->assertEquals(OrderStatus::DELIVERED, $order2->fresh()->status);
     }
+
+    /**
+     * Test OrderService::claimForDelivery rejects single orders belonging to a kitchen batch.
+     */
+    public function test_claim_for_delivery_rejects_kitchen_batch_orders(): void
+    {
+        $order1 = $this->orderService->createOrder([
+            'submission_token' => (string) Str::uuid(),
+            'service_mode' => ServiceMode::KITCHEN,
+            'items' => [['product_id' => $this->productA->id, 'quantity' => 1]],
+        ], $this->deliveryUser);
+
+        $order2 = $this->orderService->createOrder([
+            'submission_token' => (string) Str::uuid(),
+            'service_mode' => ServiceMode::KITCHEN,
+            'items' => [['product_id' => $this->productB->id, 'quantity' => 1]],
+        ], $this->deliveryUser);
+
+        $prep = $this->orderService->startPreparingBatch([$order1->id, $order2->id], $this->deliveryUser);
+        $batchToken = $prep->first()->kitchen_batch_token;
+
+        $this->orderService->markReadyBatch($batchToken, $this->deliveryUser);
+
+        try {
+            $this->orderService->claimForDelivery($order1, $this->deliveryUser);
+            $this->fail('Should have thrown InvalidArgumentException.');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertEquals('Los pedidos pertenecientes a un lote de cocina deben recogerse juntos usando el lote.', $e->getMessage());
+        }
+
+        $fresh1 = $order1->fresh();
+        $fresh2 = $order2->fresh();
+
+        $this->assertEquals(OrderStatus::READY, $fresh1->status);
+        $this->assertEquals(OrderStatus::READY, $fresh2->status);
+
+        $this->assertNull($fresh1->delivery_user_id);
+        $this->assertNull($fresh2->delivery_user_id);
+
+        $this->assertEquals($batchToken, $fresh1->kitchen_batch_token);
+        $this->assertEquals($batchToken, $fresh2->kitchen_batch_token);
+    }
 }

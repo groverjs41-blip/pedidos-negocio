@@ -544,6 +544,10 @@ class OrderService
                 throw new \Exception('Este pedido ya fue tomado por otro repartidor.');
             }
 
+            if ($lockedOrder->kitchen_batch_token !== null) {
+                throw new \InvalidArgumentException('Los pedidos pertenecientes a un lote de cocina deben recogerse juntos usando el lote.');
+            }
+
             $lockedOrder->update([
                 'status' => OrderStatus::DELIVERING,
                 'delivery_user_id' => $user->id,
