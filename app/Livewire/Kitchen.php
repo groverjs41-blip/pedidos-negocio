@@ -11,6 +11,7 @@ use Livewire\Component;
 class Kitchen extends Component
 {
     public array $knownOrderIds = [];
+    public array $selectedOrderIds = [];
 
     public function mount(): void
     {
@@ -43,6 +44,140 @@ class Kitchen extends Component
     }
 
     /**
+     * Toggle selection for a NEW kitchen order.
+     */
+    public function toggleOrderSelection(int $orderId): void
+    {
+        if (in_array($orderId, $this->selectedOrderIds)) {
+            $this->selectedOrderIds = array_values(array_diff($this->selectedOrderIds, [$orderId]));
+        } else {
+            $order = Order::where('id', $orderId)
+                ->where('service_mode', ServiceMode::KITCHEN)
+                ->where('status', OrderStatus::NEW)
+                ->first();
+
+            if ($order) {
+                $this->selectedOrderIds[] = $orderId;
+                $this->selectedOrderIds = array_values(array_unique($this->selectedOrderIds));
+            }
+        }
+    }
+
+    /**
+     * Select all currently visible NEW KITCHEN orders.
+     */
+    public function selectAllNew(): void
+    {
+        $newIds = $this->orders
+            ->filter(fn($o) => $o->status === OrderStatus::NEW)
+            ->pluck('id')
+            ->toArray();
+
+        $this->selectedOrderIds = array_values(array_unique(array_merge($this->selectedOrderIds, $newIds)));
+    }
+
+    /**
+     * Clear current batch selection.
+     */
+    public function clearSelection(): void
+    {
+        $this->selectedOrderIds = [];
+    }
+
+    /**
+     * Calculate smart summary for currently selected NEW orders.
+     */
+    public function getBatchSummaryProperty(): array
+    {
+        $selectedIds = array_map('intval', $this->selectedOrderIds);
+        if (empty($selectedIds)) {
+            return [
+                'count' => 0,
+                'items' => [],
+                'notes' => [],
+                'oldest_order_time' => null,
+            ];
+        }
+
+        $selectedOrders = Order::where('service_mode', ServiceMode::KITCHEN)
+            ->where('status', OrderStatus::NEW)
+            ->whereIn('id', $selectedIds)
+            ->with(['items'])
+            ->orderBy('ordered_at', 'asc')
+            ->get();
+
+        if ($selectedOrders->isEmpty()) {
+            return [
+                'count' => 0,
+                'items' => [],
+                'notes' => [],
+                'oldest_order_time' => null,
+            ];
+        }
+
+        $aggregatedItems = [];
+        $notes = [];
+
+        foreach ($selectedOrders as $order) {
+            foreach ($order->items as $item) {
+                $name = $item->product_name;
+                $qty = (int) $item->quantity;
+                $aggregatedItems[$name] = ($aggregatedItems[$name] ?? 0) + $qty;
+            }
+
+            if (!empty(trim($order->notes ?? ''))) {
+                $notes[] = [
+                    'number' => $order->number,
+                    'note' => trim($order->notes),
+                ];
+            }
+        }
+
+        $itemsSummary = [];
+        foreach ($aggregatedItems as $name => $quantity) {
+            $itemsSummary[] = [
+                'name' => $name,
+                'quantity' => $quantity,
+            ];
+        }
+
+        $oldestOrder = $selectedOrders->first();
+        $oldestTime = $oldestOrder && $oldestOrder->ordered_at
+            ? $oldestOrder->ordered_at->diffForHumans()
+            : null;
+
+        return [
+            'count' => $selectedOrders->count(),
+            'items' => $itemsSummary,
+            'notes' => $notes,
+            'oldest_order_time' => $oldestTime,
+        ];
+    }
+
+    /**
+     * Start batch preparation for selected orders.
+     */
+    public function startBatchPreparing(OrderService $orderService): void
+    {
+        if (empty($this->selectedOrderIds)) {
+            $this->dispatch('notify-toast', type: 'warning', title: 'Sin Selección', message: 'Debe seleccionar al menos un pedido nuevo.');
+            return;
+        }
+
+        try {
+            $preparedOrders = $orderService->startPreparingBatch($this->selectedOrderIds, auth()->user());
+            $count = $preparedOrders->count();
+            $this->selectedOrderIds = [];
+            $this->dispatch('notify-toast', type: 'info', title: 'Lote en Preparación', message: "Se inició la preparación de {$count} pedidos.");
+        } catch (\InvalidArgumentException $e) {
+            $this->selectedOrderIds = [];
+            $this->dispatch('notify-toast', type: 'error', title: 'Lote no válido', message: $e->getMessage());
+        } catch (\Exception $e) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error operativo', message: 'No se pudo iniciar el lote de preparación.');
+        }
+    }
+
+    /**
      * Polling fallback method to detect new orders and dispatch operational sound events.
      * Uses named arguments for Livewire 4.
      */
@@ -62,6 +197,11 @@ class Kitchen extends Component
             ->get();
 
         $currentIds = $currentOrders->pluck('id')->toArray();
+
+        // Prune stale IDs from selection if they left NEW state
+        $validNewIds = $currentOrders->filter(fn($o) => $o->status === OrderStatus::NEW)->pluck('id')->toArray();
+        $this->selectedOrderIds = array_values(array_intersect($this->selectedOrderIds, $validNewIds));
+
         $newIds = array_diff($currentIds, $this->knownOrderIds);
 
         if (!empty($newIds) && $shouldReceive) {
@@ -104,6 +244,7 @@ class Kitchen extends Component
 
         try {
             $orderService->startPreparing($order, auth()->user());
+            $this->selectedOrderIds = array_values(array_diff($this->selectedOrderIds, [$orderId]));
             $this->dispatch('notify-toast', type: 'info', title: 'En Preparación', message: "Pedido #" . ltrim($order->number, '#') . " en preparación.");
         } catch (\Exception $e) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error operativo', message: 'No se pudo iniciar preparación del pedido.');
@@ -131,8 +272,14 @@ class Kitchen extends Component
 
     public function render()
     {
+        $orders = $this->orders;
+        $newCount = $orders->filter(fn($o) => $o->status === OrderStatus::NEW)->count();
+        $preparingCount = $orders->filter(fn($o) => $o->status === OrderStatus::PREPARING)->count();
+
         return view('livewire.kitchen', [
-            'orders' => $this->orders,
+            'orders' => $orders,
+            'newCount' => $newCount,
+            'preparingCount' => $preparingCount,
         ])->title('Cocina');
     }
 }

@@ -321,6 +321,64 @@ class OrderService
     }
 
     /**
+     * Start preparing a batch of KITCHEN orders in kitchen atomically.
+     *
+     * @param array<int> $orderIds
+     * @return \Illuminate\Support\Collection<int, Order>
+     */
+    public function startPreparingBatch(array $orderIds, User $user): \Illuminate\Support\Collection
+    {
+        $orderIds = array_values(array_unique(array_filter(array_map('intval', $orderIds))));
+
+        if (empty($orderIds)) {
+            throw new \InvalidArgumentException('Debe seleccionar al menos un pedido para iniciar la preparación por lote.');
+        }
+
+        $preparedOrders = collect();
+
+        DB::transaction(function () use ($orderIds, $user, &$preparedOrders) {
+            $lockedOrders = Order::whereIn('id', $orderIds)->lockForUpdate()->get();
+
+            if ($lockedOrders->count() !== count($orderIds)) {
+                throw new \InvalidArgumentException('El lote cambió mientras lo seleccionabas. Actualiza la selección e intenta nuevamente.');
+            }
+
+            $now = now();
+
+            foreach ($lockedOrders as $lockedOrder) {
+                if ($lockedOrder->service_mode !== \App\Enums\ServiceMode::KITCHEN) {
+                    throw new \InvalidArgumentException('El lote cambió mientras lo seleccionabas. Actualiza la selección e intenta nuevamente.');
+                }
+
+                if ($lockedOrder->status !== OrderStatus::NEW) {
+                    throw new \InvalidArgumentException('El lote cambió mientras lo seleccionabas. Actualiza la selección e intenta nuevamente.');
+                }
+
+                $lockedOrder->update([
+                    'status' => OrderStatus::PREPARING,
+                    'preparing_at' => $now,
+                ]);
+
+                OrderStatusHistory::create([
+                    'order_id' => $lockedOrder->id,
+                    'from_status' => OrderStatus::NEW,
+                    'to_status' => OrderStatus::PREPARING,
+                    'user_id' => $user->id,
+                    'notes' => 'Comenzó la preparación en lote de cocina.',
+                ]);
+
+                $preparedOrders->push($lockedOrder);
+            }
+        });
+
+        foreach ($preparedOrders as $order) {
+            $this->notifyAndBroadcast($order, 'PREPARING', OrderStatus::NEW->value);
+        }
+
+        return $preparedOrders;
+    }
+
+    /**
      * Start preparing a DIRECT order.
      */
     public function startDirectPreparing(Order $order, User $user): void
