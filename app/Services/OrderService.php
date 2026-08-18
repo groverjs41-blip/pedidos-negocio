@@ -564,6 +564,66 @@ class OrderService
     }
 
     /**
+     * Claim a batch of READY KITCHEN orders for delivery by current user.
+     *
+     * @param array<int> $orderIds
+     * @param User $user
+     * @return \Illuminate\Support\Collection<int, Order>
+     */
+    public function claimForDeliveryBatch(array $orderIds, User $user): \Illuminate\Support\Collection
+    {
+        $orderIds = array_values(array_unique(array_filter(array_map('intval', $orderIds))));
+
+        if (empty($orderIds)) {
+            throw new \InvalidArgumentException('Debe seleccionar al menos un pedido para iniciar la salida.');
+        }
+
+        $claimedOrders = collect();
+
+        DB::transaction(function () use ($orderIds, $user, &$claimedOrders) {
+            $lockedOrders = Order::whereIn('id', $orderIds)->lockForUpdate()->get();
+
+            if ($lockedOrders->count() !== count($orderIds)) {
+                throw new \InvalidArgumentException('Uno de los pedidos ya fue tomado. Actualiza la selección e intenta nuevamente.');
+            }
+
+            $now = now();
+
+            foreach ($lockedOrders as $lockedOrder) {
+                if ($lockedOrder->service_mode !== \App\Enums\ServiceMode::KITCHEN) {
+                    throw new \InvalidArgumentException('Uno de los pedidos ya fue tomado. Actualiza la selección e intenta nuevamente.');
+                }
+
+                if ($lockedOrder->status !== OrderStatus::READY) {
+                    throw new \InvalidArgumentException('Uno de los pedidos ya fue tomado. Actualiza la selección e intenta nuevamente.');
+                }
+
+                $lockedOrder->update([
+                    'status' => OrderStatus::DELIVERING,
+                    'delivery_user_id' => $user->id,
+                    'delivering_at' => $now,
+                ]);
+
+                OrderStatusHistory::create([
+                    'order_id' => $lockedOrder->id,
+                    'from_status' => OrderStatus::READY,
+                    'to_status' => OrderStatus::DELIVERING,
+                    'user_id' => $user->id,
+                    'notes' => 'Pedido asignado en salida por lote para reparto.',
+                ]);
+
+                $claimedOrders->push($lockedOrder);
+            }
+        });
+
+        foreach ($claimedOrders as $order) {
+            $this->notifyAndBroadcast($order, 'DELIVERING', OrderStatus::READY->value);
+        }
+
+        return $claimedOrders;
+    }
+
+    /**
      * Mark a DIRECT order as delivered (PREPARING -> DELIVERED).
      */
     public function markDirectDelivered(Order $order, User $user): void

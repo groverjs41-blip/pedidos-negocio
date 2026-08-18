@@ -14,11 +14,18 @@
 
     {{-- Section 1: Mis Repartos Activos --}}
     <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
-            <h2 style="font-size: 1.05rem; font-weight: 800; color: var(--text-main);">
-                Mis Repartos Activos
-            </h2>
-            <span class="status-badge DELIVERING">{{ count($myDeliveries) }}</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+                <h2 style="font-size: 1.05rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+                    <span>Mis Repartos Activos</span>
+                    <span class="status-badge DELIVERING">{{ count($myDeliveries) }}</span>
+                </h2>
+                @if(count($myDeliveries) > 0)
+                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--primary); margin-top: 0.2rem;">
+                        MI SALIDA ACTUAL • {{ $this->myDeliverySummary['count'] }} {{ $this->myDeliverySummary['count'] === 1 ? 'pedido pendiente' : 'pedidos pendientes' }} • Total a cobrar: Bs {{ $this->myDeliverySummary['total_pending'] }}
+                    </div>
+                @endif
+            </div>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 0.85rem;">
@@ -95,20 +102,99 @@
         </div>
     </div>
 
+    {{-- Smart Delivery Batch Summary Panel --}}
+    @if($this->batchSummary['count'] > 0)
+        <div class="batch-summary-panel" style="background: var(--bg-card); border: 2px solid var(--info); border-radius: var(--radius-lg); padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; box-shadow: var(--shadow-lg); transition: all 0.2s ease;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                    <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 800; color: var(--info-text); letter-spacing: 0.05em; display: block;">🚚 SALIDA POR LOTE</span>
+                    <span style="font-size: 1.15rem; font-weight: 800; color: var(--text-main);">
+                        {{ $this->batchSummary['count'] }} {{ $this->batchSummary['count'] === 1 ? 'pedido seleccionado' : 'pedidos seleccionados' }}
+                    </span>
+                    <span style="font-size: 0.95rem; font-weight: 800; color: var(--primary); margin-left: 0.5rem;">
+                        • TOTAL A COBRAR: Bs {{ $this->batchSummary['total_amount'] }}
+                    </span>
+                </div>
+
+                <div>
+                    <button type="button" wire:click="clearSelection" class="chip-btn" style="font-size: 0.775rem;">
+                        ✕ Desmarcar todos
+                    </button>
+                </div>
+            </div>
+
+            {{-- Compact order list --}}
+            <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                <div style="font-size: 0.725rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+                    RESUMEN DE SALIDA
+                </div>
+                @foreach($this->batchSummary['orders'] as $sOrder)
+                    <div style="background: var(--bg-surface); padding: 0.5rem 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <strong style="color: var(--text-main);">#{{ ltrim($sOrder['number'], '#') }}</strong>
+                            <span style="color: var(--text-muted);">•</span>
+                            <span style="color: var(--text-main); font-weight: 600;">{{ $sOrder['customer'] }}</span>
+                            <span style="color: var(--text-muted);">•</span>
+                            <span style="color: var(--text-muted);">{{ $sOrder['address'] }}</span>
+                            @if($sOrder['has_returnables'])
+                                <span style="font-weight: 700; color: var(--primary); font-size: 0.8rem;">📦 Envases</span>
+                            @endif
+                        </div>
+                        <span style="font-weight: 800; color: var(--primary);">Bs {{ $sOrder['total'] }}</span>
+                    </div>
+                @endforeach
+            </div>
+
+            {{-- Action Button --}}
+            <button type="button"
+                    wire:click="claimDeliveryBatch"
+                    wire:loading.attr="disabled"
+                    wire:target="claimDeliveryBatch"
+                    class="btn-primary"
+                    style="width: 100%; height: 50px; font-size: 1.05rem; font-weight: 900; background: var(--info); color: #0E141B; border: none; border-radius: var(--radius-md); box-shadow: 0 4px 16px rgba(77, 159, 255, 0.3); cursor: pointer;">
+                <span wire:loading wire:target="claimDeliveryBatch" class="spinner"></span>
+                <span wire:loading.remove wire:target="claimDeliveryBatch">🚚 PREPARAR SALIDA CON {{ $this->batchSummary['count'] }} {{ $this->batchSummary['count'] === 1 ? 'PEDIDO' : 'PEDIDOS' }} →</span>
+            </button>
+        </div>
+    @endif
+
     {{-- Section 2: Pedidos Listos para Retirar --}}
     <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
-            <h2 style="font-size: 1.05rem; font-weight: 800; color: var(--text-main);">
-                Pedidos Listos para Retirar
-            </h2>
-            <span class="status-badge READY">{{ count($readyOrders) }}</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+                <h2 style="font-size: 1.05rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+                    <span>Pedidos Listos para Retirar</span>
+                    <span class="status-badge READY">{{ count($readyOrders) }}</span>
+                </h2>
+            </div>
+
+            @if(count($readyOrders) > 0)
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button type="button" wire:click="selectAllReady" class="chip-btn {{ count($selectedOrderIds) === count($readyOrders) ? 'active' : '' }}" style="font-size: 0.775rem; font-weight: 700;">
+                        ☑ SELECCIONAR TODOS ({{ count($readyOrders) }})
+                    </button>
+                    @if(count($selectedOrderIds) > 0)
+                        <button type="button" wire:click="clearSelection" class="chip-btn" style="font-size: 0.775rem; background: transparent; border: 1px solid var(--border); color: var(--text-muted);">
+                            ✕ LIMPIAR SELECCIÓN
+                        </button>
+                    @endif
+                </div>
+            @endif
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 0.85rem;">
             @forelse($readyOrders as $order)
-                <div class="card stagger-item" style="padding: 1.15rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                @php $isSelected = in_array($order->id, $selectedOrderIds); @endphp
+                <div class="card stagger-item" style="padding: 1.15rem; display: flex; flex-direction: column; gap: 0.75rem; {{ $isSelected ? 'border: 2px solid var(--info); background: rgba(77, 159, 255, 0.08);' : '' }}">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
-                        <span style="font-size: 1.05rem; font-weight: 800; color: var(--text-main);">#{{ $order->number }}</span>
+                        <button type="button"
+                                wire:click="toggleOrderSelection({{ $order->id }})"
+                                style="border: none; background: transparent; padding: 0; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; text-align: left;">
+                            <span style="font-size: 1.35rem; line-height: 1; color: {{ $isSelected ? 'var(--info)' : 'var(--text-muted)' }}; font-weight: 900;">
+                                {{ $isSelected ? '☑' : '☐' }}
+                            </span>
+                            <span style="font-size: 1.05rem; font-weight: 800; color: {{ $isSelected ? 'var(--info)' : 'var(--text-main)' }};">#{{ $order->number }}</span>
+                        </button>
                         <span style="font-size: 0.775rem; color: var(--text-muted);">Listo: {{ $order->ready_at->format('H:i') }}</span>
                     </div>
 

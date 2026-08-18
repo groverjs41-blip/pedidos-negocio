@@ -20,6 +20,7 @@ class Delivery extends Component
     public string $batchToken = '';
 
     public array $knownReadyOrderIds = [];
+    public array $selectedOrderIds = [];
 
     public function mount(): void
     {
@@ -52,7 +53,146 @@ class Delivery extends Component
             ->where('delivery_user_id', auth()->id())
             ->with(['items', 'returnablePlans.returnableType'])
             ->orderBy('delivering_at', 'asc')
+            ->orderBy('ready_at', 'asc')
             ->get();
+    }
+
+    /**
+     * Toggle selection for a READY KITCHEN order.
+     */
+    public function toggleOrderSelection(int $orderId): void
+    {
+        if (in_array($orderId, $this->selectedOrderIds)) {
+            $this->selectedOrderIds = array_values(array_diff($this->selectedOrderIds, [$orderId]));
+        } else {
+            $order = Order::where('id', $orderId)
+                ->where('service_mode', ServiceMode::KITCHEN)
+                ->where('status', OrderStatus::READY)
+                ->first();
+
+            if ($order) {
+                $this->selectedOrderIds[] = $orderId;
+                $this->selectedOrderIds = array_values(array_unique($this->selectedOrderIds));
+            }
+        }
+    }
+
+    /**
+     * Select all currently visible READY KITCHEN orders.
+     */
+    public function selectAllReady(): void
+    {
+        $readyIds = $this->readyOrders->pluck('id')->toArray();
+        $this->selectedOrderIds = array_values(array_unique(array_merge($this->selectedOrderIds, $readyIds)));
+    }
+
+    /**
+     * Clear current batch selection.
+     */
+    public function clearSelection(): void
+    {
+        $this->selectedOrderIds = [];
+    }
+
+    /**
+     * Calculate smart summary for currently selected READY orders.
+     */
+    public function getBatchSummaryProperty(): array
+    {
+        $selectedIds = array_map('intval', $this->selectedOrderIds);
+        if (empty($selectedIds)) {
+            return [
+                'count' => 0,
+                'total_amount' => '0.00',
+                'orders' => [],
+                'has_any_returnables' => false,
+            ];
+        }
+
+        $selectedOrders = Order::where('service_mode', ServiceMode::KITCHEN)
+            ->where('status', OrderStatus::READY)
+            ->whereIn('id', $selectedIds)
+            ->with(['returnablePlans'])
+            ->orderBy('ready_at', 'asc')
+            ->get();
+
+        if ($selectedOrders->isEmpty()) {
+            return [
+                'count' => 0,
+                'total_amount' => '0.00',
+                'orders' => [],
+                'has_any_returnables' => false,
+            ];
+        }
+
+        $total = '0.00';
+        $orderList = [];
+        $hasReturnables = false;
+
+        foreach ($selectedOrders as $order) {
+            $total = bcadd($total, (string) $order->total, 2);
+            $hasPlans = $order->returnablePlans && $order->returnablePlans->count() > 0;
+            if ($hasPlans) {
+                $hasReturnables = true;
+            }
+
+            $orderList[] = [
+                'id' => $order->id,
+                'number' => $order->number,
+                'customer' => $order->customer_name_snapshot ?? 'Cliente',
+                'address' => $order->delivery_address_snapshot ?? 'Sin dirección',
+                'total' => $order->total,
+                'has_returnables' => $hasPlans,
+            ];
+        }
+
+        return [
+            'count' => $selectedOrders->count(),
+            'total_amount' => number_format((float) $total, 2, '.', ''),
+            'orders' => $orderList,
+            'has_any_returnables' => $hasReturnables,
+        ];
+    }
+
+    /**
+     * Summary of current driver's active delivery run (delivering orders).
+     */
+    public function getMyDeliverySummaryProperty(): array
+    {
+        $deliveries = $this->myDeliveries;
+        $total = '0.00';
+
+        foreach ($deliveries as $order) {
+            $total = bcadd($total, (string) $order->total, 2);
+        }
+
+        return [
+            'count' => $deliveries->count(),
+            'total_pending' => number_format((float) $total, 2, '.', ''),
+        ];
+    }
+
+    /**
+     * Claim batch of READY orders for delivery.
+     */
+    public function claimDeliveryBatch(OrderService $orderService): void
+    {
+        if (empty($this->selectedOrderIds)) {
+            $this->dispatch('notify-toast', type: 'warning', title: 'Sin Selección', message: 'Debe seleccionar al menos un pedido listo.');
+            return;
+        }
+
+        try {
+            $claimedOrders = $orderService->claimForDeliveryBatch($this->selectedOrderIds, auth()->user());
+            $count = $claimedOrders->count();
+            $this->selectedOrderIds = [];
+            $this->dispatch('notify-toast', type: 'info', title: 'Salida Iniciada', message: "Se inició la salida con {$count} pedidos.");
+        } catch (\InvalidArgumentException $e) {
+            $this->selectedOrderIds = [];
+            $this->dispatch('notify-toast', type: 'error', title: 'Error de asignación', message: $e->getMessage());
+        } catch (\Exception $e) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error operativo', message: 'No se pudo asignar la salida.');
+        }
     }
 
     /**
@@ -75,6 +215,10 @@ class Delivery extends Component
             ->get();
 
         $currentIds = $readyOrders->pluck('id')->toArray();
+
+        // Prune stale IDs from selection if they left READY state
+        $this->selectedOrderIds = array_values(array_intersect($this->selectedOrderIds, $currentIds));
+
         $newIds = array_diff($currentIds, $this->knownReadyOrderIds);
 
         if (!empty($newIds) && $shouldReceive) {
@@ -112,6 +256,7 @@ class Delivery extends Component
 
         try {
             $orderService->claimForDelivery($order, auth()->user());
+            $this->selectedOrderIds = array_values(array_diff($this->selectedOrderIds, [$orderId]));
             $this->dispatch('notify-toast', type: 'info', title: 'Pedido Tomado', message: "Pedido #" . ltrim($order->number, '#') . " asignado a tus entregas.");
         } catch (\Exception $e) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error de asignación', message: 'El pedido ya fue tomado o no se pudo asignar.');
