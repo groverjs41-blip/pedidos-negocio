@@ -224,4 +224,18 @@ class AuthTest extends TestCase
         $this->assertFalse($user->hasRole('cocina'));
         $this->assertCount(2, $user->roles);
     }
+
+    /**
+     * Test POST /logout invalidates session, makes user guest, and redirects to login.
+     */
+    public function test_logout_invalidates_session_and_redirects_to_login(): void
+    {
+        $user = User::factory()->create(['active' => true]);
+        $this->actingAs($user);
+
+        $response = $this->post('/logout');
+
+        $response->assertRedirect('/login');
+        $this->assertGuest();
+    }
 }

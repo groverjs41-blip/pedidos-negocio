@@ -242,38 +242,65 @@
 
                         {{-- Stepper Actions --}}
                         @if($directOrder->status === \App\Enums\OrderStatus::NEW)
-                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                                <div style="font-size: 0.8rem; font-weight: 700; color: var(--warning-text); text-align: center;">
-                                    Estado actual: NUEVO
+                            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-lg); padding: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; text-align: center;">
+                                <div style="font-size: 1.05rem; font-weight: 800; color: #F59E0B; letter-spacing: 0.02em;">
+                                    📋 PEDIDO REGISTRADO
+                                </div>
+                                <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">
+                                    Listo para iniciar preparación en puesto
                                 </div>
                                 <button
                                     type="button"
                                     wire:click="startDirectPreparing"
                                     wire:loading.attr="disabled"
                                     class="btn-primary"
-                                    style="height: 44px; font-weight: 800; font-size: 0.95rem;"
+                                    style="width: 100%; height: 46px; font-weight: 800; font-size: 0.95rem; background: #F59E0B; color: #000000; border: none; border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);"
                                 >
                                     <span wire:loading wire:target="startDirectPreparing" class="spinner"></span>
-                                    <span wire:loading.remove wire:target="startDirectPreparing">🍳 PREPARAR →</span>
+                                    <span wire:loading.remove wire:target="startDirectPreparing">🍳 INICIAR PREPARACIÓN →</span>
                                 </button>
                             </div>
                         @elseif($directOrder->status === \App\Enums\OrderStatus::PREPARING)
-                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                                <div style="font-size: 0.8rem; font-weight: 700; color: var(--warning-text); text-align: center;">
-                                    Estado actual: EN PREPARACIÓN
+                            <div style="background: rgba(245, 158, 11, 0.12); border: 2px solid #F59E0B; border-radius: var(--radius-lg); padding: 1.25rem 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; text-align: center; box-shadow: 0 8px 24px rgba(245, 158, 11, 0.15);">
+                                <div style="font-size: 1.2rem; font-weight: 900; color: #F59E0B; letter-spacing: 0.03em; text-transform: uppercase;">
+                                    🍳 PREPARANDO PEDIDO
                                 </div>
+                                
+                                <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); font-family: monospace; background: var(--bg-surface); padding: 0.25rem 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border);">
+                                    #{{ $directOrder->number }}
+                                </div>
+
+                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-weight: 800; color: #F59E0B; font-size: 0.9rem;">
+                                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #F59E0B; box-shadow: 0 0 8px #F59E0B;"></span>
+                                    <span>EN PREPARACIÓN</span>
+                                </div>
+
+                                @if($directOrder->preparing_at)
+                                    <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">
+                                        Iniciado {{ $directOrder->preparing_at->diffForHumans() }}
+                                    </div>
+                                @endif
+
                                 <button
                                     type="button"
                                     wire:click="markDirectDelivered"
                                     wire:loading.attr="disabled"
                                     class="btn-primary"
-                                    style="height: 44px; font-weight: 800; font-size: 0.95rem; background: #059669;"
+                                    style="width: 100%; height: 48px; font-weight: 800; font-size: 0.95rem; background: #059669; color: #FFFFFF; border: none; border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3); margin-top: 0.25rem;"
                                 >
                                     <span wire:loading wire:target="markDirectDelivered" class="spinner"></span>
-                                    <span wire:loading.remove wire:target="markDirectDelivered">📦 ENTREGAR →</span>
+                                    <span wire:loading.remove wire:target="markDirectDelivered">📦 ENTREGAR PEDIDO →</span>
                                 </button>
                             </div>
                         @elseif($directOrder->status === \App\Enums\OrderStatus::DELIVERED)
+                            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-md); padding: 0.75rem 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem; text-align: center;">
+                                <div style="font-size: 0.95rem; font-weight: 800; color: #10B981;">
+                                    📦 PEDIDO ENTREGADO
+                                </div>
+                                <div style="font-size: 0.775rem; font-weight: 600; color: var(--text-muted);">
+                                    Listo para registrar envases y cobrar
+                                </div>
+                            </div>
                             {{-- Envases Retornables Sección --}}
                             @if($directOrder->customer_id && count($directOrder->returnablePlans) > 0)
                                 <div style="background: var(--bg-surface); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.5rem;">

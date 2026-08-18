@@ -538,10 +538,16 @@ class CreateOrder extends Component
         }
     }
 
-    public function getActiveDirectOrderProperty(): ?Order
+    #[\Livewire\Attributes\Computed]
+    public function activeDirectOrder(): ?Order
     {
         if (!$this->activeDirectOrderId) return null;
         return Order::with(['items', 'paymentAllocations', 'returnablePlans.returnableType', 'returnableMovements'])->find($this->activeDirectOrderId);
+    }
+
+    public function getActiveDirectOrderProperty(): ?Order
+    {
+        return $this->activeDirectOrder;
     }
 
     /**
@@ -845,6 +851,9 @@ class CreateOrder extends Component
         $this->directReturnableBatchToken = '';
         $this->directReturnablesRecorded = false;
         $this->directReturnablesHandled = false;
+
+        unset($this->activeDirectOrder);
+        unset($this->active_direct_order);
 
         $this->generateSubmissionToken();
         $this->dispatch('focus-search-customer');

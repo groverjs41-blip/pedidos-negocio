@@ -876,4 +876,85 @@ class DirectSaleWorkflowTest extends TestCase
 
         $this->assertNull($remount->get('activeDirectOrderId'));
     }
+
+    public function test_completed_direct_sale_clears_active_order_state_and_hides_warning_banner(): void
+    {
+        $customer = Customer::create(['name' => 'Cliente Direct Complete', 'phone' => '79999999', 'active' => true]);
+
+        // 1. Crear DIRECT
+        $component = Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->call('selectCustomer', $customer->id)
+            ->call('setServiceMode', 'DIRECT')
+            ->call('addToCart', $this->product->id)
+            ->call('submitOrder');
+
+        $this->assertNotNull($component->get('activeDirectOrderId'));
+        $component->assertSee('VENTA EN PUESTO EN CURSO');
+
+        // 2. Preparar
+        $component->call('startDirectPreparing');
+
+        // 3. Entregar
+        $component->call('markDirectDelivered');
+
+        // 4. Cobrar total (35.00)
+        $component->set('directPaymentAmount', '35.00')
+            ->call('submitDirectPayment')
+            ->assertDispatched('notify-toast', type: 'success', title: 'Venta Completada')
+            ->assertDispatched('order-submitted-success');
+
+        // 5. Comprobar activeDirectOrderId === null
+        $this->assertNull($component->get('activeDirectOrderId'));
+
+        // 6. Comprobar que activeDirectOrder sea null
+        $this->assertNull($component->get('activeDirectOrder'));
+
+        // 7. Comprobar que ya no se renderice "VENTA EN PUESTO EN CURSO"
+        $component->assertDontSee('VENTA EN PUESTO EN CURSO');
+        $this->assertEquals('KITCHEN', $component->get('serviceMode'));
+    }
+
+    public function test_completed_direct_sale_via_returnables_resolution_clears_active_order_state(): void
+    {
+        $returnableType = ReturnableType::create(['name' => 'Caja Retornable', 'sort_order' => 1, 'active' => true]);
+        ProductReturnableRequirement::create([
+            'product_id' => $this->product->id,
+            'returnable_type_id' => $returnableType->id,
+            'quantity' => 1,
+        ]);
+
+        $customer = Customer::create(['name' => 'Cliente Returnables Complete', 'phone' => '78888888', 'active' => true]);
+
+        // 1. Crear DIRECT con envases
+        $component = Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->call('selectCustomer', $customer->id)
+            ->call('setServiceMode', 'DIRECT')
+            ->call('addToCart', $this->product->id)
+            ->call('submitOrder');
+
+        // 2. Preparar y entregar
+        $component->call('startDirectPreparing')
+            ->call('markDirectDelivered');
+
+        // 3. Cobrar total primero (pago completo pero envases pendientes)
+        $component->set('directPaymentAmount', '35.00')
+            ->call('submitDirectPayment')
+            ->assertDispatched('notify-toast', type: 'warning', title: 'Envases Pendientes');
+
+        $this->assertNotNull($component->get('activeDirectOrderId'));
+        $component->assertSee('VENTA EN PUESTO EN CURSO');
+
+        // 4. Registrar envases para cerrar la venta
+        $component->call('recordDirectReturnables')
+            ->assertDispatched('notify-toast', type: 'success', title: 'Venta Completada')
+            ->assertDispatched('order-submitted-success');
+
+        // 5. Comprobar estado limpio
+        $this->assertNull($component->get('activeDirectOrderId'));
+        $this->assertNull($component->get('activeDirectOrder'));
+        $component->assertDontSee('VENTA EN PUESTO EN CURSO');
+        $this->assertEquals('KITCHEN', $component->get('serviceMode'));
+    }
 }

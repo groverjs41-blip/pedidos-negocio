@@ -164,7 +164,9 @@
 
                     @if(auth()->user()->hasRole('cocina') || auth()->user()->hasRole('admin'))
                         @php
-                            $kitchenCount = \App\Models\Order::whereIn('status', [\App\Enums\OrderStatus::NEW, \App\Enums\OrderStatus::PREPARING])->count();
+                            $kitchenCount = \App\Models\Order::where('service_mode', \App\Enums\ServiceMode::KITCHEN)
+                                ->whereIn('status', [\App\Enums\OrderStatus::NEW, \App\Enums\OrderStatus::PREPARING])
+                                ->count();
                         @endphp
                         <a href="{{ url('/cocina') }}" wire:navigate class="nav-item {{ request()->is('cocina') ? 'active' : '' }}" :title="collapsed ? 'Cocina ({{ $kitchenCount }})' : ''">
                             <x-ui.icon name="chef" />
@@ -177,7 +179,9 @@
 
                     @if(auth()->user()->hasRole('reparto') || auth()->user()->hasRole('admin'))
                         @php
-                            $deliveryCount = \App\Models\Order::where('status', \App\Enums\OrderStatus::READY)->count();
+                            $deliveryCount = \App\Models\Order::where('service_mode', \App\Enums\ServiceMode::KITCHEN)
+                                ->where('status', \App\Enums\OrderStatus::READY)
+                                ->count();
                         @endphp
                         <a href="{{ url('/reparto') }}" wire:navigate class="nav-item {{ request()->is('reparto') ? 'active' : '' }}" :title="collapsed ? 'Reparto ({{ $deliveryCount }} LISTOS)' : ''">
                             <x-ui.icon name="truck" />

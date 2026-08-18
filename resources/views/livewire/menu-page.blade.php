@@ -162,7 +162,27 @@
                 </div>
                 <span style="color: var(--text-muted);">&rarr;</span>
             </a>
-
         @endif
+
+        {{-- Cerrar Sesión Card --}}
+        <div class="card" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.05);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 0.85rem;">
+                    <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(239, 68, 68, 0.15); color: #EF4444; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+                        🚪
+                    </div>
+                    <div>
+                        <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-main);">Cerrar sesión</div>
+                        <div style="font-size: 0.775rem; color: var(--text-muted);">Usuario: {{ auth()->user()->name }}</div>
+                    </div>
+                </div>
+            </div>
+            <form action="{{ route('logout') }}" method="POST" onsubmit="return confirm('¿Deseas cerrar la sesión?');" style="margin: 0; width: 100%;">
+                @csrf
+                <button type="submit" class="btn-primary" style="width: 100%; height: 44px; font-weight: 800; font-size: 0.9rem; background: #DC2626; color: #FFFFFF; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; gap: 0.5rem; border: none; cursor: pointer;">
+                    🚪 CERRAR SESIÓN
+                </button>
+            </form>
+        </div>
     </div>
 </div>
