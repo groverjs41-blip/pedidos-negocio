@@ -13,6 +13,7 @@ use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class OrderService
 {
@@ -335,8 +336,9 @@ class OrderService
         }
 
         $preparedOrders = collect();
+        $batchToken = (string) Str::uuid();
 
-        DB::transaction(function () use ($orderIds, $user, &$preparedOrders) {
+        DB::transaction(function () use ($orderIds, $user, $batchToken, &$preparedOrders) {
             $lockedOrders = Order::whereIn('id', $orderIds)->lockForUpdate()->get();
 
             if ($lockedOrders->count() !== count($orderIds)) {
@@ -357,6 +359,7 @@ class OrderService
                 $lockedOrder->update([
                     'status' => OrderStatus::PREPARING,
                     'preparing_at' => $now,
+                    'kitchen_batch_token' => $batchToken,
                 ]);
 
                 OrderStatusHistory::create([
@@ -376,6 +379,79 @@ class OrderService
         }
 
         return $preparedOrders;
+    }
+
+    /**
+     * Mark all or remaining PREPARING orders in a batch as READY atomically.
+     *
+     * @param string $batchToken
+     * @param User $user
+     * @param array<int>|null $expectedOrderIds
+     * @return \Illuminate\Support\Collection<int, Order>
+     */
+    public function markReadyBatch(string $batchToken, User $user, ?array $expectedOrderIds = null): \Illuminate\Support\Collection
+    {
+        if (empty($batchToken)) {
+            throw new \InvalidArgumentException('El identificador de lote no es válido.');
+        }
+
+        $readyOrders = collect();
+
+        DB::transaction(function () use ($batchToken, $user, $expectedOrderIds, &$readyOrders) {
+            $allBatchOrders = Order::where('kitchen_batch_token', $batchToken)
+                ->where('service_mode', \App\Enums\ServiceMode::KITCHEN)
+                ->lockForUpdate()
+                ->get();
+
+            if ($allBatchOrders->isEmpty()) {
+                throw new \InvalidArgumentException('El lote cambió mientras trabajabas. Actualiza Cocina e intenta nuevamente.');
+            }
+
+            if ($expectedOrderIds !== null) {
+                $expectedIds = array_values(array_unique(array_map('intval', $expectedOrderIds)));
+                $preparingOrders = $allBatchOrders->filter(fn($o) => $o->status === OrderStatus::PREPARING && in_array($o->id, $expectedIds));
+
+                if ($preparingOrders->count() !== count($expectedIds)) {
+                    throw new \InvalidArgumentException('El lote cambió mientras trabajabas. Actualiza Cocina e intenta nuevamente.');
+                }
+            } else {
+                // For a full batch completion, no orders in the batch can be non-PREPARING (e.g. already READY or CANCELLED)
+                $hasNonPreparing = $allBatchOrders->contains(fn($o) => $o->status !== OrderStatus::PREPARING);
+                if ($hasNonPreparing) {
+                    throw new \InvalidArgumentException('El lote cambió mientras trabajabas. Actualiza Cocina e intenta nuevamente.');
+                }
+                $preparingOrders = $allBatchOrders;
+            }
+
+            $now = now();
+
+            foreach ($preparingOrders as $lockedOrder) {
+                if ($lockedOrder->status !== OrderStatus::PREPARING || $lockedOrder->service_mode !== \App\Enums\ServiceMode::KITCHEN) {
+                    throw new \InvalidArgumentException('El lote cambió mientras trabajabas. Actualiza Cocina e intenta nuevamente.');
+                }
+
+                $lockedOrder->update([
+                    'status' => OrderStatus::READY,
+                    'ready_at' => $now,
+                ]);
+
+                OrderStatusHistory::create([
+                    'order_id' => $lockedOrder->id,
+                    'from_status' => OrderStatus::PREPARING,
+                    'to_status' => OrderStatus::READY,
+                    'user_id' => $user->id,
+                    'notes' => 'Pedido marcado listo como parte de lote de cocina.',
+                ]);
+
+                $readyOrders->push($lockedOrder);
+            }
+        });
+
+        foreach ($readyOrders as $order) {
+            $this->notifyAndBroadcast($order, 'READY', OrderStatus::PREPARING->value);
+        }
+
+        return $readyOrders;
     }
 
     /**

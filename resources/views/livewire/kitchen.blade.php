@@ -136,6 +136,98 @@
         </div>
     @endif
 
+    {{-- Active Preparing Batches Panel --}}
+    @if(!empty($this->activeBatches))
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            @foreach($this->activeBatches as $batch)
+                <div class="active-batch-card" style="background: var(--bg-card); border: 2px solid {{ $batch['is_partial'] ? 'var(--warning)' : 'var(--primary)' }}; border-radius: var(--radius-lg); padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; box-shadow: var(--shadow-md);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 800; color: {{ $batch['is_partial'] ? 'var(--warning-text)' : 'var(--primary)' }}; letter-spacing: 0.05em;">
+                                    🍳 LOTE EN PREPARACIÓN
+                                </span>
+                                <span class="status-badge PREPARING" style="font-size: 0.7rem; padding: 2px 8px;">
+                                    LOTE #{{ $batch['short_token'] }}
+                                </span>
+                            </div>
+
+                            <div style="font-size: 1.1rem; font-weight: 800; color: var(--text-main); margin-top: 0.25rem;">
+                                {{ $batch['preparing_count'] }} {{ $batch['preparing_count'] === 1 ? 'pedido' : 'pedidos' }} en preparación
+                                <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">({{ $batch['order_numbers'] }})</span>
+                            </div>
+
+                            @if($batch['is_partial'])
+                                <div style="margin-top: 0.4rem; font-size: 0.85rem; font-weight: 700; color: var(--warning-text); background: var(--warning-light); padding: 0.35rem 0.65rem; border-radius: var(--radius-sm); border-left: 3px solid var(--warning); display: inline-flex; align-items: center; gap: 0.35rem;">
+                                    <span>⚠ LOTE PARCIAL: {{ $batch['preparing_count'] }} de {{ $batch['total_count'] }} todavía preparando • {{ $batch['ready_count'] }} ya listo</span>
+                                </div>
+                            @endif
+
+                            @if($batch['oldest_preparing_time'])
+                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                    Iniciado {{ $batch['oldest_preparing_time'] }}
+                                </div>
+                            @endif
+                        </div>
+
+                        <div>
+                            @if($batch['is_partial'])
+                                <button type="button"
+                                        wire:click="markBatchReady('{{ $batch['token'] }}', true)"
+                                        wire:loading.attr="disabled"
+                                        wire:target="markBatchReady('{{ $batch['token'] }}', true)"
+                                        class="btn-primary"
+                                        style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 800; background: var(--primary); color: var(--primary-text); border: none; border-radius: var(--radius-md); cursor: pointer;">
+                                    <span wire:loading wire:target="markBatchReady('{{ $batch['token'] }}', true)" class="spinner"></span>
+                                    <span wire:loading.remove wire:target="markBatchReady('{{ $batch['token'] }}', true)">✅ MARCAR LOS {{ $batch['preparing_count'] }} RESTANTES COMO LISTOS →</span>
+                                </button>
+                            @else
+                                <button type="button"
+                                        wire:click="markBatchReady('{{ $batch['token'] }}', false)"
+                                        wire:loading.attr="disabled"
+                                        wire:target="markBatchReady('{{ $batch['token'] }}', false)"
+                                        class="btn-primary"
+                                        style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 800; background: var(--primary); color: var(--primary-text); border: none; border-radius: var(--radius-md); cursor: pointer;">
+                                    <span wire:loading wire:target="markBatchReady('{{ $batch['token'] }}', false)" class="spinner"></span>
+                                    <span wire:loading.remove wire:target="markBatchReady('{{ $batch['token'] }}', false)">✅ MARCAR TODO EL LOTE COMO LISTO →</span>
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- Products summary for active batch --}}
+                    @if(!empty($batch['items']))
+                        <div>
+                            <div style="font-size: 0.725rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">
+                                PRODUCTOS PENDIENTES DEL LOTE
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.5rem;">
+                                @foreach($batch['items'] as $bItem)
+                                    <div style="background: var(--bg-surface); padding: 0.5rem 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem;">
+                                        <span style="font-size: 1rem; font-weight: 900; color: var(--primary); font-family: monospace;">{{ $bItem['quantity'] }}x</span>
+                                        <span style="font-size: 0.875rem; font-weight: 700; color: var(--text-main);">{{ $bItem['name'] }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- Special Notes for active batch --}}
+                    @if(!empty($batch['notes']))
+                        <div style="background: var(--warning-light); border: 1px solid rgba(245, 185, 66, 0.2); border-left: 3px solid var(--warning); padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 0.25rem;">
+                            <span style="font-size: 0.725rem; font-weight: 800; color: var(--warning-text); text-transform: uppercase;">⚠ NOTAS DEL LOTE</span>
+                            @foreach($batch['notes'] as $bn)
+                                <div style="font-size: 0.825rem; color: var(--warning-text); font-weight: 600;">
+                                    <strong>#{{ ltrim($bn['number'], '#') }}:</strong> "{{ $bn['note'] }}"
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+    @endif
+
     {{-- Active orders --}}
     <div class="kds-orders-grid">
         @forelse($orders as $order)
@@ -174,6 +266,11 @@
                             <span class="status-badge PREPARING" style="font-size: 0.7rem; padding: 2px 8px;">
                                 PREPARANDO •••
                             </span>
+                            @if($order->kitchen_batch_token)
+                                <span class="status-badge PREPARING" style="font-size: 0.65rem; padding: 2px 6px; background: rgba(39, 230, 164, 0.12); border: 1px solid var(--primary); color: var(--primary);">
+                                    LOTE #{{ strtoupper(substr($order->kitchen_batch_token, 0, 6)) }}
+                                </span>
+                            @endif
                         @else
                             <span class="status-badge NEW" style="font-size: 0.7rem; padding: 2px 8px;">
                                 NUEVO

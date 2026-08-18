@@ -33,6 +33,7 @@ class Order extends Model
         'delivering_at',
         'delivered_at',
         'direct_returnables_resolved_at',
+        'kitchen_batch_token',
         'cancelled_at',
     ];
 

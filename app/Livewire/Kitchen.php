@@ -270,6 +270,121 @@ class Kitchen extends Component
         }
     }
 
+    /**
+     * Get active preparing kitchen batches.
+     * An active batch token has at least 1 KITCHEN order currently in PREPARING status.
+     */
+    #[\Livewire\Attributes\Computed]
+    public function activeBatches(): array
+    {
+        $batchTokens = Order::where('service_mode', ServiceMode::KITCHEN)
+            ->where('status', OrderStatus::PREPARING)
+            ->whereNotNull('kitchen_batch_token')
+            ->pluck('kitchen_batch_token')
+            ->unique()
+            ->values();
+
+        if ($batchTokens->isEmpty()) {
+            return [];
+        }
+
+        $activeBatches = [];
+
+        foreach ($batchTokens as $token) {
+            $allOrders = Order::where('kitchen_batch_token', $token)
+                ->where('service_mode', ServiceMode::KITCHEN)
+                ->with(['items'])
+                ->orderBy('ordered_at', 'asc')
+                ->get();
+
+            $preparingOrders = $allOrders->filter(fn($o) => $o->status === OrderStatus::PREPARING);
+            $readyOrders = $allOrders->filter(fn($o) => $o->status === OrderStatus::READY);
+
+            if ($preparingOrders->isEmpty()) {
+                continue;
+            }
+
+            $aggregatedItems = [];
+            $notes = [];
+
+            foreach ($preparingOrders as $order) {
+                foreach ($order->items as $item) {
+                    $name = $item->product_name;
+                    $qty = (int) $item->quantity;
+                    $aggregatedItems[$name] = ($aggregatedItems[$name] ?? 0) + $qty;
+                }
+
+                if (!empty(trim($order->notes ?? ''))) {
+                    $notes[] = [
+                        'number' => $order->number,
+                        'note' => trim($order->notes),
+                    ];
+                }
+            }
+
+            $itemsSummary = [];
+            foreach ($aggregatedItems as $name => $quantity) {
+                $itemsSummary[] = [
+                    'name' => $name,
+                    'quantity' => $quantity,
+                ];
+            }
+
+            $oldestOrder = $preparingOrders->first();
+            $oldestTime = $oldestOrder
+                ? ($oldestOrder->preparing_at ? $oldestOrder->preparing_at->diffForHumans() : $oldestOrder->ordered_at->diffForHumans())
+                : null;
+
+            $shortToken = strtoupper(substr($token, 0, 6));
+
+            $activeBatches[] = [
+                'token' => $token,
+                'short_token' => $shortToken,
+                'total_count' => $allOrders->count(),
+                'preparing_count' => $preparingOrders->count(),
+                'ready_count' => $readyOrders->count(),
+                'is_partial' => $readyOrders->count() > 0,
+                'preparing_order_ids' => $preparingOrders->pluck('id')->toArray(),
+                'order_numbers' => $preparingOrders->map(fn($o) => '#' . ltrim($o->number, '#'))->implode(' · '),
+                'items' => $itemsSummary,
+                'notes' => $notes,
+                'oldest_preparing_time' => $oldestTime,
+            ];
+        }
+
+        return $activeBatches;
+    }
+
+    public function getActiveBatchesProperty(): array
+    {
+        return $this->activeBatches;
+    }
+
+    /**
+     * Mark an entire batch or remaining orders of a batch as READY.
+     */
+    public function markBatchReady(string $batchToken, OrderService $orderService, bool $isRemainingOnly = false): void
+    {
+        $batchInfo = collect($this->activeBatches)->firstWhere('token', $batchToken);
+        $expectedOrderIds = null;
+
+        if ($isRemainingOnly && $batchInfo) {
+            $expectedOrderIds = $batchInfo['preparing_order_ids'];
+        }
+
+        try {
+            $readyOrders = $orderService->markReadyBatch($batchToken, auth()->user(), $expectedOrderIds);
+            $count = $readyOrders->count();
+            unset($this->activeBatches);
+            unset($this->active_batches);
+            $this->dispatch('notify-toast', type: 'success', title: 'Lote Listo', message: "Se marcaron {$count} pedidos como listos.");
+        } catch (\InvalidArgumentException $e) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error en Lote', message: $e->getMessage());
+        } catch (\Exception $e) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error operativo', message: 'No se pudo completar el lote.');
+        }
+    }
+
     public function render()
     {
         $orders = $this->orders;
