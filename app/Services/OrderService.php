@@ -565,6 +565,7 @@ class OrderService
 
     /**
      * Claim a batch of READY KITCHEN orders for delivery by current user.
+     * Manual selection pickup is restricted to orders without a kitchen_batch_token.
      *
      * @param array<int> $orderIds
      * @param User $user
@@ -598,6 +599,10 @@ class OrderService
                     throw new \InvalidArgumentException('Uno de los pedidos ya fue tomado. Actualiza la selección e intenta nuevamente.');
                 }
 
+                if ($lockedOrder->kitchen_batch_token !== null) {
+                    throw new \InvalidArgumentException('Los pedidos pertenecientes a un lote de cocina deben recogerse con la acción de lote.');
+                }
+
                 $lockedOrder->update([
                     'status' => OrderStatus::DELIVERING,
                     'delivery_user_id' => $user->id,
@@ -610,6 +615,73 @@ class OrderService
                     'to_status' => OrderStatus::DELIVERING,
                     'user_id' => $user->id,
                     'notes' => 'Pedido asignado en salida por lote para reparto.',
+                ]);
+
+                $claimedOrders->push($lockedOrder);
+            }
+        });
+
+        foreach ($claimedOrders as $order) {
+            $this->notifyAndBroadcast($order, 'DELIVERING', OrderStatus::READY->value);
+        }
+
+        return $claimedOrders;
+    }
+
+    /**
+     * Claim an entire Kitchen batch for delivery by current user using kitchen_batch_token.
+     *
+     * @param string $kitchenBatchToken
+     * @param User $user
+     * @return \Illuminate\Support\Collection<int, Order>
+     */
+    public function claimKitchenBatchForDelivery(string $kitchenBatchToken, User $user): \Illuminate\Support\Collection
+    {
+        $token = trim($kitchenBatchToken);
+        if (empty($token)) {
+            throw new \InvalidArgumentException('El token del lote de cocina no es válido.');
+        }
+
+        $claimedOrders = collect();
+
+        DB::transaction(function () use ($token, $user, &$claimedOrders) {
+            $lockedOrders = Order::where('kitchen_batch_token', $token)
+                ->lockForUpdate()
+                ->get();
+
+            if ($lockedOrders->isEmpty()) {
+                throw new \InvalidArgumentException('El lote no existe o ya fue tomado por otro repartidor.');
+            }
+
+            $now = now();
+
+            foreach ($lockedOrders as $order) {
+                if ($order->service_mode !== \App\Enums\ServiceMode::KITCHEN) {
+                    throw new \InvalidArgumentException('El lote contiene pedidos que no corresponden a Cocina.');
+                }
+
+                if ($order->status !== OrderStatus::READY) {
+                    throw new \InvalidArgumentException('El lote cambió de estado o ya fue tomado por otro repartidor.');
+                }
+
+                if ($order->delivery_user_id !== null) {
+                    throw new \InvalidArgumentException('El lote cambió de estado o ya fue tomado por otro repartidor.');
+                }
+            }
+
+            foreach ($lockedOrders as $lockedOrder) {
+                $lockedOrder->update([
+                    'status' => OrderStatus::DELIVERING,
+                    'delivery_user_id' => $user->id,
+                    'delivering_at' => $now,
+                ]);
+
+                OrderStatusHistory::create([
+                    'order_id' => $lockedOrder->id,
+                    'from_status' => OrderStatus::READY,
+                    'to_status' => OrderStatus::DELIVERING,
+                    'user_id' => $user->id,
+                    'notes' => 'Lote de cocina recogido para reparto.',
                 ]);
 
                 $claimedOrders->push($lockedOrder);

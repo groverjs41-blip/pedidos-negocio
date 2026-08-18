@@ -41,6 +41,7 @@ class Delivery extends Component
     {
         return Order::where('service_mode', ServiceMode::KITCHEN)
             ->where('status', OrderStatus::READY)
+            ->whereNull('kitchen_batch_token')
             ->with(['items', 'returnablePlans.returnableType'])
             ->orderBy('ready_at', 'asc')
             ->get();
@@ -58,7 +59,81 @@ class Delivery extends Component
     }
 
     /**
-     * Toggle selection for a READY KITCHEN order.
+     * Get list of Kitchen batches with their status and readiness details.
+     */
+    public function getReadyKitchenBatchesProperty(): array
+    {
+        $orders = Order::where('service_mode', ServiceMode::KITCHEN)
+            ->whereNotNull('kitchen_batch_token')
+            ->whereIn('status', [OrderStatus::NEW, OrderStatus::PREPARING, OrderStatus::READY])
+            ->with(['returnablePlans'])
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        if ($orders->isEmpty()) {
+            return [];
+        }
+
+        $grouped = $orders->groupBy('kitchen_batch_token');
+        $batches = [];
+
+        foreach ($grouped as $token => $batchOrders) {
+            $allOrdersForToken = Order::where('kitchen_batch_token', $token)->get();
+
+            $totalCount = $allOrdersForToken->count();
+            $readyCount = $allOrdersForToken->where('status', OrderStatus::READY)->count();
+            $preparingCount = $allOrdersForToken->where('status', OrderStatus::PREPARING)->count();
+            $deliveringCount = $allOrdersForToken->where('status', OrderStatus::DELIVERING)->count();
+            $deliveredCount = $allOrdersForToken->where('status', OrderStatus::DELIVERED)->count();
+
+            if ($deliveringCount + $deliveredCount === $totalCount && $totalCount > 0) {
+                continue;
+            }
+
+            $isFullyReady = ($totalCount > 0) && ($readyCount === $totalCount);
+
+            $totalAmount = '0.00';
+            $orderList = [];
+            $hasReturnables = false;
+
+            foreach ($batchOrders as $order) {
+                $totalAmount = bcadd($totalAmount, (string) $order->total, 2);
+                $hasPlans = $order->returnablePlans && $order->returnablePlans->count() > 0;
+                if ($hasPlans) {
+                    $hasReturnables = true;
+                }
+
+                $orderList[] = [
+                    'id' => $order->id,
+                    'number' => $order->number,
+                    'customer' => $order->customer_name_snapshot ?? 'Cliente',
+                    'address' => $order->delivery_address_snapshot ?? 'Sin dirección',
+                    'status' => $order->status->value,
+                    'total' => $order->total,
+                    'has_returnables' => $hasPlans,
+                ];
+            }
+
+            $batches[] = [
+                'token' => $token,
+                'short_token' => strtoupper(substr($token, 0, 8)),
+                'total_count' => $totalCount,
+                'ready_count' => $readyCount,
+                'preparing_count' => $preparingCount,
+                'delivering_count' => $deliveringCount,
+                'delivered_count' => $deliveredCount,
+                'is_fully_ready' => $isFullyReady,
+                'total_amount' => number_format((float) $totalAmount, 2, '.', ''),
+                'orders' => $orderList,
+                'has_any_returnables' => $hasReturnables,
+            ];
+        }
+
+        return $batches;
+    }
+
+    /**
+     * Toggle selection for a READY KITCHEN order without a batch token.
      */
     public function toggleOrderSelection(int $orderId): void
     {
@@ -68,6 +143,7 @@ class Delivery extends Component
             $order = Order::where('id', $orderId)
                 ->where('service_mode', ServiceMode::KITCHEN)
                 ->where('status', OrderStatus::READY)
+                ->whereNull('kitchen_batch_token')
                 ->first();
 
             if ($order) {
@@ -78,7 +154,7 @@ class Delivery extends Component
     }
 
     /**
-     * Select all currently visible READY KITCHEN orders.
+     * Select all currently visible READY KITCHEN orders (only non-batch orders).
      */
     public function selectAllReady(): void
     {
@@ -111,6 +187,7 @@ class Delivery extends Component
 
         $selectedOrders = Order::where('service_mode', ServiceMode::KITCHEN)
             ->where('status', OrderStatus::READY)
+            ->whereNull('kitchen_batch_token')
             ->whereIn('id', $selectedIds)
             ->with(['returnablePlans'])
             ->orderBy('ready_at', 'asc')
@@ -173,7 +250,7 @@ class Delivery extends Component
     }
 
     /**
-     * Claim batch of READY orders for delivery.
+     * Claim batch of READY orders for delivery (non-batch orders only).
      */
     public function claimDeliveryBatch(OrderService $orderService): void
     {
@@ -192,6 +269,22 @@ class Delivery extends Component
             $this->dispatch('notify-toast', type: 'error', title: 'Error de asignación', message: $e->getMessage());
         } catch (\Exception $e) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error operativo', message: 'No se pudo asignar la salida.');
+        }
+    }
+
+    /**
+     * Claim an entire Kitchen batch for delivery using its token.
+     */
+    public function claimKitchenBatch(string $token, OrderService $orderService): void
+    {
+        try {
+            $claimedOrders = $orderService->claimKitchenBatchForDelivery($token, auth()->user());
+            $count = $claimedOrders->count();
+            $this->dispatch('notify-toast', type: 'info', title: '🚚 LOTE RECOGIDO', message: "{$count} pedidos asignados a tu reparto.");
+        } catch (\InvalidArgumentException $e) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error de lote', message: $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Error operativo', message: 'El lote cambió mientras intentabas recogerlo. Actualiza la pantalla.');
         }
     }
 
@@ -251,6 +344,11 @@ class Delivery extends Component
         $order = Order::find($orderId);
         if (!$order) {
             $this->dispatch('notify-toast', type: 'error', title: 'Error', message: 'El pedido no existe.');
+            return;
+        }
+
+        if ($order->kitchen_batch_token !== null) {
+            $this->dispatch('notify-toast', type: 'error', title: 'Pedido de Lote', message: 'Los pedidos pertenecientes a un lote de cocina deben recogerse juntos usando el lote.');
             return;
         }
 

@@ -305,4 +305,225 @@ class DeliveryBatchTest extends TestCase
         $this->assertEquals(OrderStatus::DELIVERED, $order->fresh()->status);
         $this->assertTrue($comp->get('showReturnablePrompt'));
     }
+
+    /**
+     * Test claimKitchenBatchForDelivery successfully transitions 4/4 READY orders to DELIVERING.
+     */
+    public function test_claim_kitchen_batch_success_when_all_orders_ready(): void
+    {
+        $orders = collect();
+        for ($i = 0; $i < 4; $i++) {
+            $order = $this->orderService->createOrder([
+                'submission_token' => (string) Str::uuid(),
+                'service_mode' => ServiceMode::KITCHEN,
+                'items' => [['product_id' => $this->productA->id, 'quantity' => 1]],
+            ], $this->deliveryUser);
+            $orders->push($order);
+        }
+
+        $orderIds = $orders->pluck('id')->toArray();
+        $prep = $this->orderService->startPreparingBatch($orderIds, $this->deliveryUser);
+        $batchToken = $prep->first()->kitchen_batch_token;
+
+        $this->orderService->markReadyBatch($batchToken, $this->deliveryUser);
+
+        $claimed = $this->orderService->claimKitchenBatchForDelivery($batchToken, $this->deliveryUser);
+
+        $this->assertCount(4, $claimed);
+
+        $firstDeliveringAt = null;
+        foreach ($orders as $order) {
+            $fresh = $order->fresh();
+            $this->assertEquals(OrderStatus::DELIVERING, $fresh->status);
+            $this->assertEquals($this->deliveryUser->id, $fresh->delivery_user_id);
+            $this->assertEquals($batchToken, $fresh->kitchen_batch_token);
+
+            if ($firstDeliveringAt === null) {
+                $firstDeliveringAt = $fresh->delivering_at;
+            } else {
+                $this->assertEquals($firstDeliveringAt->toIso8601String(), $fresh->delivering_at->toIso8601String());
+            }
+
+            $this->assertDatabaseHas('order_status_histories', [
+                'order_id' => $order->id,
+                'from_status' => 'READY',
+                'to_status' => 'DELIVERING',
+                'user_id' => $this->deliveryUser->id,
+                'notes' => 'Lote de cocina recogido para reparto.',
+            ]);
+        }
+    }
+
+    /**
+     * Test claimKitchenBatchForDelivery fails when 3 orders are READY and 1 is PREPARING.
+     */
+    public function test_claim_kitchen_batch_fails_when_batch_is_partially_ready(): void
+    {
+        $orders = collect();
+        for ($i = 0; $i < 4; $i++) {
+            $order = $this->orderService->createOrder([
+                'submission_token' => (string) Str::uuid(),
+                'service_mode' => ServiceMode::KITCHEN,
+                'items' => [['product_id' => $this->productA->id, 'quantity' => 1]],
+            ], $this->deliveryUser);
+            $orders->push($order);
+        }
+
+        $orderIds = $orders->pluck('id')->toArray();
+        $prep = $this->orderService->startPreparingBatch($orderIds, $this->deliveryUser);
+        $batchToken = $prep->first()->kitchen_batch_token;
+
+        // Mark only first 3 orders ready
+        $readyIds = [$orders[0]->id, $orders[1]->id, $orders[2]->id];
+        $this->orderService->markReadyBatch($batchToken, $this->deliveryUser, $readyIds);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('El lote cambió de estado o ya fue tomado por otro repartidor.');
+
+        $this->orderService->claimKitchenBatchForDelivery($batchToken, $this->deliveryUser);
+    }
+
+    /**
+     * Test claimKitchenBatchForDelivery fails if one order is already DELIVERING.
+     */
+    public function test_claim_kitchen_batch_fails_if_one_order_already_delivering(): void
+    {
+        $order1 = $this->orderService->createOrder([
+            'submission_token' => (string) Str::uuid(),
+            'service_mode' => ServiceMode::KITCHEN,
+            'items' => [['product_id' => $this->productA->id, 'quantity' => 1]],
+        ], $this->deliveryUser);
+
+        $order2 = $this->orderService->createOrder([
+            'submission_token' => (string) Str::uuid(),
+            'service_mode' => ServiceMode::KITCHEN,
+            'items' => [['product_id' => $this->productB->id, 'quantity' => 1]],
+        ], $this->deliveryUser);
+
+        $prep = $this->orderService->startPreparingBatch([$order1->id, $order2->id], $this->deliveryUser);
+        $batchToken = $prep->first()->kitchen_batch_token;
+
+        $this->orderService->markReadyBatch($batchToken, $this->deliveryUser);
+
+        // Manually mark order1 as DELIVERING by another driver
+        $order1->update(['status' => OrderStatus::DELIVERING, 'delivery_user_id' => $this->otherDeliveryUser->id]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('El lote cambió de estado o ya fue tomado por otro repartidor.');
+
+        $this->orderService->claimKitchenBatchForDelivery($batchToken, $this->deliveryUser);
+    }
+
+    /**
+     * Test concurrent drivers claiming same kitchen batch: only one wins.
+     */
+    public function test_concurrent_drivers_claiming_kitchen_batch(): void
+    {
+        $order1 = $this->orderService->createOrder([
+            'submission_token' => (string) Str::uuid(),
+            'service_mode' => ServiceMode::KITCHEN,
+            'items' => [['product_id' => $this->productA->id, 'quantity' => 1]],
+        ], $this->deliveryUser);
+
+        $order2 = $this->orderService->createOrder([
+            'submission_token' => (string) Str::uuid(),
+            'service_mode' => ServiceMode::KITCHEN,
+            'items' => [['product_id' => $this->productB->id, 'quantity' => 1]],
+        ], $this->deliveryUser);
+
+        $prep = $this->orderService->startPreparingBatch([$order1->id, $order2->id], $this->deliveryUser);
+        $batchToken = $prep->first()->kitchen_batch_token;
+
+        $this->orderService->markReadyBatch($batchToken, $this->deliveryUser);
+
+        // Driver 1 claims batch
+        $claimed1 = $this->orderService->claimKitchenBatchForDelivery($batchToken, $this->deliveryUser);
+        $this->assertCount(2, $claimed1);
+
+        // Driver 2 attempts to claim same batch
+        try {
+            $this->orderService->claimKitchenBatchForDelivery($batchToken, $this->otherDeliveryUser);
+            $this->fail('Driver 2 should have been rejected.');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('El lote cambió de estado o ya fue tomado por otro repartidor.', $e->getMessage());
+        }
+
+        $this->assertEquals($this->deliveryUser->id, $order1->fresh()->delivery_user_id);
+        $this->assertEquals($this->deliveryUser->id, $order2->fresh()->delivery_user_id);
+    }
+
+    /**
+     * Test selectAllReady and toggleOrderSelection exclude orders with a kitchen_batch_token.
+     */
+    public function test_select_all_ready_excludes_kitchen_batch_orders(): void
+    {
+        $batchOrder = $this->orderService->createOrder([
+            'submission_token' => (string) Str::uuid(),
+            'service_mode' => ServiceMode::KITCHEN,
+            'items' => [['product_id' => $this->productA->id, 'quantity' => 1]],
+        ], $this->deliveryUser);
+
+        $prep = $this->orderService->startPreparingBatch([$batchOrder->id], $this->deliveryUser);
+        $batchToken = $prep->first()->kitchen_batch_token;
+
+        $this->orderService->markReadyBatch($batchToken, $this->deliveryUser);
+
+        $standaloneOrder = $this->orderService->createOrder([
+            'submission_token' => (string) Str::uuid(),
+            'service_mode' => ServiceMode::KITCHEN,
+            'items' => [['product_id' => $this->productB->id, 'quantity' => 1]],
+        ], $this->deliveryUser);
+
+        $this->orderService->startPreparing($standaloneOrder, $this->deliveryUser);
+        $this->orderService->markReady($standaloneOrder, $this->deliveryUser);
+
+        $comp = Livewire::actingAs($this->deliveryUser)
+            ->test(\App\Livewire\Delivery::class)
+            ->call('selectAllReady');
+
+        $selected = $comp->get('selectedOrderIds');
+        $this->assertContains($standaloneOrder->id, $selected);
+        $this->assertNotContains($batchOrder->id, $selected);
+
+        // Attempt toggle selection on batch order directly
+        $comp->call('toggleOrderSelection', $batchOrder->id);
+        $this->assertNotContains($batchOrder->id, $comp->get('selectedOrderIds'));
+    }
+
+    /**
+     * Test that individual markOrderDelivered continues delivering one by one after batch pickup.
+     */
+    public function test_individual_mark_delivered_works_one_by_one_after_kitchen_batch_pickup(): void
+    {
+        $order1 = $this->orderService->createOrder([
+            'submission_token' => (string) Str::uuid(),
+            'service_mode' => ServiceMode::KITCHEN,
+            'items' => [['product_id' => $this->productA->id, 'quantity' => 1]],
+        ], $this->deliveryUser);
+
+        $order2 = $this->orderService->createOrder([
+            'submission_token' => (string) Str::uuid(),
+            'service_mode' => ServiceMode::KITCHEN,
+            'items' => [['product_id' => $this->productB->id, 'quantity' => 1]],
+        ], $this->deliveryUser);
+
+        $prep = $this->orderService->startPreparingBatch([$order1->id, $order2->id], $this->deliveryUser);
+        $batchToken = $prep->first()->kitchen_batch_token;
+
+        $this->orderService->markReadyBatch($batchToken, $this->deliveryUser);
+
+        $this->orderService->claimKitchenBatchForDelivery($batchToken, $this->deliveryUser);
+
+        // Mark order 1 delivered
+        $comp = Livewire::actingAs($this->deliveryUser)
+            ->test(\App\Livewire\Delivery::class)
+            ->call('markOrderDelivered', $order1->id);
+
+        $this->assertEquals(OrderStatus::DELIVERED, $order1->fresh()->status);
+        $this->assertEquals(OrderStatus::DELIVERING, $order2->fresh()->status);
+
+        // Mark order 2 delivered
+        $comp->call('markOrderDelivered', $order2->id);
+        $this->assertEquals(OrderStatus::DELIVERED, $order2->fresh()->status);
+    }
 }

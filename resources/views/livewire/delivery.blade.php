@@ -31,8 +31,15 @@
         <div style="display: flex; flex-direction: column; gap: 0.85rem;">
             @forelse($myDeliveries as $order)
                 <div class="card stagger-item" style="padding: 1.25rem; border-left: 4px solid var(--violet); display: flex; flex-direction: column; gap: 0.85rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
-                        <span style="font-size: 1.15rem; font-weight: 800; color: var(--text-main);">#{{ $order->number }}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.15rem; font-weight: 800; color: var(--text-main);">#{{ $order->number }}</span>
+                            @if($order->kitchen_batch_token)
+                                <span class="chip-btn" style="padding: 2px 8px; font-size: 0.725rem; background: rgba(39, 230, 164, 0.12); color: var(--primary); font-weight: 800; border: 1px solid rgba(39, 230, 164, 0.25);">
+                                    LOTE #{{ strtoupper(substr($order->kitchen_batch_token, 0, 8)) }}
+                                </span>
+                            @endif
+                        </div>
                         <span style="font-size: 0.775rem; color: var(--text-muted);">Tomado: {{ $order->delivering_at->format('H:i') }}</span>
                     </div>
 
@@ -95,12 +102,112 @@
             @empty
                 <x-ui.empty-state
                     title="Sin repartos activos"
-                    description="Toma un pedido de la lista de abajo para comenzar la entrega."
+                    description="Toma un pedido o recoge un lote de la lista de abajo para comenzar la entrega."
                     icon="truck"
                 />
             @endforelse
         </div>
     </div>
+
+    {{-- Section 2: Lotes de Cocina Listos / En Preparación --}}
+    @if(count($this->readyKitchenBatches) > 0)
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                <h2 style="font-size: 1.05rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+                    <span>📦 LOTES DE COCINA</span>
+                    <span class="status-badge READY">{{ count($this->readyKitchenBatches) }}</span>
+                </h2>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                @foreach($this->readyKitchenBatches as $batch)
+                    <div class="card stagger-item" style="padding: 1.25rem; {{ $batch['is_fully_ready'] ? 'border: 2px solid var(--primary); background: rgba(39, 230, 164, 0.04);' : 'border: 2px dashed var(--border); background: var(--bg-surface);' }} display: flex; flex-direction: column; gap: 1rem; box-shadow: var(--shadow-md);">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                    <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 900; letter-spacing: 0.05em; color: {{ $batch['is_fully_ready'] ? 'var(--primary)' : 'var(--warning-text)' }};">
+                                        {{ $batch['is_fully_ready'] ? '🚚 LOTE LISTO PARA RECOGER' : '🍳 LOTE EN COCINA' }}
+                                    </span>
+                                    <span class="chip-btn" style="padding: 2px 8px; font-size: 0.725rem; font-weight: 800;">
+                                        LOTE #{{ $batch['short_token'] }}
+                                    </span>
+                                </div>
+
+                                <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-top: 0.25rem;">
+                                    {{ $batch['total_count'] }} {{ $batch['total_count'] === 1 ? 'PEDIDO' : 'PEDIDOS' }}
+                                    @if($batch['is_fully_ready'])
+                                        <span style="color: var(--primary); font-size: 0.95rem; font-weight: 800; margin-left: 0.5rem;">
+                                            • TOTAL A COBRAR: Bs {{ $batch['total_amount'] }}
+                                        </span>
+                                    @else
+                                        <span style="color: var(--warning-text); font-size: 0.95rem; font-weight: 700; margin-left: 0.5rem;">
+                                            • {{ $batch['ready_count'] }} DE {{ $batch['total_count'] }} LISTOS
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            @if(!$batch['is_fully_ready'])
+                                <span class="status-badge PREPARING" style="font-size: 0.75rem;">
+                                    Esperando {{ $batch['total_count'] - $batch['ready_count'] }} {{ ($batch['total_count'] - $batch['ready_count']) === 1 ? 'pedido' : 'pedidos' }} de Cocina
+                                </span>
+                            @endif
+                        </div>
+
+                        {{-- Compact order list in batch --}}
+                        <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                            <div style="font-size: 0.725rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+                                PEDIDOS EN ESTE LOTE
+                            </div>
+                            @foreach($batch['orders'] as $bOrder)
+                                <div style="background: var(--bg-card); padding: 0.55rem 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                        <strong style="color: var(--text-main);">#{{ ltrim($bOrder['number'], '#') }}</strong>
+                                        <span style="color: var(--text-muted);">•</span>
+                                        <span style="color: var(--text-main); font-weight: 600;">{{ $bOrder['customer'] }}</span>
+                                        <span style="color: var(--text-muted);">•</span>
+                                        <span style="color: var(--text-muted);">{{ $bOrder['address'] }}</span>
+                                        @if($bOrder['has_returnables'])
+                                            <span style="font-weight: 700; color: var(--primary); font-size: 0.8rem;">📦 Envases</span>
+                                        @endif
+                                    </div>
+
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span class="status-badge {{ $bOrder['status'] }}" style="font-size: 0.7rem;">
+                                            {{ $bOrder['status'] === 'READY' ? 'LISTO' : 'EN PREPARACIÓN' }}
+                                        </span>
+                                        <span style="font-weight: 800; color: var(--primary);">Bs {{ $bOrder['total'] }}</span>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        {{-- Batch Action Button --}}
+                        @if($batch['is_fully_ready'])
+                            <button type="button"
+                                    wire:click="claimKitchenBatch('{{ $batch['token'] }}')"
+                                    wire:loading.attr="disabled"
+                                    wire:target="claimKitchenBatch('{{ $batch['token'] }}')"
+                                    class="btn-primary"
+                                    style="width: 100%; height: 52px; font-size: 1.05rem; font-weight: 900; background: var(--primary); color: #07110D; border: none; border-radius: var(--radius-md); box-shadow: 0 4px 16px rgba(39, 230, 164, 0.3); cursor: pointer;">
+                                <span wire:loading wire:target="claimKitchenBatch('{{ $batch['token'] }}')" class="spinner"></span>
+                                <span wire:loading.remove wire:target="claimKitchenBatch('{{ $batch['token'] }}')">
+                                    🚚 RECOGER LOTE COMPLETO · {{ $batch['total_count'] }} {{ $batch['total_count'] === 1 ? 'PEDIDO' : 'PEDIDOS' }}
+                                </span>
+                            </button>
+                        @else
+                            <button type="button"
+                                    disabled
+                                    class="chip-btn"
+                                    style="width: 100%; height: 48px; font-size: 0.9rem; font-weight: 800; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border); cursor: not-allowed; opacity: 0.7;">
+                                ⏳ ESPERANDO LOTE COMPLETO ({{ $batch['ready_count'] }}/{{ $batch['total_count'] }} LISTOS)
+                            </button>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
 
     {{-- Smart Delivery Batch Summary Panel --}}
     @if($this->batchSummary['count'] > 0)
