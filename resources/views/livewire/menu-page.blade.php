@@ -165,21 +165,41 @@
         @endif
 
         {{-- PWA Install Option Card --}}
-        <div id="pwaInstallCard" style="display: none;" class="card">
-            <div style="padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 0.85rem;">
+        <div id="pwaInstallCard" class="card" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.85rem; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 0.85rem;">
                     <div class="header-icon-wrap violet" style="width: 40px; height: 40px; border-radius: 10px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;">
                         📱
                     </div>
                     <div>
                         <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-main);">Instalar Aplicación</div>
-                        <div style="font-size: 0.775rem; color: var(--text-muted);">Acceso rápido desde pantalla de inicio</div>
+                        <div id="pwaCardSubtitle" style="font-size: 0.775rem; color: var(--text-muted);">
+                            Acceso rápido desde pantalla de inicio
+                        </div>
                     </div>
                 </div>
-                <button type="button" onclick="triggerPwaInstall()" class="chip-btn active" style="padding: 0.5rem 0.9rem; font-weight: 800; font-size: 0.8rem; background: var(--primary); color: var(--primary-text); border: none; cursor: pointer;">
-                    📱 INSTALAR
-                </button>
+
+                <div id="pwaActionWrap">
+                    <button type="button" id="pwaInstallBtn" onclick="triggerPwaInstall()" class="chip-btn active" style="padding: 0.5rem 0.9rem; font-weight: 800; font-size: 0.8rem; background: var(--primary); color: var(--primary-text); border: none; cursor: pointer;">
+                        📱 INSTALAR
+                    </button>
+                </div>
             </div>
+
+            <div id="pwaCardNotice" style="display: none; font-size: 0.775rem; color: var(--text-muted); font-style: italic; background: var(--bg-surface); padding: 0.55rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                Usa la aplicación unos segundos y vuelve a intentarlo.
+            </div>
+
+            @if(config('app.debug'))
+                <div id="pwaDebugInfo" style="font-size: 0.725rem; font-family: monospace; color: var(--text-muted); background: var(--bg-surface); padding: 0.6rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-top: 0.25rem; display: flex; flex-direction: column; gap: 0.25rem;">
+                    <div style="font-weight: 700; color: var(--warning);">🛠 PWA Diagnóstico (Debug)</div>
+                    <div>Secure Context (HTTPS/localhost): <span id="debugSecure" style="font-weight:700;">-</span></div>
+                    <div>Service Worker: <span id="debugSw" style="font-weight:700;">-</span></div>
+                    <div>Standalone: <span id="debugStandalone" style="font-weight:700;">-</span></div>
+                    <div>Install Prompt: <span id="debugPrompt" style="font-weight:700;">-</span></div>
+                    <div>Online: <span id="debugOnline" style="font-weight:700;">-</span></div>
+                </div>
+            @endif
         </div>
 
         {{-- Cerrar Sesión Card --}}
@@ -236,24 +256,73 @@
     </div>
 
     <script>
-        function checkPwaInstallVisibility() {
+        function renderPwaInstallState() {
             const card = document.getElementById('pwaInstallCard');
+            const subtitle = document.getElementById('pwaCardSubtitle');
+            const actionWrap = document.getElementById('pwaActionWrap');
+            const notice = document.getElementById('pwaCardNotice');
             if (!card) return;
 
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-            if (isStandalone) {
+            const state = window.detectPwaState ? window.detectPwaState() : 'WAITING';
+
+            // 1. INSTALLED: Hide card completely
+            if (state === 'INSTALLED') {
                 card.style.display = 'none';
                 return;
             }
 
-            const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-            const hasPrompt = !!window.deferredPwaPrompt;
+            card.style.display = 'flex';
+            if (notice) notice.style.display = 'none';
 
-            if (hasPrompt || isIos) {
-                card.style.display = 'block';
-            } else {
-                card.style.display = 'none';
+            if (state === 'READY') {
+                if (subtitle) subtitle.textContent = 'La aplicación está lista para instalarse.';
+                if (actionWrap) {
+                    actionWrap.innerHTML = `
+                        <button type="button" onclick="triggerPwaInstall()" class="chip-btn active" style="padding: 0.5rem 0.9rem; font-weight: 800; font-size: 0.8rem; background: var(--primary); color: var(--primary-text); border: none; cursor: pointer;">
+                            📱 INSTALAR
+                        </button>
+                    `;
+                }
+            } else if (state === 'WAITING') {
+                if (subtitle) subtitle.textContent = 'Preparando instalación...';
+                if (notice) notice.style.display = 'block';
+                if (actionWrap) {
+                    actionWrap.innerHTML = `
+                        <button type="button" disabled class="chip-btn" style="padding: 0.5rem 0.9rem; font-weight: 700; font-size: 0.775rem; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border); opacity: 0.7; cursor: not-allowed;">
+                            INSTALACIÓN AÚN NO DISPONIBLE
+                        </button>
+                    `;
+                }
+            } else if (state === 'IOS') {
+                if (subtitle) subtitle.textContent = 'Instalación en pantalla de inicio de iOS.';
+                if (actionWrap) {
+                    actionWrap.innerHTML = `
+                        <button type="button" onclick="triggerPwaInstall()" class="chip-btn active" style="padding: 0.5rem 0.9rem; font-weight: 800; font-size: 0.8rem; background: var(--primary); color: var(--primary-text); border: none; cursor: pointer;">
+                            📱 VER CÓMO INSTALAR
+                        </button>
+                    `;
+                }
+            } else if (state === 'UNSUPPORTED') {
+                if (subtitle) subtitle.textContent = 'Instalación no disponible automáticamente en este navegador.';
+                if (actionWrap) {
+                    actionWrap.innerHTML = `
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">No compatible</span>
+                    `;
+                }
             }
+
+            // Update debug diagnostic box if present
+            const debugSecure = document.getElementById('debugSecure');
+            const debugSw = document.getElementById('debugSw');
+            const debugStandalone = document.getElementById('debugStandalone');
+            const debugPrompt = document.getElementById('debugPrompt');
+            const debugOnline = document.getElementById('debugOnline');
+
+            if (debugSecure) debugSecure.textContent = window.isSecureContext ? 'Sí' : 'No';
+            if (debugSw) debugSw.textContent = ('serviceWorker' in navigator) ? 'Sí' : 'No';
+            if (debugStandalone) debugStandalone.textContent = (state === 'INSTALLED') ? 'Sí' : 'No';
+            if (debugPrompt) debugPrompt.textContent = window.deferredPwaPrompt ? 'Disponible' : 'Esperando...';
+            if (debugOnline) debugOnline.textContent = navigator.onLine ? 'Sí' : 'No';
         }
 
         function triggerPwaInstall() {
@@ -267,6 +336,7 @@
                         if (card) card.style.display = 'none';
                     }
                     window.deferredPwaPrompt = null;
+                    renderPwaInstallState();
                 });
             } else if (isIos) {
                 const modal = document.getElementById('iosPwaModal');
@@ -279,8 +349,7 @@
             if (modal) modal.style.display = 'none';
         }
 
-        document.addEventListener('DOMContentLoaded', checkPwaInstallVisibility);
-        window.addEventListener('pwa-prompt-available', checkPwaInstallVisibility);
-        window.addEventListener('pwa-installed', checkPwaInstallVisibility);
+        document.addEventListener('DOMContentLoaded', renderPwaInstallState);
+        window.addEventListener('pwa-state-changed', renderPwaInstallState);
     </script>
 </div>

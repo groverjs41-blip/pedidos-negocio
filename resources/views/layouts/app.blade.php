@@ -515,57 +515,6 @@
                 window.showOperationalToast({ type: 'info', title: 'Información', message: @json(session('info')) });
             @endif
         });
-
-        // PWA Prompt, Service Worker & Offline Status Manager
-        (function() {
-            window.deferredPwaPrompt = null;
-
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
-                window.deferredPwaPrompt = e;
-                window.dispatchEvent(new CustomEvent('pwa-prompt-available'));
-            });
-
-            window.addEventListener('appinstalled', () => {
-                window.deferredPwaPrompt = null;
-                window.dispatchEvent(new CustomEvent('pwa-installed'));
-            });
-
-            function updateOnlineStatus() {
-                const banner = document.getElementById('pwaOfflineBanner');
-                if (!navigator.onLine) {
-                    if (banner) banner.style.display = 'block';
-                } else {
-                    if (banner && banner.style.display === 'block') {
-                        banner.style.display = 'none';
-                        if (window.showOperationalToast) {
-                            window.showOperationalToast({ type: 'success', title: 'Conexión', message: '✓ CONEXIÓN RESTABLECIDA' });
-                        }
-                    }
-                }
-            }
-
-            window.addEventListener('online', updateOnlineStatus);
-            window.addEventListener('offline', updateOnlineStatus);
-            document.addEventListener('DOMContentLoaded', updateOnlineStatus);
-
-            if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
-                    navigator.serviceWorker.register('/sw.js').then(reg => {
-                        reg.onupdatefound = () => {
-                            const installingWorker = reg.installing;
-                            if (installingWorker) {
-                                installingWorker.onstatechange = () => {
-                                    if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                        // New service worker version loaded
-                                    }
-                                };
-                            }
-                        };
-                    }).catch(err => console.error('SW Registration Error:', err));
-                });
-            }
-        })();
     </script>
 </body>
 </html>

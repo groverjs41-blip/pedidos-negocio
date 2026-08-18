@@ -46,7 +46,7 @@ class PwaExperienceTest extends TestCase
     }
 
     /**
-     * Test "Más" menu page renders the PWA installation card and iOS Safari modal elements.
+     * Test "Más" menu page renders the PWA installation card, debug section and iOS Safari modal elements.
      */
     public function test_menu_page_contains_pwa_install_card_container_and_ios_modal(): void
     {
@@ -54,7 +54,9 @@ class PwaExperienceTest extends TestCase
             ->test(\App\Livewire\MenuPage::class)
             ->assertSee('pwaInstallCard')
             ->assertSee('iosPwaModal')
-            ->assertSee('Instalar Aplicación');
+            ->assertSee('Instalar Aplicación')
+            ->assertSee('pwaCardNotice')
+            ->assertSee('pwaDebugInfo');
     }
 
     /**
