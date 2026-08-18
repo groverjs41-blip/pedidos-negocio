@@ -31,15 +31,17 @@ export function initScrollbar(el, isCompact = false) {
 
     initializedElements.add(el);
 
-    const themeName = isCompact ? 'os-theme-pedidos os-scrollbar-compact' : 'os-theme-pedidos';
+    const themeName = isCompact ? 'os-theme-pedidos-compact' : 'os-theme-pedidos';
 
     try {
         OverlayScrollbars(el, {
             scrollbars: {
                 theme: themeName,
+                visibility: 'auto',
                 autoHide: 'leave',
                 autoHideDelay: 400,
-                clickScroll: true,
+                dragScroll: true,
+                clickScroll: false,
             },
         });
     } catch (e) {
@@ -57,9 +59,11 @@ export function initBodyScrollbar() {
             OverlayScrollbars(document.body, {
                 scrollbars: {
                     theme: 'os-theme-pedidos',
+                    visibility: 'auto',
                     autoHide: 'leave',
                     autoHideDelay: 500,
-                    clickScroll: true,
+                    dragScroll: true,
+                    clickScroll: false,
                 },
             });
         } catch (e) {

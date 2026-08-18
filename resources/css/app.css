@@ -118,7 +118,7 @@ html.light {
 }
 
 /* ========================================================
-   OVERLAYSCROLLBARS CUSTOM THEME (os-theme-pedidos)
+   OVERLAYSCROLLBARS CUSTOM THEMES
    ======================================================== */
 
 .os-theme-pedidos {
@@ -128,7 +128,20 @@ html.light {
     --os-track-bg: transparent;
     --os-track-bg-hover: transparent;
     --os-track-bg-active: transparent;
+    --os-handle-bg: rgba(148, 163, 184, 0.32);
+    --os-handle-bg-hover: rgba(39, 230, 164, 0.55);
+    --os-handle-bg-active: rgba(39, 230, 164, 0.85);
+    --os-handle-border: none;
+    --os-handle-border-radius: 999px;
+}
 
+.os-theme-pedidos-compact {
+    --os-size: 5px;
+    --os-padding-perpendicular: 0px;
+    --os-padding-axis: 0px;
+    --os-track-bg: transparent;
+    --os-track-bg-hover: transparent;
+    --os-track-bg-active: transparent;
     --os-handle-bg: rgba(148, 163, 184, 0.32);
     --os-handle-bg-hover: rgba(39, 230, 164, 0.55);
     --os-handle-bg-active: rgba(39, 230, 164, 0.85);
@@ -137,7 +150,9 @@ html.light {
 }
 
 html.light .os-theme-pedidos,
-.light .os-theme-pedidos {
+.light .os-theme-pedidos,
+html.light .os-theme-pedidos-compact,
+.light .os-theme-pedidos-compact {
     --os-handle-bg: rgba(71, 85, 105, 0.35);
     --os-handle-bg-hover: rgba(16, 185, 129, 0.65);
     --os-handle-bg-active: rgba(16, 185, 129, 0.90);
@@ -145,43 +160,46 @@ html.light .os-theme-pedidos,
 
 .os-scrollbar-theme-os-theme-pedidos .os-scrollbar-handle,
 .os-theme-pedidos .os-scrollbar-handle,
-.os-theme-pedidos.os-scrollbar .os-scrollbar-handle {
+.os-theme-pedidos.os-scrollbar .os-scrollbar-handle,
+.os-scrollbar-theme-os-theme-pedidos-compact .os-scrollbar-handle,
+.os-theme-pedidos-compact .os-scrollbar-handle,
+.os-theme-pedidos-compact.os-scrollbar .os-scrollbar-handle {
     background: var(--os-handle-bg) !important;
     border-radius: 999px !important;
-    min-width: 6px;
-    min-height: 6px;
+    min-width: 5px;
+    min-height: 5px;
 }
 
 .os-scrollbar-theme-os-theme-pedidos .os-scrollbar-handle:hover,
 .os-theme-pedidos .os-scrollbar-handle:hover,
-.os-theme-pedidos.os-scrollbar .os-scrollbar-handle:hover {
+.os-theme-pedidos.os-scrollbar .os-scrollbar-handle:hover,
+.os-scrollbar-theme-os-theme-pedidos-compact .os-scrollbar-handle:hover,
+.os-theme-pedidos-compact .os-scrollbar-handle:hover,
+.os-theme-pedidos-compact.os-scrollbar .os-scrollbar-handle:hover {
     background: var(--os-handle-bg-hover) !important;
 }
 
 .os-scrollbar-theme-os-theme-pedidos .os-scrollbar-handle:active,
 .os-theme-pedidos .os-scrollbar-handle:active,
-.os-theme-pedidos.os-scrollbar .os-scrollbar-handle:active {
+.os-theme-pedidos.os-scrollbar .os-scrollbar-handle:active,
+.os-scrollbar-theme-os-theme-pedidos-compact .os-scrollbar-handle:active,
+.os-theme-pedidos-compact .os-scrollbar-handle:active,
+.os-theme-pedidos-compact.os-scrollbar .os-scrollbar-handle:active {
     background: var(--os-handle-bg-active) !important;
 }
 
 .os-scrollbar-theme-os-theme-pedidos .os-scrollbar-track,
 .os-theme-pedidos .os-scrollbar-track,
-.os-theme-pedidos.os-scrollbar .os-scrollbar-track {
+.os-theme-pedidos.os-scrollbar .os-scrollbar-track,
+.os-scrollbar-theme-os-theme-pedidos-compact .os-scrollbar-track,
+.os-theme-pedidos-compact .os-scrollbar-track,
+.os-theme-pedidos-compact.os-scrollbar .os-scrollbar-track {
     background: transparent !important;
 }
 
-.os-theme-pedidos .os-scrollbar-button {
+.os-theme-pedidos .os-scrollbar-button,
+.os-theme-pedidos-compact .os-scrollbar-button {
     display: none !important;
-}
-
-/* Compact Scrollbar Areas */
-.os-scrollbar-compact,
-.cart-items-list .os-scrollbar,
-.notification-dropdown-panel .os-scrollbar,
-.operational-dropdown-panel .os-scrollbar,
-.modal-content .os-scrollbar,
-.table-responsive .os-scrollbar {
-    --os-size: 5px;
 }
 
 .cart-items-list,
