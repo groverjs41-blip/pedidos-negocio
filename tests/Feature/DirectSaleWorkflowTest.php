@@ -759,4 +759,121 @@ class DirectSaleWorkflowTest extends TestCase
             'data->url' => '/cocina',
         ]);
     }
+
+    public function test_reload_with_pending_returnables(): void
+    {
+        $returnableType = ReturnableType::create(['name' => 'Botella 1L', 'sort_order' => 1, 'active' => true]);
+        ProductReturnableRequirement::create([
+            'product_id' => $this->product->id,
+            'returnable_type_id' => $returnableType->id,
+            'quantity' => 2,
+        ]);
+
+        $customer = Customer::create(['name' => 'Cliente Envases Reload', 'phone' => '70000000', 'active' => true]);
+
+        // 1. Crear DIRECT con cliente y producto retornable
+        $component = Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->call('selectCustomer', $customer->id)
+            ->call('setServiceMode', 'DIRECT')
+            ->call('addToCart', $this->product->id)
+            ->call('submitOrder');
+
+        $orderId = $component->get('activeDirectOrderId');
+        $this->assertNotNull($orderId);
+
+        // 2. NEW -> PREPARING -> DELIVERED
+        $component->call('startDirectPreparing')
+            ->call('markDirectDelivered');
+
+        // 3. NO resolver envases
+        $order = Order::find($orderId);
+        $this->assertNull($order->direct_returnables_resolved_at);
+
+        // 4. Simular nueva instancia/mount de CreateOrder
+        $remount = Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class);
+
+        // 5. Debe recuperar activeDirectOrderId
+        $this->assertEquals($orderId, $remount->get('activeDirectOrderId'));
+
+        // 6. directReturnablesHandled = false
+        $this->assertFalse($remount->get('directReturnablesHandled'));
+
+        // 7. directReturnablesRecorded = false
+        $this->assertFalse($remount->get('directReturnablesRecorded'));
+
+        // 8. directReturnableBatchToken NO debe estar vacío
+        $batchToken = $remount->get('directReturnableBatchToken');
+        $this->assertNotEmpty($batchToken);
+
+        // 9. Ejecutar recordDirectReturnables
+        $remount->call('recordDirectReturnables');
+
+        // 10. Debe crear movimiento OUT correctamente
+        $movement = \App\Models\ReturnableMovement::where('order_id', $orderId)
+            ->where('movement_type', 'OUT')
+            ->first();
+        $this->assertNotNull($movement);
+        $this->assertEquals(2, $movement->quantity);
+
+        // 11. batch_token almacenado no debe estar vacío
+        $this->assertNotEmpty($movement->batch_token);
+
+        // 12. direct_returnables_resolved_at debe quedar NOT NULL
+        $this->assertNotNull($order->fresh()->direct_returnables_resolved_at);
+    }
+
+    public function test_reload_after_skip_returnables(): void
+    {
+        $returnableType = ReturnableType::create(['name' => 'Sifón', 'sort_order' => 1, 'active' => true]);
+        ProductReturnableRequirement::create([
+            'product_id' => $this->product->id,
+            'returnable_type_id' => $returnableType->id,
+            'quantity' => 1,
+        ]);
+
+        $customer = Customer::create(['name' => 'Cliente Skip Reload', 'phone' => '71111111', 'active' => true]);
+
+        // 1. Crear DIRECT con retornables
+        $component = Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class)
+            ->call('selectCustomer', $customer->id)
+            ->call('setServiceMode', 'DIRECT')
+            ->call('addToCart', $this->product->id)
+            ->call('submitOrder');
+
+        $orderId = $component->get('activeDirectOrderId');
+
+        // 2. Entregar
+        $component->call('startDirectPreparing')
+            ->call('markDirectDelivered');
+
+        // 3. Elegir "Continuar sin dejar envases"
+        $component->call('skipDirectReturnables');
+
+        // 4. Si todavía hay saldo, mantener venta activa
+        $order = Order::find($orderId);
+        $this->assertNotNull($order->direct_returnables_resolved_at);
+        $this->assertTrue(bccomp($order->outstandingBalance(), '0.00', 2) > 0);
+
+        // 5. Simular reload/mount
+        $remount = Livewire::actingAs($this->user)
+            ->test(\App\Livewire\CreateOrder::class);
+
+        // 6. Comprobar directReturnablesHandled = true, directReturnablesRecorded = false
+        $this->assertEquals($orderId, $remount->get('activeDirectOrderId'));
+        $this->assertTrue($remount->get('directReturnablesHandled'));
+        $this->assertFalse($remount->get('directReturnablesRecorded'));
+
+        // 7. No volver a pedir resolución de envases (UI renders skip status)
+        $remount->assertSee('Se continuó sin dejar envases');
+
+        // 8. Completar el saldo y cerrar normalmente
+        $remount->set('directPaymentAmount', (string) $order->outstandingBalance())
+            ->call('submitDirectPayment')
+            ->assertDispatched('notify-toast', type: 'success', title: 'Venta Completada');
+
+        $this->assertNull($remount->get('activeDirectOrderId'));
+    }
 }

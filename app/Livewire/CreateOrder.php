@@ -82,8 +82,19 @@ class CreateOrder extends Component
                     foreach ($activeDirect->returnablePlans as $plan) {
                         $this->directReturnableQuantities[$plan->returnable_type_id] = $plan->quantity;
                     }
-                    $this->directReturnablesRecorded = !is_null($activeDirect->direct_returnables_resolved_at) || $activeDirect->returnableMovements()->where('movement_type', 'OUT')->exists();
-                    $this->directReturnablesHandled = !is_null($activeDirect->direct_returnables_resolved_at) || $this->directReturnablesRecorded;
+                    $hasOutMovements = $activeDirect->returnableMovements()
+                        ->where('movement_type', 'OUT')
+                        ->exists();
+
+                    $this->directReturnablesRecorded = $hasOutMovements;
+
+                    $this->directReturnablesHandled =
+                        !is_null($activeDirect->direct_returnables_resolved_at)
+                        || $hasOutMovements;
+
+                    if (!$this->directReturnablesHandled) {
+                        $this->directReturnableBatchToken = (string) Str::uuid();
+                    }
                 }
             }
         }
@@ -644,8 +655,9 @@ class CreateOrder extends Component
                     $this->directReturnableQuantities[$plan->returnable_type_id] = $plan->quantity;
                 }
                 $this->directReturnableBatchToken = (string) Str::uuid();
-                $this->directReturnablesRecorded = !is_null($freshOrder->direct_returnables_resolved_at);
-                $this->directReturnablesHandled = !is_null($freshOrder->direct_returnables_resolved_at);
+                $hasOutMovements = $freshOrder->returnableMovements()->where('movement_type', 'OUT')->exists();
+                $this->directReturnablesRecorded = $hasOutMovements;
+                $this->directReturnablesHandled = !is_null($freshOrder->direct_returnables_resolved_at) || $hasOutMovements;
             } else {
                 $this->directReturnablesHandled = true;
             }
@@ -696,6 +708,10 @@ class CreateOrder extends Component
         }
 
         try {
+            if (empty($this->directReturnableBatchToken)) {
+                $this->directReturnableBatchToken = (string) Str::uuid();
+            }
+
             $customer = Customer::find($order->customer_id);
             $returnableService->recordOutBatch(
                 $customer,
@@ -741,6 +757,7 @@ class CreateOrder extends Component
 
         $order->update(['direct_returnables_resolved_at' => now()]);
 
+        $this->directReturnablesRecorded = false;
         $this->directReturnablesHandled = true;
         $this->dispatch('notify-toast', type: 'info', title: 'Sin Envases', message: 'Se continuó sin dejar envases.');
 
