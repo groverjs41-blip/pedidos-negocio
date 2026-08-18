@@ -14,5 +14,8 @@
         "pusher-js": "^8.6.0",
         "tailwindcss": "^4.0.0",
         "vite": "^8.0.0"
+    },
+    "dependencies": {
+        "overlayscrollbars": "^2.16.0"
     }
 }

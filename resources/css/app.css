@@ -118,75 +118,78 @@ html.light {
 }
 
 /* ========================================================
-   GLOBAL MODERN SCROLLBAR SYSTEM
+   OVERLAYSCROLLBARS CUSTOM THEME (os-theme-pedidos)
    ======================================================== */
 
-/* Firefox */
-html,
-body,
-* {
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+.os-theme-pedidos {
+    --os-size: 7px;
+    --os-padding-perpendicular: 0px;
+    --os-padding-axis: 0px;
+    --os-track-bg: transparent;
+    --os-track-bg-hover: transparent;
+    --os-track-bg-active: transparent;
+
+    --os-handle-bg: rgba(148, 163, 184, 0.32);
+    --os-handle-bg-hover: rgba(39, 230, 164, 0.55);
+    --os-handle-bg-active: rgba(39, 230, 164, 0.85);
+    --os-handle-border: none;
+    --os-handle-border-radius: 999px;
 }
 
-/* Chromium / Edge / Safari */
-*::-webkit-scrollbar {
-    width: var(--scrollbar-size);
-    height: var(--scrollbar-size);
+html.light .os-theme-pedidos,
+.light .os-theme-pedidos {
+    --os-handle-bg: rgba(71, 85, 105, 0.35);
+    --os-handle-bg-hover: rgba(16, 185, 129, 0.65);
+    --os-handle-bg-active: rgba(16, 185, 129, 0.90);
 }
 
-*::-webkit-scrollbar-track {
-    background: var(--scrollbar-track);
+.os-scrollbar-theme-os-theme-pedidos .os-scrollbar-handle,
+.os-theme-pedidos .os-scrollbar-handle,
+.os-theme-pedidos.os-scrollbar .os-scrollbar-handle {
+    background: var(--os-handle-bg) !important;
+    border-radius: 999px !important;
+    min-width: 6px;
+    min-height: 6px;
 }
 
-*::-webkit-scrollbar-thumb {
-    background-color: var(--scrollbar-thumb);
-    border-radius: 999px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
+.os-scrollbar-theme-os-theme-pedidos .os-scrollbar-handle:hover,
+.os-theme-pedidos .os-scrollbar-handle:hover,
+.os-theme-pedidos.os-scrollbar .os-scrollbar-handle:hover {
+    background: var(--os-handle-bg-hover) !important;
 }
 
-*::-webkit-scrollbar-thumb:hover {
-    background-color: var(--scrollbar-thumb-hover);
-    background-clip: padding-box;
+.os-scrollbar-theme-os-theme-pedidos .os-scrollbar-handle:active,
+.os-theme-pedidos .os-scrollbar-handle:active,
+.os-theme-pedidos.os-scrollbar .os-scrollbar-handle:active {
+    background: var(--os-handle-bg-active) !important;
 }
 
-*::-webkit-scrollbar-thumb:active {
-    background-color: var(--scrollbar-thumb-active);
-    background-clip: padding-box;
+.os-scrollbar-theme-os-theme-pedidos .os-scrollbar-track,
+.os-theme-pedidos .os-scrollbar-track,
+.os-theme-pedidos.os-scrollbar .os-scrollbar-track {
+    background: transparent !important;
 }
 
-*::-webkit-scrollbar-corner {
-    background: transparent;
-}
-
-*::-webkit-scrollbar-button {
-    width: 0;
-    height: 0;
-    display: none;
+.os-theme-pedidos .os-scrollbar-button {
+    display: none !important;
 }
 
 /* Compact Scrollbar Areas */
+.os-scrollbar-compact,
+.cart-items-list .os-scrollbar,
+.notification-dropdown-panel .os-scrollbar,
+.operational-dropdown-panel .os-scrollbar,
+.modal-content .os-scrollbar,
+.table-responsive .os-scrollbar {
+    --os-size: 5px;
+}
+
 .cart-items-list,
 .notification-dropdown-panel,
 .operational-dropdown-panel,
 .modal-content,
 .table-responsive {
     overscroll-behavior: contain;
-}
-
-.cart-items-list::-webkit-scrollbar,
-.notification-dropdown-panel::-webkit-scrollbar,
-.operational-dropdown-panel::-webkit-scrollbar,
-.modal-content::-webkit-scrollbar,
-.table-responsive::-webkit-scrollbar,
-.cart-items-list *::-webkit-scrollbar,
-.notification-dropdown-panel *::-webkit-scrollbar,
-.operational-dropdown-panel *::-webkit-scrollbar,
-.modal-content *::-webkit-scrollbar,
-.table-responsive *::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
 }
 
 /* ========================================================

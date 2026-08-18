@@ -9,4 +9,5 @@
 import './echo';
 import './notifications';
 import './pwa';
+import './scrollbars';
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-overlayscrollbars-initialize>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -96,7 +96,7 @@
     @livewireStyles
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="no-transitions" x-data="{ collapsed: localStorage.getItem('sidebar_collapsed') === 'true', currentTheme: localStorage.getItem('theme') || 'dark', showOperacionModal: false }" x-init="$watch('collapsed', value => localStorage.setItem('sidebar_collapsed', value))">
+<body class="no-transitions" data-overlayscrollbars-initialize x-data="{ collapsed: localStorage.getItem('sidebar_collapsed') === 'true', currentTheme: localStorage.getItem('theme') || 'dark', showOperacionModal: false }" x-init="$watch('collapsed', value => localStorage.setItem('sidebar_collapsed', value))">
     {{-- GLOBAL TOP LOADING PROGRESS BAR FOR MOBILE, TABLET & DESKTOP --}}
     <div id="globalLoadingBar" class="global-loading-bar"></div>
     <div id="pwaOfflineBanner" style="display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 99999; background: #DC2626; color: #FFFFFF; text-align: center; padding: 6px 12px; font-size: 0.8rem; font-weight: 800; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
