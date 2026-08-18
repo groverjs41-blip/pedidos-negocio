@@ -129,7 +129,7 @@ class DailyClosureService
         $dateStr = $bounds['date_str'];
 
         // Pre-check if already closed
-        $existing = DailyClosure::whereDate('business_date', $dateStr)->first();
+        $existing = DailyClosure::where('business_date', $dateStr)->first();
         if ($existing) {
             throw new InvalidArgumentException("El día '{$dateStr}' ya ha sido cerrado previamente.");
         }
@@ -157,7 +157,7 @@ class DailyClosureService
             &$createdClosure
         ) {
             // Check inside lock
-            $existingInside = DailyClosure::whereDate('business_date', $dateStr)->lockForUpdate()->first();
+            $existingInside = DailyClosure::where('business_date', $dateStr)->lockForUpdate()->first();
             if ($existingInside) {
                 throw new InvalidArgumentException("El día '{$dateStr}' ya ha sido cerrado previamente.");
             }
@@ -209,7 +209,7 @@ class DailyClosureService
     public function getClosure(Carbon|string $date): ?DailyClosure
     {
         $bounds = $this->getDateBounds($date);
-        return DailyClosure::whereDate('business_date', $bounds['date_str'])->first();
+        return DailyClosure::where('business_date', $bounds['date_str'])->first();
     }
 
     /**
