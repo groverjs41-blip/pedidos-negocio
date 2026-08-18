@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{{ $title ?? 'Pedidos Negocio' }}</title>
+
+    <!-- PWA Web App Meta Tags & Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0E141B">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Pedidos Negocio">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
     @if(config('app.debug'))
@@ -89,6 +99,9 @@
 <body class="no-transitions" x-data="{ collapsed: localStorage.getItem('sidebar_collapsed') === 'true', currentTheme: localStorage.getItem('theme') || 'dark', showOperacionModal: false }" x-init="$watch('collapsed', value => localStorage.setItem('sidebar_collapsed', value))">
     {{-- GLOBAL TOP LOADING PROGRESS BAR FOR MOBILE, TABLET & DESKTOP --}}
     <div id="globalLoadingBar" class="global-loading-bar"></div>
+    <div id="pwaOfflineBanner" style="display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 99999; background: #DC2626; color: #FFFFFF; text-align: center; padding: 6px 12px; font-size: 0.8rem; font-weight: 800; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+        ⚠ SIN CONEXIÓN A INTERNET
+    </div>
     @if(auth()->check())
         @php
             $showLoginSplash = session()->pull('show_login_splash', false);
@@ -502,6 +515,57 @@
                 window.showOperationalToast({ type: 'info', title: 'Información', message: @json(session('info')) });
             @endif
         });
+
+        // PWA Prompt, Service Worker & Offline Status Manager
+        (function() {
+            window.deferredPwaPrompt = null;
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                window.deferredPwaPrompt = e;
+                window.dispatchEvent(new CustomEvent('pwa-prompt-available'));
+            });
+
+            window.addEventListener('appinstalled', () => {
+                window.deferredPwaPrompt = null;
+                window.dispatchEvent(new CustomEvent('pwa-installed'));
+            });
+
+            function updateOnlineStatus() {
+                const banner = document.getElementById('pwaOfflineBanner');
+                if (!navigator.onLine) {
+                    if (banner) banner.style.display = 'block';
+                } else {
+                    if (banner && banner.style.display === 'block') {
+                        banner.style.display = 'none';
+                        if (window.showOperationalToast) {
+                            window.showOperationalToast({ type: 'success', title: 'Conexión', message: '✓ CONEXIÓN RESTABLECIDA' });
+                        }
+                    }
+                }
+            }
+
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            document.addEventListener('DOMContentLoaded', updateOnlineStatus);
+
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js').then(reg => {
+                        reg.onupdatefound = () => {
+                            const installingWorker = reg.installing;
+                            if (installingWorker) {
+                                installingWorker.onstatechange = () => {
+                                    if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        // New service worker version loaded
+                                    }
+                                };
+                            }
+                        };
+                    }).catch(err => console.error('SW Registration Error:', err));
+                });
+            }
+        })();
     </script>
 </body>
 </html>
