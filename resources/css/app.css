@@ -74,6 +74,13 @@
     --shadow-xl: 0 20px 32px rgba(0, 0, 0, 0.5);
 
     --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Scrollbar System Variables - Dark Theme Default */
+    --scrollbar-size: 7px;
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: rgba(148, 163, 184, 0.28);
+    --scrollbar-thumb-hover: rgba(39, 230, 164, 0.5);
+    --scrollbar-thumb-active: rgba(39, 230, 164, 0.8);
 }
 
 /* --- LIGHT MODE OVERRIDES --- */
@@ -316,6 +323,7 @@ body {
     flex-direction: column;
     gap: 2px;
     overflow-y: auto;
+    scrollbar-gutter: stable;
 }
 
 .nav-item {
